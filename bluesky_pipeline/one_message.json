@@ -1,22 +1,151 @@
 {
-  "did": "did:plc:2k6avu5mrlxqqwsfceza2g3w",
-  "time_us": 1770134291256727,
+  "did": "did:plc:e54krhxaad3oupowyankpsdx",
+  "time_us": 1770138642881586,
   "kind": "commit",
   "commit": {
-    "rev": "3mdxq2tpbqz2z",
+    "rev": "222223euhzn22",
     "operation": "create",
     "collection": "app.bsky.feed.post",
-    "rkey": "3mdxq2toq6j2z",
+    "rkey": "3mdxu4gjerco2",
     "record": {
       "$type": "app.bsky.feed.post",
-      "createdAt": "2026-02-03T15:58:03.773Z",
-      "text": "TUNE IN to i24NEWS | \u2018Street art\u2019 of Bondi Beach terrorist is plastered around Melbourne\nvia i24News"
+      "bridgyOriginalText": "Guardiola calls out Premier League clubs for not winning trophies Manchester City manager Pep Guardiola has called out big Premier League clubs for not winning trophies despite spending more over t...<br/><br/><a rel=\"tag\" class=\"mention hashtag\" href=\"https://mastodon.social/tags/Business\">#Business</a> <a rel=\"tag\" class=\"mention hashtag\" href=\"https://mastodon.social/tags/Football\">#Football</a> <a rel=\"tag\" class=\"mention hashtag\" href=\"https://mastodon.social/tags/Sport\">#Sport</a> <a rel=\"tag\" class=\"mention hashtag\" href=\"https://mastodon.social/tags/Sport\">#Sport</a> <a rel=\"tag\" class=\"mention hashtag\" href=\"https://mastodon.social/tags/Business\">#Business</a><br/><br/><a href=\"https://www.cityam.com/guardiola-calls-out-premier-league-clubs-for-not-winning-trophies/\">Origin</a> | <a href=\"https://awakari.com/sub-details.html?id=Chelsea\">Interest</a> | <a href=\"https://awakari.com/pub-msg.html?id=5AteTJMYKmJiL820rsnc0z9BHLE&interestId=Chelsea\">Match</a>",
+      "bridgyOriginalUrl": "https://www.cityam.com/guardiola-calls-out-premier-league-clubs-for-not-winning-trophies/",
+      "createdAt": "2026-02-03T15:57:55.000Z",
+      "embed": {
+        "$type": "app.bsky.embed.images",
+        "images": [
+          {
+            "$type": "app.bsky.embed.images#image",
+            "alt": "",
+            "aspectRatio": {
+              "height": 738,
+              "width": 1107
+            },
+            "image": {
+              "$type": "blob",
+              "ref": {
+                "$link": "bafkreibtxls4zsnvvy7ipg7xjyzvww6kobd7drklsveuswzveqvjnvwvn4"
+              },
+              "mimeType": "image/jpeg",
+              "size": 82849
+            }
+          }
+        ]
+      },
+      "facets": [
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#tag",
+              "tag": "Business"
+            }
+          ],
+          "index": {
+            "byteEnd": 245,
+            "byteStart": 236
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#tag",
+              "tag": "Football"
+            }
+          ],
+          "index": {
+            "byteEnd": 221,
+            "byteStart": 212
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#tag",
+              "tag": "Sport"
+            }
+          ],
+          "index": {
+            "byteEnd": 235,
+            "byteStart": 229
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#tag",
+              "tag": "Sport"
+            }
+          ],
+          "index": {
+            "byteEnd": 228,
+            "byteStart": 222
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#tag",
+              "tag": "Business"
+            }
+          ],
+          "index": {
+            "byteEnd": 211,
+            "byteStart": 202
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#link",
+              "uri": "https://www.cityam.com/guardiola-calls-out-premier-league-clubs-for-not-winning-trophies/"
+            }
+          ],
+          "index": {
+            "byteEnd": 253,
+            "byteStart": 247
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#link",
+              "uri": "https://awakari.com/sub-details.html?id=Chelsea"
+            }
+          ],
+          "index": {
+            "byteEnd": 264,
+            "byteStart": 256
+          }
+        },
+        {
+          "$type": "app.bsky.richtext.facet",
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#link",
+              "uri": "https://awakari.com/pub-msg.html?id=5AteTJMYKmJiL820rsnc0z9BHLE&interestId=Chelsea"
+            }
+          ],
+          "index": {
+            "byteEnd": 272,
+            "byteStart": 267
+          }
+        }
+      ],
+      "text": "Guardiola calls out Premier League clubs for not winning trophies Manchester City manager Pep Guardiola has called out big Premier League clubs for not winning trophies despite spending more over t...\n\n#Business #Football #Sport #Sport #Business\n\nOrigin | Interest | Match"
     },
-    "cid": "bafyreifilj3vt6yrrhfllphltmlmlttovbrunf25i625hlt33tjen6p25m"
+    "cid": "bafyreifrt4fcsbauhgtktm4l2czeijh5n3xlxfkxsieqeobcmczj63e4aa"
   },
   "matching_keyword_set": [
-    "art"
+    "football"
   ],
-  "post_url": "https://bsky.app/profile/did:plc:2k6avu5mrlxqqwsfceza2g3w/post/3mdxq2toq6j2z",
+  "post_url": "https://bsky.app/profile/did:plc:e54krhxaad3oupowyankpsdx/post/3mdxu4gjerco2",
   "post_type": "post"
 }
