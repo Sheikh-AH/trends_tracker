@@ -65,7 +65,7 @@ resource "aws_db_subnet_group" "trends_subnet_group" {
 resource "aws_db_instance" "trends_db" {
   identifier     = "trends-db"
   engine         = "postgres"
-  engine_version = "15.4"
+  engine_version = "15"
   instance_class = var.db_instance_class
 
   allocated_storage     = var.db_allocated_storage
@@ -86,4 +86,24 @@ resource "aws_db_instance" "trends_db" {
     Name        = "trends-db"
     Environment = var.environment
   }
+}
+
+output "db_endpoint" {
+  description = "RDS endpoint"
+  value       = aws_db_instance.trends_db.endpoint
+}
+
+output "db_name" {
+  description = "Database name"
+  value       = aws_db_instance.trends_db.db_name
+}
+
+output "db_username" {
+  description = "Database username"
+  value       = aws_db_instance.trends_db.username
+}
+
+output "db_port" {
+  description = "Database port"
+  value       = aws_db_instance.trends_db.port
 }
