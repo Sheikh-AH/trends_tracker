@@ -1,0 +1,35 @@
+{
+  "did": "did:plc:ipcgns5szed3ewdaju4e2b3b",
+  "time_us": 1770128305102000,
+  "kind": "commit",
+  "commit": {
+    "rev": "3mdxkih3v3n2r",
+    "operation": "create",
+    "collection": "app.bsky.feed.post",
+    "rkey": "3mdxkigvog22m",
+    "record": {
+      "$type": "app.bsky.feed.post",
+      "createdAt": "2026-02-03T14:18:24.622Z",
+      "langs": [
+        "en"
+      ],
+      "reply": {
+        "parent": {
+          "cid": "bafyreicourhdlnmtlexqepkq5l6lm36eco7e43zry7ktpxhln4p7w2xuge",
+          "uri": "at://did:plc:7umvpuxe2vbrc3zrzuquzniu/app.bsky.feed.post/3mdxjce4ges2r"
+        },
+        "root": {
+          "cid": "bafyreicourhdlnmtlexqepkq5l6lm36eco7e43zry7ktpxhln4p7w2xuge",
+          "uri": "at://did:plc:7umvpuxe2vbrc3zrzuquzniu/app.bsky.feed.post/3mdxjce4ges2r"
+        }
+      },
+      "text": "Context matters.They need to defer to the local community and stick to actions that help them achieve their goal of protecting their community.\n\nOtherwise, how do we know they aren\u2019t MAGA Proud Boys that just changed clothes? Their actions are aligned with MAGAs goals of creating chaos."
+    },
+    "cid": "bafyreihmuecacfotaanuncgomok3agkcedm7ptthjgqmbhoo6mgae7m42m"
+  },
+  "matching_keyword_set": [
+    "maga"
+  ],
+  "post_url": "https://bsky.app/profile/did:plc:ipcgns5szed3ewdaju4e2b3b/post/3mdxkigvog22m",
+  "post_type": "reply"
+}
