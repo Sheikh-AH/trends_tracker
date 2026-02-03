@@ -6,7 +6,9 @@ analyzer = SentimentIntensityAnalyzer()
 
 def add_sentiment(stream, analyzer):
     """Add sentiment score to each post."""
-    return []
+    for post in stream:
+        post["sentiment"] = analyzer.polarity_scores(post["text"])["compound"]
+        yield post
 
 
 if __name__ == "__main__":
