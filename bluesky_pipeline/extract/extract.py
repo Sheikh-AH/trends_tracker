@@ -16,26 +16,15 @@ import websocket
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
 
 
-def stream_messages(uri: str = URI):
+def stream_messages():
     """Generator yielding messages continuously from Bluesky Jetstream."""
-    ws = websocket.create_connection(uri)
+    ws = websocket.create_connection(URI)
     try:
         while True:
-            try:
-                message = ws.recv()
-                yield json.loads(message)
-            except json.JSONDecodeError as e:
-                print(f"Error decoding JSON: {e}")
+            message = ws.recv()
+            yield json.loads(message)
     finally:
         ws.close()
-
-
-def extract_post_text(message: dict) -> str:
-    """Extract post text from a Bluesky message."""
-    try:
-        return message.get("commit", {}).get("record", {}).get("text", "")
-    except (KeyError, TypeError):
-        return ""
 
 
 def keyword_match(keywords: set, post_text: str) -> Optional[set]:
@@ -49,17 +38,17 @@ def keyword_match(keywords: set, post_text: str) -> Optional[set]:
     for keyword in keywords:
         keyword_lower = keyword.lower()
         # Match keyword as a prefix of a word (e.g., 'plant' matches 'plants', 'planting')
-        pattern = r"(?:^|\W)" + re.escape(keyword_lower) + r"\w*"
+        pattern = r"(?:^|\W)" + re.escape(keyword_lower) + r"\w{0,3}(?:\W|$)"
         if re.search(pattern, text_lower):
             matching.add(keyword)
 
     return matching if matching else None
 
 
-def stream_filtered_messages(keywords: set, uri: str = URI):
+def stream_filtered_messages(keywords: set):
     """Stream only messages with posts matching keywords."""
-    for msg in stream_messages(uri):
-        post_text = extract_post_text(msg)
+    for msg in stream_messages():
+        post_text = msg['commit']['record'].get('text', '')
         matching_kws = keyword_match(keywords, post_text)
 
         if matching_kws:
