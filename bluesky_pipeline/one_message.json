@@ -1,0 +1,49 @@
+{
+  "did": "did:plc:5kfjqhffusq5dx5defvgbq2y",
+  "time_us": 1770129294020152,
+  "kind": "commit",
+  "commit": {
+    "rev": "3mdxlfvov4g2h",
+    "operation": "create",
+    "collection": "app.bsky.feed.post",
+    "rkey": "3mdxlfvez2c2o",
+    "record": {
+      "$type": "app.bsky.feed.post",
+      "createdAt": "2026-02-03T14:34:52.885Z",
+      "facets": [
+        {
+          "features": [
+            {
+              "$type": "app.bsky.richtext.facet#tag",
+              "tag": "Putin"
+            }
+          ],
+          "index": {
+            "byteEnd": 33,
+            "byteStart": 27
+          }
+        }
+      ],
+      "langs": [
+        "en"
+      ],
+      "reply": {
+        "parent": {
+          "cid": "bafyreiaxvbs62btr2utwoeymgg5x37zkncjeytfh2y7tyba3cuuinuzzz4",
+          "uri": "at://did:plc:cekcqq2brqvu7huaigwddmqf/app.bsky.feed.post/3mdxk2ykdsc2b"
+        },
+        "root": {
+          "cid": "bafyreiaxvbs62btr2utwoeymgg5x37zkncjeytfh2y7tyba3cuuinuzzz4",
+          "uri": "at://did:plc:cekcqq2brqvu7huaigwddmqf/app.bsky.feed.post/3mdxk2ykdsc2b"
+        }
+      },
+      "text": "Actually they can\u2019t stop #Putin because putin has blackmail level SEXUAL DEVIANT, deviant adjacent or TREASON dirt on everyone of them"
+    },
+    "cid": "bafyreierq2u62ri6qjafd5g4p5mbkvnpg3tl7hx4rwwd4llbxsj5zic5la"
+  },
+  "matching_keyword_set": [
+    "putin"
+  ],
+  "post_url": "https://bsky.app/profile/did:plc:5kfjqhffusq5dx5defvgbq2y/post/3mdxlfvez2c2o",
+  "post_type": "reply"
+}

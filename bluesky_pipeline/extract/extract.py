@@ -1,23 +1,22 @@
 """
-This code is meant to extract and filter out the posts that match a set of
-keywords.
+Extract and filter posts from Bluesky Jetstream matching specified keywords.
 
-Utilites:
-    >Get DB connection
-    >Query keywords list
-    >Extract each post dict from jetstream firehose
-    >Check if post matches any of the keywords
+Provides utilities for:
+    - Database connection management (AWS RDS)
+    - Keyword list retrieval from database
+    - Jetstream message extraction and filtering
+    - Post type classification (post/reply/comment)
+    - Post URL composition
 """
 
-
-
-
 import asyncio
-import websockets
 import json
 import os
 import re
+from typing import Optional
+
 import psycopg2
+import websockets
 
 
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
@@ -62,7 +61,7 @@ class BlueskyFirehose:
                 yield json.loads(message)
             except json.JSONDecodeError as e:
                 print(f"Error decoding JSON: {e}")
-            except Exception as e:
+            except (websockets.exceptions.ConnectionClosed, OSError) as e:
                 print(f"Connection error: {e}")
                 self.websocket = None
                 ws = await self.get_websocket()
@@ -88,16 +87,16 @@ class BlueskyFirehose:
         async for msg in self.stream_messages():
             # Extract post text from message
             post_text = self._extract_post_text(msg)
-            matching_keywords = self.keyword_match(keywords, post_text)
+            matching_kws = self.keyword_match(keywords, post_text)
 
             # Only yield if keywords matched
-            if matching_keywords:
-                msg["matching_keyword_set"] = list(matching_keywords)
+            if matching_kws:
+                msg["matching_keyword_set"] = list(matching_kws)
                 msg = self._add_post_url_to_message(msg)
                 msg["post_type"] = self.get_post_type(msg)
                 yield msg
 
-    def keyword_match(self, keywords: set, post_text: str) -> Optional[set]:
+    def keyword_match(self, kws: set, post_text: str) -> Optional[set]:
         """Return a set of keywords that match as whole words in post_text.
 
         Uses regex with flexible word boundaries to match whole words only.
@@ -107,19 +106,19 @@ class BlueskyFirehose:
         - 'c#' will match in 'I code in c#'
 
         Args:
-            keywords: Set of keywords to search for
+            kws: Set of keywords to search for
             post_text: The post text to search in
 
         Returns:
             Set of matching keywords, or None if no matches found
         """
-        if not keywords or not post_text:
+        if not kws or not post_text:
             return None
 
         matching = set()
         text_lower = post_text.lower()
 
-        for keyword in keywords:
+        for keyword in kws:
             keyword_lower = keyword.lower()
             # Use lookahead/lookbehind with non-word characters or boundaries
             # This allows matching keywords with special characters like c++ or c#
@@ -170,8 +169,7 @@ class BlueskyFirehose:
 
             if parent_uri == root_uri:
                 return "reply"  # Direct reply to original post
-            else:
-                return "comment"  # Reply to a comment in thread
+            return "comment"  # Reply to a comment in thread
         except (KeyError, TypeError, AttributeError):
             return "unknown"
 
@@ -258,7 +256,7 @@ def get_db_connection() -> psycopg2.extensions.connection:
     try:
         conn = psycopg2.connect(
             host=os.getenv("DB_HOST"),
-            port=os.getenv("DB_PORT", 5432),
+            port=int(os.getenv("DB_PORT", "5432")),
             database=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
             password=os.getenv("DB_PASSWORD"),
@@ -297,14 +295,15 @@ def get_keywords_from_db(cursor) -> set:
 
 
 if __name__ == "__main__":
-    keywords = {"ice", "maga", "trump", "putin", "meme"}
+    trending_keywords = {"ice", "maga", "trump", "putin", "meme"}
 
     async def main():
+        """Extract one matching message and save to JSON."""
         firehose = BlueskyFirehose()
         try:
-            async for msg in firehose.stream_matching_messages(keywords):
+            async for msg in firehose.stream_matching_messages(trending_keywords):
                 # Message already has matching_keyword_set added by stream_matching_messages
-                with open("one_message.json", "w") as f:
+                with open("one_message.json", "w", encoding="utf-8") as f:
                     json.dump(msg, f, indent=2)
                 print("Message saved to one_message.json")
                 break  # Only get one matching message
