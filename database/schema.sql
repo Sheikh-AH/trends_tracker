@@ -34,7 +34,6 @@ CREATE TABLE bluesky_posts (
     text TEXT,
     matched_keyword VARCHAR(255),
     sentiment_score DECIMAL(4,3),
-    sentiment_label VARCHAR(20),
     ingested_at TIMESTAMP DEFAULT NOW(),
     reply_uri VARCHAR(255),
     repost_uri VARCHAR(255)
