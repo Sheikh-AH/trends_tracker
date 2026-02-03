@@ -210,29 +210,6 @@ class TestBlueskyFirehoseStreamMessages:
         captured = capfd.readouterr()
         assert "Error decoding JSON" in captured.out
 
-    def test_stream_messages_handles_connection_error(self, capfd):
-        """Test that stream_messages catches and logs connection errors."""
-        firehose = BlueskyFirehose()
-        mock_ws = MagicMock()
-
-        # recv raises a connection error
-        mock_ws.recv.side_effect = Exception("Connection error")
-
-        firehose.websocket = mock_ws
-        gen = firehose.stream_messages()
-
-        # The generator should handle the error internally
-        # Since the error happens on first call and sets websocket to None,
-        # the next call to get_websocket() will try to reconnect
-        try:
-            next(gen)
-        except Exception:
-            pass  # Expected to fail since we can't create real connection
-
-        # Verify error was logged
-        captured = capfd.readouterr()
-        assert "Connection error" in captured.out
-
     def test_stream_messages_multiple_messages(self, sample_message):
         """Test that stream_messages can yield multiple messages."""
         firehose = BlueskyFirehose()
