@@ -1,4 +1,5 @@
-# pylint: ignore=missing-function-docstring
+# pylint: disable=missing-function-docstring
+# pylint: disable=import-error
 """Tests for bs_transform module."""
 
 from bs_transform import add_sentiment

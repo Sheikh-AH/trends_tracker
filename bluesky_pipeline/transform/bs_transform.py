@@ -1,7 +1,6 @@
 """Enriches extracted data with sentiment analysis."""
 
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-analyzer = SentimentIntensityAnalyzer()
 
 
 def add_sentiment(stream, analyzer):
@@ -12,4 +11,5 @@ def add_sentiment(stream, analyzer):
 
 
 if __name__ == "__main__":
+    # analyzer = SentimentIntensityAnalyzer()
     pass
