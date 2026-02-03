@@ -1,192 +1,22 @@
 {
-  "did": "did:plc:m52c2jr6vumgi523mrfmuoce",
-  "time_us": 1770133098739512,
+  "did": "did:plc:2k6avu5mrlxqqwsfceza2g3w",
+  "time_us": 1770134291256727,
   "kind": "commit",
   "commit": {
-    "rev": "3mdxoxc2tdz2x",
+    "rev": "3mdxq2tpbqz2z",
     "operation": "create",
     "collection": "app.bsky.feed.post",
-    "rkey": "3mdxoxbb5c22r",
+    "rkey": "3mdxq2toq6j2z",
     "record": {
       "$type": "app.bsky.feed.post",
-      "createdAt": "2026-02-03T15:38:16.980Z",
-      "embed": {
-        "$type": "app.bsky.embed.images",
-        "images": [
-          {
-            "alt": "",
-            "aspectRatio": {
-              "height": 709,
-              "width": 698
-            },
-            "image": {
-              "$type": "blob",
-              "ref": {
-                "$link": "bafkreiebabxis7rgoihoerd6y6vsqj7g2awj4tztsttvryxvip3ppygqta"
-              },
-              "mimeType": "image/jpeg",
-              "size": 233510
-            }
-          }
-        ]
-      },
-      "facets": [
-        {
-          "$type": "app.bsky.richtext.facet",
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#mention",
-              "did": "did:plc:zdldxq3i5vpvmozmfdgs4mfj"
-            }
-          ],
-          "index": {
-            "byteEnd": 111,
-            "byteStart": 88
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "art"
-            }
-          ],
-          "index": {
-            "byteEnd": 118,
-            "byteStart": 114
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "artsky"
-            }
-          ],
-          "index": {
-            "byteEnd": 126,
-            "byteStart": 119
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "artist"
-            }
-          ],
-          "index": {
-            "byteEnd": 134,
-            "byteStart": 127
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "oc"
-            }
-          ],
-          "index": {
-            "byteEnd": 138,
-            "byteStart": 135
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "ocart"
-            }
-          ],
-          "index": {
-            "byteEnd": 145,
-            "byteStart": 139
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "ocsky"
-            }
-          ],
-          "index": {
-            "byteEnd": 152,
-            "byteStart": 146
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "dnd"
-            }
-          ],
-          "index": {
-            "byteEnd": 157,
-            "byteStart": 153
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "dndoc"
-            }
-          ],
-          "index": {
-            "byteEnd": 164,
-            "byteStart": 158
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "tiefling"
-            }
-          ],
-          "index": {
-            "byteEnd": 174,
-            "byteStart": 165
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "tieflingoc"
-            }
-          ],
-          "index": {
-            "byteEnd": 186,
-            "byteStart": 175
-          }
-        },
-        {
-          "features": [
-            {
-              "$type": "app.bsky.richtext.facet#tag",
-              "tag": "lyzesartgallery"
-            }
-          ],
-          "index": {
-            "byteEnd": 203,
-            "byteStart": 187
-          }
-        }
-      ],
-      "langs": [
-        "en"
-      ],
-      "text": "Lyze LOVES her son!!!! He gets the beeeeegest hugs when he visits :3\n\nRaeshi belongs to @tirameeksu.bsky.social \n\n#art #artsky #artist #oc #ocart #ocsky #dnd #dndoc #tiefling #tieflingoc #lyzesartgallery"
+      "createdAt": "2026-02-03T15:58:03.773Z",
+      "text": "TUNE IN to i24NEWS | \u2018Street art\u2019 of Bondi Beach terrorist is plastered around Melbourne\nvia i24News"
     },
-    "cid": "bafyreicdxqvaadfip2kzpgmd26xmaitt2crmw4453qcwbjwa45uk2njb7i"
+    "cid": "bafyreifilj3vt6yrrhfllphltmlmlttovbrunf25i625hlt33tjen6p25m"
   },
   "matching_keyword_set": [
     "art"
   ],
-  "post_url": "https://bsky.app/profile/did:plc:m52c2jr6vumgi523mrfmuoce/post/3mdxoxbb5c22r",
+  "post_url": "https://bsky.app/profile/did:plc:2k6avu5mrlxqqwsfceza2g3w/post/3mdxq2toq6j2z",
   "post_type": "post"
 }
