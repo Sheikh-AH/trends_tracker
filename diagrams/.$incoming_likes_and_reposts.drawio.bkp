@@ -1,0 +1,31 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.8 Chrome/140.0.7339.240 Electron/38.4.0 Safari/537.36" version="28.2.8">
+  <diagram name="Page-1" id="TFN-rqr48IYtwZo4Opky">
+    <mxGraphModel dx="1018" dy="681" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-3" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="nRPSO5uGDcFBmSY9D9dP-1" target="nRPSO5uGDcFBmSY9D9dP-2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-1" value="New like or repost" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="350" y="70" width="120" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-5" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="nRPSO5uGDcFBmSY9D9dP-2" target="nRPSO5uGDcFBmSY9D9dP-4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;" edge="1" parent="1" source="nRPSO5uGDcFBmSY9D9dP-2" target="nRPSO5uGDcFBmSY9D9dP-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-2" value="Is the post uri referenced in&amp;nbsp;&lt;div&gt;bluesky_posts?&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;spacing=11;" vertex="1" parent="1">
+          <mxGeometry x="310" y="170" width="200" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-4" value="Add to table" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="350" y="390" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="nRPSO5uGDcFBmSY9D9dP-6" value="Ignore post" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="600" y="390" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
