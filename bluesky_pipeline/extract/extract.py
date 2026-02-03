@@ -307,11 +307,10 @@ if __name__ == "__main__":
 
     firehose = BlueskyFirehose()
     try:
-        for msg in firehose.stream_matching_messages(trending_keywords):
-            # Message already has matching_keyword_set added by stream_matching_messages
-            with open("one_message.json", "w", encoding="utf-8") as f:
-                json.dump(msg, f, indent=2)
-            print("Message saved to one_message.json")
-            break  # Only get one matching message
+        msg = next(firehose.stream_matching_messages(trending_keywords))
+        # Message already has matching_keyword_set added by stream_matching_messages
+        with open("one_message.json", "w", encoding="utf-8") as f:
+            json.dump(msg, f, indent=2)
+        print("Message saved to one_message.json")
     finally:
         firehose.close()
