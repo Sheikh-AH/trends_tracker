@@ -17,14 +17,7 @@ URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsk
 
 
 def stream_messages(uri: str = URI):
-    """Generator yielding messages continuously from Bluesky Jetstream.
-
-    Args:
-        uri: Bluesky Jetstream URI (defaults to app.bsky.feed.post collection)
-
-    Yields:
-        Parsed JSON message dictionaries
-    """
+    """Generator yielding messages continuously from Bluesky Jetstream."""
     ws = websocket.create_connection(uri)
     try:
         while True:
@@ -55,7 +48,8 @@ def keyword_match(keywords: set, post_text: str) -> Optional[set]:
 
     for keyword in keywords:
         keyword_lower = keyword.lower()
-        pattern = r"(?:^|\W)" + re.escape(keyword_lower) + r"(?:\W|$)"
+        # Match keyword as a prefix of a word (e.g., 'plant' matches 'plants', 'planting')
+        pattern = r"(?:^|\W)" + re.escape(keyword_lower) + r"\w*"
         if re.search(pattern, text_lower):
             matching.add(keyword)
 
