@@ -2,10 +2,8 @@
 """Tests for extract module."""
 
 import pytest
-import asyncio
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
-import websockets
+from unittest.mock import MagicMock, patch
 from extract import BlueskyFirehose
 
 
@@ -181,68 +179,62 @@ class TestBlueskyFirehoseInit:
 class TestBlueskyFirehoseWebsocket:
     """Tests for websocket connection management."""
 
-    @pytest.mark.asyncio
-    async def test_get_websocket_creates_connection(self):
+    def test_get_websocket_creates_connection(self):
         """Test that get_websocket creates a new connection."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
 
-        with patch("websockets.connect", new_callable=AsyncMock, return_value=mock_ws):
-            ws = await firehose.get_websocket()
+        with patch("websocket.create_connection", return_value=mock_ws):
+            ws = firehose.get_websocket()
             assert ws == mock_ws
             assert firehose.websocket == mock_ws
 
-    @pytest.mark.asyncio
-    async def test_get_websocket_reuses_connection(self):
+    def test_get_websocket_reuses_connection(self):
         """Test that get_websocket reuses existing connection."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
         firehose.websocket = mock_ws
 
-        ws = await firehose.get_websocket()
+        ws = firehose.get_websocket()
         assert ws == mock_ws
 
-    @pytest.mark.asyncio
-    async def test_close_websocket(self):
+    def test_close_websocket(self):
         """Test that close properly closes the websocket."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
         firehose.websocket = mock_ws
 
-        await firehose.close()
+        firehose.close()
         mock_ws.close.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_close_no_websocket(self):
+    def test_close_no_websocket(self):
         """Test that close handles None websocket gracefully."""
         firehose = BlueskyFirehose()
         # Should not raise an error
-        await firehose.close()
+        firehose.close()
 
 
 class TestBlueskyFirehoseStreamMessages:
     """Tests for message streaming functionality."""
 
-    @pytest.mark.asyncio
-    async def test_stream_messages_yields_parsed_json(self, sample_message):
+    def test_stream_messages_yields_parsed_json(self, sample_message):
         """Test that stream_messages yields parsed JSON messages."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
         mock_ws.recv.return_value = json.dumps(sample_message)
         firehose.websocket = mock_ws
 
         # Get one message from generator
         gen = firehose.stream_messages()
-        msg = await gen.__anext__()
+        msg = next(gen)
 
         assert msg == sample_message
         mock_ws.recv.assert_called_once()
 
-    @pytest.mark.asyncio
-    async def test_stream_messages_handles_json_error(self, capfd):
+    def test_stream_messages_handles_json_error(self, capfd):
         """Test that stream_messages handles JSON decode errors."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
         # First call returns invalid JSON, second returns valid
         mock_ws.recv.side_effect = [
             "invalid json",
@@ -252,40 +244,38 @@ class TestBlueskyFirehoseStreamMessages:
 
         gen = firehose.stream_messages()
         # Should skip invalid and return valid
-        msg = await gen.__anext__()
+        msg = next(gen)
 
         assert msg == {"valid": "message"}
         captured = capfd.readouterr()
         assert "Error decoding JSON" in captured.out
 
-    @pytest.mark.asyncio
-    async def test_stream_messages_handles_connection_error(self):
+    def test_stream_messages_handles_connection_error(self):
         """Test that stream_messages recovers from connection errors."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
 
         # First recv raises error, then succeeds
         valid_msg = json.dumps({"test": "message"})
         mock_ws.recv.side_effect = [
-            websockets.exceptions.ConnectionClosed(None, None),
+            Exception("Connection error"),
             valid_msg,
         ]
 
-        with patch("websockets.connect", new_callable=AsyncMock, return_value=mock_ws):
+        with patch("websocket.create_connection", return_value=mock_ws):
             firehose.websocket = mock_ws
             gen = firehose.stream_messages()
 
             # Should recover and yield message
-            msg = await gen.__anext__()
+            msg = next(gen)
             assert msg == {"test": "message"}
             # Connection is recreated after error, so websocket should exist
             assert firehose.websocket is not None
 
-    @pytest.mark.asyncio
-    async def test_stream_messages_multiple_messages(self, sample_message):
+    def test_stream_messages_multiple_messages(self, sample_message):
         """Test that stream_messages can yield multiple messages."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
 
         messages = [json.dumps(sample_message) for _ in range(3)]
         mock_ws.recv.side_effect = messages
@@ -294,7 +284,7 @@ class TestBlueskyFirehoseStreamMessages:
         gen = firehose.stream_messages()
         results = []
         for _ in range(3):
-            msg = await gen.__anext__()
+            msg = next(gen)
             results.append(msg)
 
         assert len(results) == 3
@@ -304,40 +294,37 @@ class TestBlueskyFirehoseStreamMessages:
 class TestBlueskyFirehoseGetOneMessage:
     """Tests for getting a single message."""
 
-    @pytest.mark.asyncio
-    async def test_get_one_message_returns_first_message(self, sample_message):
+    def test_get_one_message_returns_first_message(self, sample_message):
         """Test that get_one_message returns the first message."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
         mock_ws.recv.return_value = json.dumps(sample_message)
         firehose.websocket = mock_ws
 
-        msg = await firehose.get_one_message()
+        msg = firehose.get_one_message()
 
         assert msg == sample_message
 
-    @pytest.mark.asyncio
-    async def test_get_one_message_stops_after_one(self, sample_message):
+    def test_get_one_message_stops_after_one(self, sample_message):
         """Test that get_one_message stops after receiving one message."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
 
         # Set up two potential messages
         messages = [json.dumps(sample_message), json.dumps(sample_message)]
         mock_ws.recv.side_effect = messages
         firehose.websocket = mock_ws
 
-        msg = await firehose.get_one_message()
+        msg = firehose.get_one_message()
 
         # Should only call recv once
         assert mock_ws.recv.call_count == 1
         assert msg == sample_message
 
-    @pytest.mark.asyncio
-    async def test_get_one_message_handles_invalid_json(self, sample_message):
+    def test_get_one_message_handles_invalid_json(self, sample_message):
         """Test that get_one_message skips invalid messages."""
         firehose = BlueskyFirehose()
-        mock_ws = AsyncMock()
+        mock_ws = MagicMock()
 
         # First invalid, then valid
         mock_ws.recv.side_effect = [
@@ -346,7 +333,7 @@ class TestBlueskyFirehoseGetOneMessage:
         ]
         firehose.websocket = mock_ws
 
-        msg = await firehose.get_one_message()
+        msg = firehose.get_one_message()
 
         # Should skip invalid and return valid
         assert msg == sample_message
