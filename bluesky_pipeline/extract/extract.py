@@ -9,14 +9,13 @@ Provides utilities for:
     - Post URL composition
 """
 
-import asyncio
 import json
 import os
 import re
 from typing import Optional
 
 import psycopg2
-import websockets
+import websocket
 
 
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
@@ -24,9 +23,8 @@ URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsk
 
 class BlueskyFirehose:
     """
-    Manages persistent Bluesky Jetstream connection. This firehose needs
-    websocket connections and a bunch of complex async functions. Therefore
-    an object is defined for easier transition into the main pipeline.
+    Manages persistent Bluesky Jetstream connection.
+    Provides methods to stream and filter posts from the Bluesky firehose.
     """
 
     def __init__(self, uri: str = URI):
@@ -38,44 +36,44 @@ class BlueskyFirehose:
         self.uri = uri
         self.websocket = None
 
-    async def get_websocket(self):
+    def get_websocket(self):
         """Get or create websocket connection.
 
         Returns:
             Active websocket connection
         """
         if self.websocket is None:
-            self.websocket = await websockets.connect(self.uri)
+            self.websocket = websocket.create_connection(self.uri)
         return self.websocket
 
-    async def stream_messages(self):
-        """Async generator yielding messages continuously from firehose.
+    def stream_messages(self):
+        """Generator yielding messages continuously from firehose.
 
         Yields:
             Parsed JSON message dictionaries
         """
-        ws = await self.get_websocket()
         while True:
             try:
-                message = await ws.recv()
+                ws = self.get_websocket()
+                message = ws.recv()
                 yield json.loads(message)
             except json.JSONDecodeError as e:
                 print(f"Error decoding JSON: {e}")
-            except (websockets.exceptions.ConnectionClosed, OSError) as e:
+            except Exception as e:
                 print(f"Connection error: {e}")
                 self.websocket = None
-                ws = await self.get_websocket()
 
-    async def get_one_message(self) -> Optional[dict]:
+    def get_one_message(self) -> Optional[dict]:
         """Return a single message from firehose.
 
         Returns:
             Parsed JSON message dictionary
         """
-        async for msg in self.stream_messages():
+        for msg in self.stream_messages():
             return msg
+        return None
 
-    async def stream_matching_messages(self, keywords: set):
+    def stream_matching_messages(self, keywords: set):
         """Stream only messages with posts matching keywords.
 
         Args:
@@ -84,7 +82,7 @@ class BlueskyFirehose:
         Yields:
             Modified messages with 'matching_keyword_set', 'post_url', and 'post_type' fields added
         """
-        async for msg in self.stream_messages():
+        for msg in self.stream_messages():
             # Extract post text from message
             post_text = self._extract_post_text(msg)
             matching_kws = self.keyword_match(keywords, post_text)
@@ -242,10 +240,10 @@ class BlueskyFirehose:
 
         return message
 
-    async def close(self):
+    def close(self):
         """Close the websocket connection."""
         if self.websocket:
-            await self.websocket.close()
+            self.websocket.close()
 
 def get_db_connection() -> psycopg2.extensions.connection:
     """Get a PostgreSQL database connection hosted in AWS RDS.
@@ -307,17 +305,13 @@ def get_keywords_from_db(cursor) -> set:
 if __name__ == "__main__":
     trending_keywords = {"art"}
 
-    async def main():
-        """Extract one matching message and save to JSON."""
-        firehose = BlueskyFirehose()
-        try:
-            async for msg in firehose.stream_matching_messages(trending_keywords):
-                # Message already has matching_keyword_set added by stream_matching_messages
-                with open("one_message.json", "w", encoding="utf-8") as f:
-                    json.dump(msg, f, indent=2)
-                print("Message saved to one_message.json")
-                break  # Only get one matching message
-        finally:
-            await firehose.close()
-
-    asyncio.run(main())
+    firehose = BlueskyFirehose()
+    try:
+        for msg in firehose.stream_matching_messages(trending_keywords):
+            # Message already has matching_keyword_set added by stream_matching_messages
+            with open("one_message.json", "w", encoding="utf-8") as f:
+                json.dump(msg, f, indent=2)
+            print("Message saved to one_message.json")
+            break  # Only get one matching message
+    finally:
+        firehose.close()
