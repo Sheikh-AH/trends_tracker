@@ -81,29 +81,29 @@ class TestKeywordMatchWordBoundary:
         assert result == {"ice"}
 
     def test_word_at_boundaries(self):
-        """Test matching at word boundaries."""
+        """Test matching at word boundaries (prefix matching enabled)."""
         keywords = {"test"}
         assert keyword_match(keywords, "test case") == {"test"}
         assert keyword_match(keywords, "the test") == {"test"}
-        assert keyword_match(keywords, "testing") is None  # 'test' is prefix, not word
-        assert keyword_match(keywords, "retest") is None  # 'test' is suffix, not word
+        assert keyword_match(keywords, "testing") == {"test"}  # 'test' matches as prefix
+        assert keyword_match(keywords, "retest") is None  # 'test' requires word boundary before it
 
     @pytest.mark.parametrize(
         "keywords,text,expected",
         [
             ({"hello"}, "hello world", {"hello"}),
             ({"hello"}, "goodbye world", None),
-            ({"hello"}, "helloworld", None),  # No word boundary
+            ({"hello"}, "helloworld", {"hello"}),  # 'hello' matches as prefix
             ({"hello", "world"}, "hello there", {"hello"}),
             ({"hello", "world"}, "world today", {"world"}),
             ({"hello", "world"}, "goodbye friend", None),
-            ({"trend"}, "This is trending now", None),  # 'trend' is prefix of 'trending'
+            ({"trend"}, "This is trending now", {"trend"}),  # 'trend' matches as prefix of 'trending'
             ({"trend"}, "The movie went viral", None),
             ({"viral"}, "The movie went viral", {"viral"}),
         ],
     )
     def test_word_boundary_scenarios(self, keywords, text, expected):
-        """Test various word boundary matching scenarios."""
+        """Test various word boundary matching scenarios with prefix matching."""
         assert keyword_match(keywords, text) == expected
 
     def test_special_characters_in_keywords(self):
