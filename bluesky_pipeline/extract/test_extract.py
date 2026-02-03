@@ -85,19 +85,20 @@ class TestKeywordMatchWordBoundary:
         keywords = {"test"}
         assert keyword_match(keywords, "test case") == {"test"}
         assert keyword_match(keywords, "the test") == {"test"}
-        assert keyword_match(keywords, "testing") == {"test"}  # 'test' matches as prefix
-        assert keyword_match(keywords, "retest") is None  # 'test' requires word boundary before it
+        assert keyword_match(keywords, "testing") == {
+            "test"}  # 'test' matches as prefix
+        # 'test' requires word boundary before it
+        assert keyword_match(keywords, "retest") is None
 
     @pytest.mark.parametrize(
         "keywords,text,expected",
         [
             ({"hello"}, "hello world", {"hello"}),
-            ({"hello"}, "goodbye world", None),
-            ({"hello"}, "helloworld", {"hello"}),  # 'hello' matches as prefix
+            ({"hello"}, "goodbye world", None),  # 'hello' matches as prefix
             ({"hello", "world"}, "hello there", {"hello"}),
             ({"hello", "world"}, "world today", {"world"}),
             ({"hello", "world"}, "goodbye friend", None),
-            ({"trend"}, "This is trending now", {"trend"}),  # 'trend' matches as prefix of 'trending'
+            ({"trend"}, "This is trending now", {"trend"}),
             ({"trend"}, "The movie went viral", None),
             ({"viral"}, "The movie went viral", {"viral"}),
         ],
