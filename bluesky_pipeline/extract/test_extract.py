@@ -5,6 +5,7 @@ import pytest
 import asyncio
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
+import websockets
 from extract import BlueskyFirehose
 
 
@@ -266,7 +267,7 @@ class TestBlueskyFirehoseStreamMessages:
         # First recv raises error, then succeeds
         valid_msg = json.dumps({"test": "message"})
         mock_ws.recv.side_effect = [
-            Exception("Connection error"),
+            websockets.exceptions.ConnectionClosed(None, None),
             valid_msg,
         ]
 

@@ -157,7 +157,17 @@ class BlueskyFirehose:
             One of: 'post', 'reply', 'comment', or 'unknown'
         """
         try:
-            record = message.get("commit", {}).get("record", {})
+            if not message or not isinstance(message, dict):
+                return "unknown"
+
+            commit = message.get("commit")
+            if not commit or not isinstance(commit, dict):
+                return "unknown"
+
+            record = commit.get("record")
+            if not record or not isinstance(record, dict):
+                return "unknown"
+
             reply = record.get("reply")
 
             if not reply:
@@ -295,7 +305,7 @@ def get_keywords_from_db(cursor) -> set:
 
 
 if __name__ == "__main__":
-    trending_keywords = {"ice", "maga", "trump", "putin", "meme"}
+    trending_keywords = {"art"}
 
     async def main():
         """Extract one matching message and save to JSON."""
