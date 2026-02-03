@@ -32,9 +32,9 @@ def upload_batch(posts, connection):
            ON CONFLICT (post_uri) DO NOTHING""",
         [(
             p["post_uri"],
-            p["posted_at"],
-            p["author_did"],
-            p["text"],
+            p["commit"]["record"]["createdAt"],
+            p["did"],
+            p["commit"]["record"]["text"],
             p["sentiment"],
             p.get("reply_uri"),
             p.get("repost_uri"),
@@ -58,22 +58,26 @@ def upload_batch(posts, connection):
     connection.commit()
 
 
-if __name__ == "__main__":
-    load_dotenv()
-    conn = get_db_connection(ENV)
-    posts = []  # Replace with actual posts to load
+def load_data(conn, posts, batch_size: int = 500):
+    """Load posts into the database in batches."""
 
     buffer = []
-    BATCH_SIZE = 500
 
     for post in posts:
         buffer.append(post)
-
-        if len(buffer) >= BATCH_SIZE:
+        if len(buffer) >= batch_size:
             upload_batch(buffer, conn)
             buffer = []
 
     # Flush remaining
     if buffer:
         upload_batch(buffer, conn)
-    pass
+
+    conn.close()
+
+
+if __name__ == "__main__":
+    load_dotenv()
+    conn = get_db_connection(ENV)
+    posts = []  # Replace with actual posts to load
+    load_data(conn, posts)
