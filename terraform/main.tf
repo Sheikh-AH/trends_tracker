@@ -16,10 +16,14 @@ data "aws_vpc" "main" {
   id = var.vpc_id
 }
 
-data "aws_subnets" "main" {
+data "aws_subnets" "public" {
   filter {
     name   = "vpc-id"
     values = [data.aws_vpc.main.id]
+  }
+  filter {
+    name   = "tag:Name"
+    values = ["*public*"]
   }
 }
 
@@ -50,10 +54,9 @@ resource "aws_security_group" "rds_sg" {
   }
 }
 
-# DB Subnet Group
 resource "aws_db_subnet_group" "trends_subnet_group" {
   name       = "c21-trends-subnet-group"
-  subnet_ids = data.aws_subnets.main.ids
+  subnet_ids = data.aws_subnets.public.ids
 
   tags = {
     Name        = "C21-Trends-DB-Subnet-Group"
