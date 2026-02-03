@@ -4,3 +4,4 @@ pytrends
 websockets
 psycopg2
 pytest-asyncio
+websocket
