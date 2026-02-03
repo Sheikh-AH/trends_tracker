@@ -25,7 +25,7 @@ data "aws_subnets" "main" {
 
 # Security Group for RDS
 resource "aws_security_group" "rds_sg" {
-  name        = "trends-rds-sg"
+  name        = "c21-trends-rds-sg"
   description = "Security group for Trends RDS"
   vpc_id      = data.aws_vpc.main.id
 
@@ -45,25 +45,25 @@ resource "aws_security_group" "rds_sg" {
   }
 
   tags = {
-    Name        = "trends-rds-sg"
+    Name        = "c21-trends-rds-sg"
     Environment = var.environment
   }
 }
 
 # DB Subnet Group
 resource "aws_db_subnet_group" "trends_subnet_group" {
-  name       = "trends-subnet-group"
+  name       = "c21-trends-subnet-group"
   subnet_ids = data.aws_subnets.main.ids
 
   tags = {
-    Name        = "Trends DB Subnet Group"
+    Name        = "C21-Trends-DB-Subnet-Group"
     Environment = var.environment
   }
 }
 
 # RDS PostgreSQL Instance
 resource "aws_db_instance" "trends_db" {
-  identifier     = "trends-db"
+  identifier     = "c21-trends-db"
   engine         = "postgres"
   engine_version = "15"
   instance_class = var.db_instance_class
@@ -83,7 +83,7 @@ resource "aws_db_instance" "trends_db" {
   skip_final_snapshot = true
 
   tags = {
-    Name        = "trends-db"
+    Name        = "c21-trends-db"
     Environment = var.environment
   }
 }
