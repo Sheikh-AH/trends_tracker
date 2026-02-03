@@ -15,7 +15,7 @@ import re
 from typing import Optional
 
 import psycopg2
-import websocket
+from websocket import create_connection
 
 
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
@@ -43,7 +43,7 @@ class BlueskyFirehose:
             Active websocket connection
         """
         if self.websocket is None:
-            self.websocket = websocket.create_connection(self.uri)
+            self.websocket = create_connection(self.uri)
         return self.websocket
 
     def stream_messages(self):

@@ -145,7 +145,7 @@ class TestBlueskyFirehoseWebsocket:
         firehose = BlueskyFirehose()
         mock_ws = MagicMock()
 
-        with patch("extract.websocket.create_connection", return_value=mock_ws):
+        with patch("extract.create_connection", return_value=mock_ws):
             ws = firehose.get_websocket()
             assert ws == mock_ws
             assert firehose.websocket == mock_ws
@@ -223,7 +223,7 @@ class TestBlueskyFirehoseStreamMessages:
             valid_msg,
         ]
 
-        with patch("extract.websocket.create_connection", return_value=mock_ws):
+        with patch("extract.create_connection", return_value=mock_ws):
             firehose.websocket = mock_ws
             gen = firehose.stream_messages()
 
