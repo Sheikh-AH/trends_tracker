@@ -1,4 +1,6 @@
 pylint
 pytest
-atproto
 pytrends
+websockets
+psycopg2
+pytest-asyncio
