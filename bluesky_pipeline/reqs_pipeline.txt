@@ -4,3 +4,4 @@ pytrends
 psycopg2
 pytest-asyncio
 websocket
+vaderSentiment
