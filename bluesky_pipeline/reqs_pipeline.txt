@@ -3,3 +3,5 @@ pytest
 atproto
 pytrends
 vaderSentiment
+python-dotenv
+psycopg2-binary
