@@ -8,19 +8,17 @@ CREATE TABLE users (
     send_email BOOLEAN DEFAULT TRUE
 );
 
--- User topics table
-CREATE TABLE user_topics (
-    topic_id SMALLSERIAL PRIMARY KEY,
-    user_id BIGINT REFERENCES users(user_id) ON DELETE CASCADE,
-    topic_name VARCHAR(255) NOT NULL,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
 -- Keywords table
 CREATE TABLE keywords (
     keyword_id SMALLSERIAL PRIMARY KEY,
-    topic_id BIGINT REFERENCES user_topics(topic_id) ON DELETE CASCADE,
-    keyword_name VARCHAR(255) NOT NULL
+    keyword_value VARCHAR(255) NOT NULL UNIQUE
+);
+
+-- User keywords junction table
+CREATE TABLE user_keywords (
+    user_keyword_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(user_id) ON DELETE CASCADE,
+    keyword_id BIGINT REFERENCES keywords(keyword_id) ON DELETE CASCADE
 );
 
 -- BlueSky posts table
@@ -29,26 +27,31 @@ CREATE TABLE bluesky_posts (
     posted_at TIMESTAMP,
     author_did VARCHAR(255),
     text TEXT,
-    matched_keyword VARCHAR(255),
-    sentiment_score DECIMAL(4,3),
+    sentiment_score VARCHAR(50),
     ingested_at TIMESTAMP DEFAULT NOW(),
     reply_uri VARCHAR(255),
     repost_uri VARCHAR(255)
 );
 
+-- Matches table
+CREATE TABLE matches (
+    match_id BIGSERIAL PRIMARY KEY,
+    post_uri VARCHAR(255) REFERENCES bluesky_posts(post_uri) ON DELETE CASCADE,
+    keyword_value VARCHAR(255)
+);
+
 -- Google trends table
 CREATE TABLE google_trends (
-    id BIGSERIAL PRIMARY KEY,
-    keyword VARCHAR(255),
+    trend_id BIGSERIAL PRIMARY KEY,
+    keyword_value VARCHAR(255),
     search_volume BIGINT,
-    trend_date DATE,
+    trend_date TIMESTAMP,
     ingested_at TIMESTAMP DEFAULT NOW()
 );
 
 -- LLM summary table
 CREATE TABLE llm_summary (
-    id BIGSERIAL PRIMARY KEY,
-    keyword VARCHAR(255),
-    daily_summary TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
+    summary_id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT REFERENCES users(user_id) ON DELETE CASCADE,
+    summary TEXT
 );
