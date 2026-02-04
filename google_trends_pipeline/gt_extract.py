@@ -1,10 +1,9 @@
 """This module extracts keyword search volume data from Google Trends
 using keywords stored in a PostgreSQL database."""
-
+import os
+import time
 import psycopg2
 from pytrends.request import TrendReq
-import time
-import os
 
 
 def get_db_connection() -> psycopg2.extensions.connection:
@@ -46,12 +45,12 @@ def get_search_volume(keywords: set) -> list:
 
         try:
             pytrends.build_payload(batch, cat=0, timeframe='now 7-d', geo='GB')
-            data = pytrends.interest_over_time()
+            iot = pytrends.interest_over_time()
 
-            if not data.empty:
+            if not iot.empty:
                 for keyword in batch:
-                    if keyword in data.columns:
-                        avg_volume = int(data[keyword].mean())
+                    if keyword in iot.columns:
+                        avg_volume = int(iot[keyword].mean())
                         results.append({
                             "keyword_value": keyword,
                             "search_volume": avg_volume
