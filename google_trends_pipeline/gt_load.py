@@ -1,6 +1,5 @@
 import psycopg2
 import os
-from dotenv import load_dotenv
 
 
 def get_db_connection():
@@ -42,7 +41,7 @@ def load(data: list):
 
 if __name__ == "__main__":
     from datetime import datetime, timezone
-
+    from dotenv import load_dotenv
     load_dotenv()
 
     sample = [{

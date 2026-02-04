@@ -2,7 +2,6 @@ import psycopg2
 from pytrends.request import TrendReq
 import time
 import os
-from dotenv import load_dotenv
 
 
 def get_db_connection():
@@ -74,6 +73,7 @@ def extract():
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
     load_dotenv()
     data = extract()
     print(data)
