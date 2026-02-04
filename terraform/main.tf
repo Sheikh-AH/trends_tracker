@@ -591,6 +591,21 @@ resource "aws_lambda_function" "alert_system" {
   }
 }
 
+# VPC Endpoint for SES
+resource "aws_vpc_endpoint" "ses" {
+  vpc_id              = data.aws_vpc.main.id
+  service_name        = "com.amazonaws.eu-west-2.email-smtp"
+  vpc_endpoint_type   = "Interface"
+  subnet_ids          = var.public_subnet_ids
+  security_group_ids  = [aws_security_group.alert_lambda_sg.id]
+  private_dns_enabled = true
+
+  tags = {
+    Name        = "c21-ses-endpoint"
+    Environment = var.environment
+  }
+}
+
 # IAM Role for Alert Scheduler
 resource "aws_iam_role" "alert_scheduler_role" {
   name = "c21-trends-alert-scheduler-role"
