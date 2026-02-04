@@ -1,10 +1,4 @@
-"""
-Extract and filter posts from Bluesky Jetstream matching specified keywords.
-
-Provides functions for:
-    - Streaming messages from Bluesky Jetstream
-    - Filtering posts by keyword matching
-"""
+"""Extract and filter posts from Bluesky Jetstream matching specified keywords."""
 
 import json
 import re
