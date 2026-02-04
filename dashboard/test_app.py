@@ -16,7 +16,10 @@ from app import (
     authenticate_user,
     generate_password_hash,
     validate_signup_input,
-    create_user
+    create_user,
+    add_user_keyword,
+    remove_user_keyword,
+    get_user_keywords
 )
 
 
@@ -544,3 +547,206 @@ class TestCreateUser:
 
         assert mock_cursor_create.execute.call_count == 2
         assert mock_cursor_create.connection.commit.call_count == 2
+
+
+# ============== Tests for add_user_keyword ==============
+
+class TestAddUserKeyword:
+    """Tests for add_user_keyword function."""
+
+    @pytest.fixture
+    def mock_cursor_keyword(self):
+        """Create a mock database cursor for keyword tests."""
+        cursor = Mock()
+        cursor.connection = Mock()
+        cursor.connection.commit = Mock()
+        return cursor
+
+    def test_add_keyword_success(self, mock_cursor_keyword):
+        """Adding keyword successfully returns True."""
+        result = add_user_keyword(mock_cursor_keyword, 1, "matcha")
+
+        assert result is True
+        # Two execute calls: one for INSERT into keywords, one for INSERT into user_keywords
+        assert mock_cursor_keyword.execute.call_count == 2
+        mock_cursor_keyword.connection.commit.assert_called_once()
+
+    def test_add_keyword_inserts_to_keywords_and_user_keywords(self, mock_cursor_keyword):
+        """Verify both keywords and user_keywords tables are updated."""
+        add_user_keyword(mock_cursor_keyword, 1, "coffee")
+
+        calls = mock_cursor_keyword.execute.call_args_list
+        # First call should be INSERT into keywords
+        assert "keywords" in calls[0][0][0]
+        assert "INSERT" in calls[0][0][0]
+        # Second call should be INSERT into user_keywords
+        assert "user_keywords" in calls[1][0][0]
+        assert "INSERT" in calls[1][0][0]
+
+
+    def test_add_multiple_keywords(self, mock_cursor_keyword):
+        """Adding multiple keywords works independently."""
+        add_user_keyword(mock_cursor_keyword, 1, "matcha")
+        add_user_keyword(mock_cursor_keyword, 1, "coffee")
+        add_user_keyword(mock_cursor_keyword, 1, "tea")
+
+        # 2 calls per keyword (keywords table + user_keywords table)
+        assert mock_cursor_keyword.execute.call_count == 6
+        assert mock_cursor_keyword.connection.commit.call_count == 3
+
+    def test_add_keyword_case_insensitive(self, mock_cursor_keyword):
+        """Adding keywords is case-insensitive."""
+        add_user_keyword(mock_cursor_keyword, 1, "MATCHA")
+
+        calls = mock_cursor_keyword.execute.call_args_list
+        # First call should use LOWER()
+        assert "LOWER" in calls[0][0][0]
+
+    def test_add_keyword_different_user(self, mock_cursor_keyword):
+        """Adding keywords for different users works correctly."""
+        add_user_keyword(mock_cursor_keyword, 1, "matcha")
+        add_user_keyword(mock_cursor_keyword, 2, "matcha")
+
+        calls = mock_cursor_keyword.execute.call_args_list
+        # Check the user_keywords insert calls (every other call)
+        assert calls[1][0][1] == (1, "matcha")
+        assert calls[3][0][1] == (2, "matcha")
+
+    def test_add_keyword_with_special_chars(self, mock_cursor_keyword):
+        """Adding keyword with special characters works."""
+        result = add_user_keyword(mock_cursor_keyword, 1, "blue-sky")
+
+        assert result is True
+        assert mock_cursor_keyword.execute.call_count == 2
+        calls = mock_cursor_keyword.execute.call_args_list
+        assert calls[1][0][1][1] == "blue-sky"
+
+
+# ============== Tests for remove_user_keyword ==============
+
+class TestRemoveUserKeyword:
+    """Tests for remove_user_keyword function."""
+
+    @pytest.fixture
+    def mock_cursor_keyword(self):
+        """Create a mock database cursor for keyword tests."""
+        cursor = Mock()
+        cursor.connection = Mock()
+        cursor.connection.commit = Mock()
+        return cursor
+
+    def test_remove_keyword_success(self, mock_cursor_keyword):
+        """Removing keyword successfully returns True."""
+        result = remove_user_keyword(mock_cursor_keyword, 1, "matcha")
+
+        assert result is True
+        mock_cursor_keyword.execute.assert_called_once()
+        mock_cursor_keyword.connection.commit.assert_called_once()
+
+    def test_remove_keyword_case_insensitive(self, mock_cursor_keyword):
+        """Verify removal is case-insensitive."""
+        remove_user_keyword(mock_cursor_keyword, 1, "MATCHA")
+
+        call_args = mock_cursor_keyword.execute.call_args
+        assert "DELETE" in call_args[0][0]
+        assert "LOWER" in call_args[0][0]
+        assert call_args[0][1] == (1, "MATCHA")
+
+    def test_remove_multiple_keywords(self, mock_cursor_keyword):
+        """Removing multiple keywords works independently."""
+        remove_user_keyword(mock_cursor_keyword, 1, "matcha")
+        remove_user_keyword(mock_cursor_keyword, 1, "coffee")
+
+        assert mock_cursor_keyword.execute.call_count == 2
+        assert mock_cursor_keyword.connection.commit.call_count == 2
+
+    def test_remove_keyword_different_users(self, mock_cursor_keyword):
+        """Removing keywords from different users works correctly."""
+        remove_user_keyword(mock_cursor_keyword, 1, "matcha")
+        remove_user_keyword(mock_cursor_keyword, 2, "matcha")
+
+        calls = mock_cursor_keyword.execute.call_args_list
+        assert calls[0][0][1] == (1, "matcha")
+        assert calls[1][0][1] == (2, "matcha")
+
+    def test_remove_nonexistent_keyword(self, mock_cursor_keyword):
+        """Removing nonexistent keyword still returns True (no error)."""
+        result = remove_user_keyword(mock_cursor_keyword, 1, "nonexistent")
+
+        assert result is True
+        mock_cursor_keyword.connection.commit.assert_called_once()
+
+
+# ============== Tests for get_user_keywords ==============
+
+class TestGetUserKeywords:
+    """Tests for get_user_keywords function."""
+
+    @pytest.fixture
+    def mock_cursor_keyword(self):
+        """Create a mock database cursor for keyword tests."""
+        cursor = Mock()
+        return cursor
+
+    def test_get_keywords_returns_list(self, mock_cursor_keyword):
+        """Getting keywords returns a list."""
+        mock_cursor_keyword.fetchall.return_value = [
+            {"keyword_value": "matcha"},
+            {"keyword_value": "coffee"}
+        ]
+
+        result = get_user_keywords(mock_cursor_keyword, 1)
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+
+    def test_get_keywords_correct_order(self, mock_cursor_keyword):
+        """Getting keywords returns them in correct order."""
+        mock_cursor_keyword.fetchall.return_value = [
+            {"keyword_value": "coffee"},
+            {"keyword_value": "matcha"},
+            {"keyword_value": "tea"}
+        ]
+
+        result = get_user_keywords(mock_cursor_keyword, 1)
+
+        assert result == ["coffee", "matcha", "tea"]
+
+    def test_get_keywords_empty_list(self, mock_cursor_keyword):
+        """Getting keywords for user with no keywords returns empty list."""
+        mock_cursor_keyword.fetchall.return_value = None
+
+        result = get_user_keywords(mock_cursor_keyword, 1)
+
+        assert result == []
+
+    def test_get_keywords_calls_correct_query(self, mock_cursor_keyword):
+        """Verify correct SQL query is executed."""
+        mock_cursor_keyword.fetchall.return_value = None
+
+        get_user_keywords(mock_cursor_keyword, 1)
+
+        call_args = mock_cursor_keyword.execute.call_args
+        assert "SELECT" in call_args[0][0]
+        assert "keywords" in call_args[0][0]
+        assert call_args[0][1] == (1,)
+
+    def test_get_keywords_single_keyword(self, mock_cursor_keyword):
+        """Getting single keyword returns list with one element."""
+        mock_cursor_keyword.fetchall.return_value = [{"keyword_value": "matcha"}]
+
+        result = get_user_keywords(mock_cursor_keyword, 1)
+
+        assert len(result) == 1
+        assert result[0] == "matcha"
+
+    def test_get_keywords_multiple_users(self, mock_cursor_keyword):
+        """Getting keywords for different users uses correct user_id."""
+        mock_cursor_keyword.fetchall.return_value = None
+
+        get_user_keywords(mock_cursor_keyword, 5)
+        get_user_keywords(mock_cursor_keyword, 10)
+
+        calls = mock_cursor_keyword.execute.call_args_list
+        assert calls[0][0][1] == (5,)
+        assert calls[1][0][1] == (10,)
