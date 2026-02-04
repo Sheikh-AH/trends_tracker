@@ -84,11 +84,16 @@ def stream_filtered_messages(keyword_fetcher: Callable[[], set], refresh_interva
 
         if msg.get("kind") != "commit":
             continue
-        post_text = msg.get("commit", {}).get("record", {}).get("text", "")
+        
+        record = msg.get("commit", {}).get("record", {})
+        post_text = record.get("text", "")
         matching_kws = keyword_match(keywords, post_text)
 
         if matching_kws:
             msg["matching_keywords"] = list(matching_kws)
+            # Extract reply_uri for comments (None if not a reply)
+            msg["reply_uri"] = record.get("reply", {}).get("parent", {}).get("uri")
+            msg["repost_uri"] = None  # Not handling reposts
             yield msg
 
 
