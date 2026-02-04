@@ -1,6 +1,7 @@
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from extract import stream_filtered_messages
 
+
 def filter_posts(stream, keywords: set[str]):
     """Filter stream to only posts containing keywords."""
     for event in stream:
@@ -24,11 +25,16 @@ def filter_posts(stream, keywords: set[str]):
             "reply_uri": record.get("reply", {}).get("parent", {}).get("uri"),
             "repost_uri": None,
         }
+
+
 def add_sentiment(stream, analyzer):
     """Add sentiment score to each post."""
     for post in stream:
-        post["sentiment"] = analyzer.polarity_scores(post['commit']['record']["text"])["compound"]
+        post["sentiment"] = analyzer.polarity_scores(
+            post['commit']['record']["text"])["compound"]
         yield post
+
+
 def batch(stream, size: int):
     """Collect stream into batches."""
     buffer = []
@@ -39,18 +45,22 @@ def batch(stream, size: int):
             buffer = []
     if buffer:
         yield buffer
+
+
 def main():
-    keywords = {"trump"}
+    keywords = {"trump", "and", "biden",
+                "election", "vaccine", "covid", "pandemic"}
     analyzer = SentimentIntensityAnalyzer()
     # Chain generators
     filtered = stream_filtered_messages(keywords)
     with_sentiment = add_sentiment(filtered, analyzer)
-    batches = batch(with_sentiment, size=10)
+    for post in with_sentiment:
+        print(post)
 
-    for b in batches:
-        print(f"Batch of {len(b)} posts:")
-        for post in b:
-            print(f"  - {post['commit']['record']['text'][:50]}... (sentiment: {post['sentiment']:.2f})")
+    # for b in batches:
+    #     print(f"Batch of {len(b)} posts:")
+    #     for post in b:
+    #         print(f"  - {post['commit']['record']['text'][:50]}... (sentiment: {post['sentiment']:.2f})")
 
 
 if __name__ == "__main__":

@@ -48,7 +48,9 @@ def keyword_match(keywords: set, post_text: str) -> Optional[set]:
 def stream_filtered_messages(keywords: set):
     """Stream only messages with posts matching keywords."""
     for msg in stream_messages():
-        post_text = msg['commit']['record'].get('text', '')
+        if msg.get("kind") != "commit":
+            continue
+        post_text = msg.get("commit", {}).get("record", {}).get("text", "")
         matching_kws = keyword_match(keywords, post_text)
 
         if matching_kws:
@@ -61,4 +63,3 @@ if __name__ == "__main__":
 
     for message in stream_filtered_messages(trending_keywords):
         print(message)
-        break
