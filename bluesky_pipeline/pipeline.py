@@ -16,9 +16,6 @@ if __name__ == "__main__":
 
     load_dotenv()
 
-    # Initialize analyzer
-    analyzer = SentimentIntensityAnalyzer()
-
     # Create a keyword fetcher that uses the current environment
     def keyword_fetcher():
         return get_keywords(ENV)
@@ -27,14 +24,14 @@ if __name__ == "__main__":
     extracted = stream_filtered_messages(keyword_fetcher, refresh_interval=60)
 
     # 2. Transform: add sentiment scores
+    analyzer = SentimentIntensityAnalyzer()
     with_sentiment = add_sentiment(extracted, analyzer)
 
     # 3. Transform: add post URIs
     with_uri = add_uri(with_sentiment)
 
-    # 4. Process posts
-    try:
-        for post in with_uri:
-            print(post)  # For demonstration, print the transformed posts
-    except KeyboardInterrupt:
-        print("Pipeline stopped by user")
+    # 4. Load posts
+    conn = get_db_connection(ENV)
+    load_data(conn, with_uri, batch_size=100)
+    # for post in with_uri:
+    #     print(post)
