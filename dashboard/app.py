@@ -3,11 +3,164 @@ Trends Tracker Dashboard - Streamlit Mockup
 A multi-page dashboard for tracking social media trends and analytics.
 """
 
-import streamlit as st
-import pandas as pd
-import altair as alt
+import hashlib
+import hmac
+import logging
+import re
+import secrets
 from datetime import datetime, timedelta
+from os import environ as ENV, _Environ
+from typing import Optional
 import random
+
+import altair as alt
+import pandas as pd
+import psycopg2
+from psycopg2.extras import RealDictCursor
+import streamlit as st
+from dotenv import load_dotenv
+
+# ============== Logging Configuration ==============
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# ============== Environment Configuration ==============
+load_dotenv()
+
+# ============== Database Configuration ==============
+DB_CONFIG = {
+    "host": ENV.get("DB_HOST"),
+    "port": int(ENV.get("DB_PORT", 5432)),
+    "database": ENV.get("DB_NAME"),
+    "user": ENV.get("DB_USER"),
+    "password": ENV.get("DB_PASSWORD")
+}
+
+@st.cache_resource
+def get_db_connection() -> Optional[psycopg2.extensions.connection]:
+    """Get persistent database connection for the entire session."""
+    conn = psycopg2.connect(
+        host=DB_CONFIG.get("host"),
+        port=DB_CONFIG.get("port", 5432),
+        database=DB_CONFIG.get("database"),
+        user=DB_CONFIG.get("user"),
+        password=DB_CONFIG.get("password")
+    )
+    logger.info("Database connection established.")
+    return conn
+
+
+def get_user_by_username(cursor, email: str) -> Optional[dict]:
+    """Retrieve user details from database by username."""
+    query = "SELECT * FROM users WHERE email = %s"
+    cursor.execute(query, (email,))
+    result = cursor.fetchone()
+    return result
+
+
+def verify_password(stored_hash: str, entered_password: str) -> bool:
+    """Verify if entered password matches the stored hash. Uses PBKDF2-SHA256 for password hashing."""
+    parts = stored_hash.split("$")
+    if len(parts) != 3:
+        return False
+
+    salt, iterations_str, stored_hash_hex = parts
+
+    # Validate iterations is a valid integer
+    if not iterations_str.isdigit():
+        return False
+
+    iterations = int(iterations_str)
+
+    # Hash the entered password with the same salt
+    hashed = hashlib.pbkdf2_hmac(
+        "sha256",
+        entered_password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations
+    )
+
+    # Compare hashes using time constant comparison to prevent timing attacks
+    return hmac.compare_digest(hashed.hex(), stored_hash_hex)
+
+
+def authenticate_user(cursor, username: str, password: str) -> bool:
+    """Authenticate user by checking username and password."""
+    user = get_user_by_username(cursor, username)
+
+    if user is None:
+        return False
+
+    return verify_password(user["password_hash"], password)
+
+
+def generate_password_hash(password: str, iterations: int = 100000) -> str:
+    """Generate a password hash using PBKDF2-SHA256."""
+    if not password:
+        raise ValueError("Password cannot be empty")
+
+    # Generate a random salt
+    salt = secrets.token_hex(16)
+
+    # Hash the password
+    hashed = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations
+    )
+
+    # Return formatted hash
+    return f"{salt}${iterations}${hashed.hex()}"
+
+
+def validate_signup_input(email: str, password: str) -> bool:
+    """Validate signup input: email format and password length."""
+    if not email or not password:
+        return False
+
+    # Validate email format (basic check)
+    email_pattern = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    if not re.match(email_pattern, email):
+        return False
+
+    # Validate password length
+    if len(password) <= 8:
+        return False
+
+    return True
+
+
+def create_user(cursor, email: str, password_hash: str) -> bool:
+    """Insert a new user into the database."""
+    try:
+        query = "INSERT INTO users (email, password_hash) VALUES (%s, %s)"
+        cursor.execute(query, (email, password_hash))
+        cursor.connection.commit()
+        return True
+    except psycopg2.IntegrityError:
+        # Email already exists
+        cursor.connection.rollback()
+        return False
+    except psycopg2.Error as e:
+        logger.error(f"Database error creating user: {e}")
+        cursor.connection.rollback()
+        return False
+
+
+@st.cache_resource
+def get_db_connection_cleanup():
+    """Register cleanup for database connection on app exit."""
+    def close_conn():
+        conn = get_db_connection()
+        if conn:
+            conn.close()
+            logger.info("Database connection closed.")
+    return close_conn
+
+
+# Register cleanup
+_cleanup = get_db_connection_cleanup()
 
 # ============== Page Configuration ==============
 st.set_page_config(
@@ -105,19 +258,30 @@ def show_login_page():
 
     with tab1:
         st.markdown("#### Login to Your Account")
-        login_email = st.text_input("Email", key="login_email", placeholder="your@email.com")
+        login_username = st.text_input("Username", key="login_username", placeholder="your_username")
         login_password = st.text_input("Password", type="password", key="login_password")
 
-        col1, col2 = st.columns([1, 3])
+        col1, _ = st.columns([1, 3])
         with col1:
             if st.button("Login", type="primary", use_container_width=True):
-                # Placeholder: Accept any non-empty credentials
-                if login_email and login_password:
-                    st.session_state.logged_in = True
-                    st.session_state.username = login_email.split("@")[0]
-                    st.rerun()
+                if login_username and login_password:
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor(cursor_factory=RealDictCursor)
+                        is_authenticated = authenticate_user(cursor, login_username, login_password)
+                        cursor.close()
+
+                        if is_authenticated:
+                            st.session_state.logged_in = True
+                            st.session_state.username = login_username
+                            st.success("Login successful!")
+                            st.rerun()
+                        else:
+                            st.error("Invalid username or password.")
+                    else:
+                        st.error("Unable to connect to database. Please try again later.")
                 else:
-                    st.error("Please enter both email and password.")
+                    st.error("Please enter both username and password.")
 
     with tab2:
         st.markdown("#### Create a New Account")
@@ -126,20 +290,33 @@ def show_login_page():
         signup_password = st.text_input("Password", type="password", key="signup_password")
         signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm")
 
-        col1, col2 = st.columns([1, 3])
+        col1, _ = st.columns([1, 3])
         with col1:
             if st.button("Sign Up", type="primary", use_container_width=True):
-                # Placeholder: Accept any valid input
-                if signup_name and signup_email and signup_password:
-                    if signup_password == signup_confirm:
-                        st.session_state.logged_in = True
-                        st.session_state.username = signup_name.split()[0]
-                        st.success("Account created successfully!")
-                        st.rerun()
-                    else:
-                        st.error("Passwords do not match.")
+                if not signup_name:
+                    st.error("Please enter your full name.")
+                elif signup_password != signup_confirm:
+                    st.error("Passwords do not match.")
+                elif not validate_signup_input(signup_email, signup_password):
+                    st.error("Email must be valid and password must be longer than 8 characters.")
                 else:
-                    st.error("Please fill in all fields.")
+                    # Hash the password and create the user
+                    password_hash = generate_password_hash(signup_password)
+                    conn = get_db_connection()
+                    if conn:
+                        cursor = conn.cursor(cursor_factory=RealDictCursor)
+                        user_created = create_user(cursor, signup_email, password_hash)
+                        cursor.close()
+
+                        if user_created:
+                            st.session_state.logged_in = True
+                            st.session_state.username = signup_name.split()[0]
+                            st.success("Account created successfully!")
+                            st.rerun()
+                        else:
+                            st.error("Email already exists. Please use a different email.")
+                    else:
+                        st.error("Unable to connect to database. Please try again later.")
 
 
 # ============== Main Analytics Dashboard ==============
