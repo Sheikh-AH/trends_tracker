@@ -1,9 +1,11 @@
+"""Google Trends ETL Pipeline"""
 from gt_extract import extract
 from gt_transform import transform
 from gt_load import load
 
 
 def handler(event, context):
+    """The main handler for the Google Trends ETL pipeline."""
     print("=" * 50)
     print("Starting Google Trends Pipeline")
     print("=" * 50)

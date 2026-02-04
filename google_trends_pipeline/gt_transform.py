@@ -1,7 +1,9 @@
+"""Transform raw Google Trends data into structured format."""
 from datetime import datetime, timezone
 
 
-def transform(raw_data: list):
+def transform(raw_data: list) -> list:
+    """Transform raw Google Trends data into structured format."""
     if not raw_data:
         print("No data to transform")
         return []

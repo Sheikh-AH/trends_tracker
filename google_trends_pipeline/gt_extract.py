@@ -1,10 +1,14 @@
+"""This module extracts keyword search volume data from Google Trends
+using keywords stored in a PostgreSQL database."""
+
 import psycopg2
 from pytrends.request import TrendReq
 import time
 import os
 
 
-def get_db_connection():
+def get_db_connection() -> psycopg2.extensions.connection:
+    """Get a connection to the PostgreSQL database using environment variables."""
     return psycopg2.connect(
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
@@ -14,7 +18,8 @@ def get_db_connection():
     )
 
 
-def get_keywords_from_db():
+def get_keywords_from_db() -> set:
+    """Fetch distinct keywords from the database."""
     conn = get_db_connection()
     cur = conn.cursor()
     cur.execute("SELECT DISTINCT keyword_value FROM keywords")
@@ -26,7 +31,8 @@ def get_keywords_from_db():
     return keywords
 
 
-def get_search_volume(keywords: set):
+def get_search_volume(keywords: set) -> list:
+    """Fetch search volume data from Google Trends for the given keywords."""
     if not keywords:
         print("No keywords found in database")
         return []
@@ -60,7 +66,8 @@ def get_search_volume(keywords: set):
     return results
 
 
-def extract():
+def extract() -> list:
+    """Extract keyword search volume data from Google Trends using keywords from the database."""
     print("Extracting keywords from database...")
     keywords = get_keywords_from_db()
     print(f"Found {len(keywords)} keywords: {keywords}")

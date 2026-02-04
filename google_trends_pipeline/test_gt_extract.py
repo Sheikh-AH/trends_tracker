@@ -1,3 +1,4 @@
+"""Test suite for gt_extract module."""
 import pytest
 from unittest.mock import patch, MagicMock
 from gt_extract import get_keywords_from_db, get_search_volume, extract
