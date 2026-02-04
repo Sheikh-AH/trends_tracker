@@ -1,7 +1,7 @@
 """Load BlueSky data into PostgreSQL database."""
 
-from dotenv import load_dotenv
 from os import environ as ENV, _Environ
+from dotenv import load_dotenv
 import psycopg2
 
 

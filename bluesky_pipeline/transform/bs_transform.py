@@ -1,7 +1,5 @@
 """Enriches extracted data with sentiment analysis."""
 
-from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
-
 
 def add_sentiment(stream, analyzer):
     """Add sentiment score to each post."""
@@ -21,5 +19,4 @@ def add_uri(stream):
 
 
 if __name__ == "__main__":
-    # analyzer = SentimentIntensityAnalyzer()
     pass
