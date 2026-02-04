@@ -44,7 +44,7 @@ def upload_batch(posts, connection):
     # Insert into matches (one row per keyword per post)
     match_rows = []
     for p in posts:
-        for keyword in p["keywords"]:
+        for keyword in p["matching_keywords"]:
             match_rows.append((p["post_uri"], keyword))
 
     if match_rows:

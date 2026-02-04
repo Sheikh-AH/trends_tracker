@@ -14,7 +14,7 @@ def add_sentiment(stream, analyzer):
 def add_uri(stream):
     """Add a unique URI to each post based on author DID and rkey."""
     for post in stream:
-        did = post.get("commit", {}).get("author", {}).get("did", "")
+        did = post.get("did", "")
         rkey = post.get("commit", {}).get("rkey", "")
         post["post_uri"] = f"at://{did}/app.bsky.feed.post/{rkey}"
         yield post

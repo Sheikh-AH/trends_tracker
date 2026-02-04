@@ -8,7 +8,8 @@ Provides functions for:
 
 import json
 import re
-from typing import Optional
+import time
+from typing import Optional, Callable
 from os import _Environ
 
 import websocket
@@ -26,6 +27,8 @@ def get_keywords(config: _Environ):
         cursor.execute("SELECT keyword_value FROM keywords")
         rows = cursor.fetchall()
     conn.close()
+    if not rows:
+        return set()
     return {row[0] for row in rows}
 
 
@@ -58,9 +61,27 @@ def keyword_match(keywords: set, post_text: str) -> Optional[set]:
     return matching if matching else None
 
 
-def stream_filtered_messages(keywords: set):
-    """Stream only messages with posts matching keywords."""
+def stream_filtered_messages(keyword_fetcher: Callable[[], set], refresh_interval: int = 60):
+    """Stream only messages with posts matching keywords.
+
+    Args:
+        keyword_fetcher: A callable that returns the current set of keywords.
+        refresh_interval: How often (in seconds) to refresh keywords from the database.
+    """
+    keywords = keyword_fetcher()
+    last_refresh = time.time()
+    print(f"Starting with keywords: {keywords}")
+
     for msg in stream_messages():
+        # Refresh keywords periodically
+        current_time = time.time()
+        if current_time - last_refresh >= refresh_interval:
+            new_keywords = keyword_fetcher()
+            if new_keywords != keywords:
+                print(f"Keywords updated: {keywords} -> {new_keywords}")
+                keywords = new_keywords
+            last_refresh = current_time
+
         if msg.get("kind") != "commit":
             continue
         post_text = msg.get("commit", {}).get("record", {}).get("text", "")
