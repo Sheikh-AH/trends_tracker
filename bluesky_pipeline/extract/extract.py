@@ -1,12 +1,17 @@
 """Extract and filter posts from Bluesky Jetstream matching specified keywords."""
 
+import sys
 import json
 import re
 import time
 from typing import Optional, Callable
 from os import _Environ
+from pathlib import Path
 
 import websocket
+
+# Add load directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent / "load"))
 
 from load.bs_load import get_db_connection
 

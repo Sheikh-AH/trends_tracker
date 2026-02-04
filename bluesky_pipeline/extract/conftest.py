@@ -1,7 +1,14 @@
 """Shared pytest fixtures for extract tests."""
 
+import sys
+from pathlib import Path
+
 import pytest
-from .extract import compile_keyword_patterns
+
+# Add parent directory to path so imports work
+sys.path.insert(0, str(Path(__file__).parent))
+
+from extract import compile_keyword_patterns
 
 
 @pytest.fixture
