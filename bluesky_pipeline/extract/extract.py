@@ -22,7 +22,7 @@ URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsk
 logger = logging.getLogger(__name__)
 
 
-def get_keywords(cursor, config: _Environ):
+def get_keywords(cursor):
     """Get keywords from database."""
     cursor.execute("SELECT keyword_value FROM keywords")
     rows = cursor.fetchall()
