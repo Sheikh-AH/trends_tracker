@@ -162,6 +162,46 @@ def get_db_connection_cleanup():
 # Register cleanup
 _cleanup = get_db_connection_cleanup()
 
+
+# ============== Keyword Management Functions ==============
+
+def add_user_keyword(cursor, user_id: int, keyword: str) -> bool:
+    """Add a keyword to a user's tracked keywords."""
+    # Insert keyword into keywords table (case-insensitive, do nothing on conflict)
+    cursor.execute(
+        "INSERT INTO keywords (keyword_value) VALUES (LOWER(%s)) ON CONFLICT (keyword_value) DO NOTHING",
+        (keyword,)
+    )
+
+    # Add entry to user_keywords table mapping user to keyword
+    cursor.execute(
+        "INSERT INTO user_keywords (user_id, keyword_id) SELECT %s, keyword_id FROM keywords WHERE LOWER(keyword_value) = LOWER(%s)",
+        (user_id, keyword)
+    )
+    cursor.connection.commit()
+    return True
+
+
+def remove_user_keyword(cursor, user_id: int, keyword: str) -> bool:
+    """Remove a keyword from a user's tracked keywords."""
+    cursor.execute(
+        "DELETE FROM user_keywords WHERE user_id = %s AND keyword_id IN (SELECT keyword_id FROM keywords WHERE LOWER(keyword_value) = LOWER(%s))",
+        (user_id, keyword)
+    )
+    cursor.connection.commit()
+    return True
+
+
+def get_user_keywords(cursor, user_id: int) -> list:
+    """Retrieve all keywords for a user."""
+    cursor.execute(
+        "SELECT k.keyword_value FROM keywords k JOIN user_keywords uk ON k.keyword_id = uk.keyword_id WHERE uk.user_id = %s ORDER BY k.keyword_value",
+        (user_id,)
+    )
+    results = cursor.fetchall()
+    return [row["keyword_value"] for row in results] if results else []
+
+
 # ============== Page Configuration ==============
 st.set_page_config(
     page_title="Trends Tracker",
@@ -175,6 +215,8 @@ if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
     st.session_state.username = ""
+if "user_id" not in st.session_state:
+    st.session_state.user_id = None
 if "keywords" not in st.session_state:
     st.session_state.keywords = ["matcha", "boba", "coffee"]
 if "alerts_enabled" not in st.session_state:
@@ -269,14 +311,19 @@ def show_login_page():
                     if conn:
                         cursor = conn.cursor(cursor_factory=RealDictCursor)
                         is_authenticated = authenticate_user(cursor, login_username, login_password)
-                        cursor.close()
 
                         if is_authenticated:
+                            # Get user_id from database
+                            user = get_user_by_username(cursor, login_username)
+                            cursor.close()
+
                             st.session_state.logged_in = True
                             st.session_state.username = login_username
+                            st.session_state.user_id = user["user_id"]
                             st.success("Login successful!")
                             st.rerun()
                         else:
+                            cursor.close()
                             st.error("Invalid username or password.")
                     else:
                         st.error("Unable to connect to database. Please try again later.")
@@ -306,14 +353,19 @@ def show_login_page():
                     if conn:
                         cursor = conn.cursor(cursor_factory=RealDictCursor)
                         user_created = create_user(cursor, signup_email, password_hash)
-                        cursor.close()
 
                         if user_created:
+                            # Get the newly created user's ID
+                            user = get_user_by_username(cursor, signup_email)
+                            cursor.close()
+
                             st.session_state.logged_in = True
                             st.session_state.username = signup_name.split()[0]
+                            st.session_state.user_id = user["user_id"]
                             st.success("Account created successfully!")
                             st.rerun()
                         else:
+                            cursor.close()
                             st.error("Email already exists. Please use a different email.")
                     else:
                         st.error("Unable to connect to database. Please try again later.")
@@ -540,6 +592,16 @@ def show_topics_dashboard():
 
     st.markdown("---")
 
+    # Load keywords from database on first visit
+    if "keywords_loaded" not in st.session_state:
+        conn = get_db_connection()
+        if conn and st.session_state.user_id:
+            cursor = conn.cursor(cursor_factory=RealDictCursor)
+            db_keywords = get_user_keywords(cursor, st.session_state.user_id)
+            cursor.close()
+            st.session_state.keywords = db_keywords
+            st.session_state.keywords_loaded = True
+
     # Add new keyword section
     st.markdown("### ➕ Add New Keyword")
     col1, col2 = st.columns([3, 1])
@@ -554,6 +616,14 @@ def show_topics_dashboard():
         if st.button("Add Keyword", type="primary", use_container_width=True):
             if new_keyword:
                 if new_keyword.lower() not in [k.lower() for k in st.session_state.keywords]:
+                    # Add to database
+                    conn = get_db_connection()
+                    if conn and st.session_state.user_id:
+                        cursor = conn.cursor(cursor_factory=RealDictCursor)
+                        add_user_keyword(cursor, st.session_state.user_id, new_keyword)
+                        cursor.close()
+
+                    # Add to session state
                     st.session_state.keywords.append(new_keyword.lower())
                     st.success(f'Added "{new_keyword}" to your keywords!')
                     st.rerun()
@@ -588,47 +658,18 @@ def show_topics_dashboard():
                     """, unsafe_allow_html=True)
                 with col_b:
                     if st.button("🗑️", key=f"delete_{idx}"):
+                        # Remove from database
+                        conn = get_db_connection()
+                        if conn and st.session_state.user_id:
+                            cursor = conn.cursor(cursor_factory=RealDictCursor)
+                            remove_user_keyword(cursor, st.session_state.user_id, keyword)
+                            cursor.close()
+
+                        # Remove from session state
                         st.session_state.keywords.remove(keyword)
                         st.rerun()
 
         st.markdown("---")
-
-        # Bulk actions
-        st.markdown("### ⚡ Bulk Actions")
-        col1, col2, col3 = st.columns(3)
-
-        with col1:
-            if st.button("Clear All Keywords", type="secondary"):
-                st.session_state.keywords = []
-                st.rerun()
-
-        with col2:
-            # Import keywords from text
-            keywords_text = st.text_area(
-                "Import keywords (comma-separated)",
-                placeholder="keyword1, keyword2, keyword3",
-                height=100
-            )
-
-        with col3:
-            if st.button("Import Keywords"):
-                if keywords_text:
-                    new_keywords = [k.strip().lower() for k in keywords_text.split(",") if k.strip()]
-                    for kw in new_keywords:
-                        if kw not in st.session_state.keywords:
-                            st.session_state.keywords.append(kw)
-                    st.success(f"Imported {len(new_keywords)} keywords!")
-                    st.rerun()
-    else:
-        st.info("No keywords added yet. Add your first keyword above!")
-
-    st.markdown("---")
-
-    # Keyword statistics placeholder
-    st.markdown("### 📊 Keyword Statistics")
-    st.markdown(f"**Total Keywords:** {len(st.session_state.keywords)}")
-    st.markdown("*Detailed keyword performance stats will be available when connected to the database.*")
-
 
 # ============== Alerts Dashboard ==============
 def show_alerts_dashboard():
@@ -752,6 +793,7 @@ def show_sidebar():
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.username = ""
+            st.session_state.user_id = None
             st.rerun()
 
         st.markdown("---")
