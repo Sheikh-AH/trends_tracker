@@ -114,24 +114,24 @@ class TestDetectSpikes:
     @patch('alert_detect.get_average_5_min_count_last_24h')
     @patch('alert_detect.get_post_count_last_5_min')
     @patch('alert_detect.get_all_keywords')
-    def test_detects_spike_when_count_is_double_average(self, mock_keywords, mock_current, mock_average):
+    def test_detects_spike_when_count_is_triple_average(self, mock_keywords, mock_current, mock_average):
         mock_keywords.return_value = ['matcha']
-        mock_current.return_value = 20
-        mock_average.return_value = 5
+        mock_current.return_value = 60
+        mock_average.return_value = 10
 
         result = detect_spikes()
 
         assert len(result) == 1
         assert result[0]['keyword'] == 'matcha'
-        assert result[0]['current_count'] == 20
-        assert result[0]['average_count'] == 5
+        assert result[0]['current_count'] == 60
+        assert result[0]['average_count'] == 10
 
     @patch('alert_detect.get_average_5_min_count_last_24h')
     @patch('alert_detect.get_post_count_last_5_min')
     @patch('alert_detect.get_all_keywords')
     def test_no_spike_when_count_below_threshold(self, mock_keywords, mock_current, mock_average):
         mock_keywords.return_value = ['matcha']
-        mock_current.return_value = 3  # Below minimum of 5
+        mock_current.return_value = 49  # Below minimum of 50
         mock_average.return_value = 1
 
         result = detect_spikes()
@@ -141,10 +141,10 @@ class TestDetectSpikes:
     @patch('alert_detect.get_average_5_min_count_last_24h')
     @patch('alert_detect.get_post_count_last_5_min')
     @patch('alert_detect.get_all_keywords')
-    def test_no_spike_when_count_not_double_average(self, mock_keywords, mock_current, mock_average):
+    def test_no_spike_when_count_not_triple_average(self, mock_keywords, mock_current, mock_average):
         mock_keywords.return_value = ['matcha']
-        mock_current.return_value = 8
-        mock_average.return_value = 5  # 8 is not 2x 5
+        mock_current.return_value = 29
+        mock_average.return_value = 10  # 29 is not 3x 10
 
         result = detect_spikes()
 
@@ -177,11 +177,11 @@ class TestDetectSpikes:
     @patch('alert_detect.get_all_keywords')
     def test_detects_multiple_spikes(self, mock_keywords, mock_current, mock_average):
         mock_keywords.return_value = ['matcha', 'coffee', 'tea']
-        mock_current.side_effect = [20, 5, 15]
-        mock_average.side_effect = [5, 5, 5]
+        mock_current.side_effect = [60, 55, 10]
+        mock_average.side_effect = [10, 10, 2]
 
         result = detect_spikes()
 
         assert len(result) == 2
         assert result[0]['keyword'] == 'matcha'
-        assert result[1]['keyword'] == 'tea'
+        assert result[1]['keyword'] == 'coffee'
