@@ -1,3 +1,4 @@
+"""Extract and transform example for Bluesky pipeline."""
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 from extract import stream_filtered_messages
 
@@ -48,6 +49,7 @@ def batch(stream, size: int):
 
 
 def main():
+    """Main function to demonstrate extraction and transformation."""
     keywords = {"trump", "and", "biden",
                 "election", "vaccine", "covid", "pandemic"}
     analyzer = SentimentIntensityAnalyzer()
