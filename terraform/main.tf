@@ -258,7 +258,7 @@ resource "aws_scheduler_schedule" "gt_pipeline_schedule" {
     mode = "OFF"
   }
 
-  schedule_expression = "cron(0 7 * * ? *)"
+  schedule_expression = "cron(0 15 * * ? *)"
 
   target {
     arn      = aws_lambda_function.gt_pipeline.arn
@@ -455,5 +455,195 @@ resource "aws_ecs_service" "bluesky_service" {
   tags = {
     Name        = "c21-bluesky-service"
     Environment = var.environment
+  }
+}
+
+# ECR Repository for Alert System
+resource "aws_ecr_repository" "alert_system" {
+  name                 = "c21-trends-alert-system"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "c21-trends-alert-system"
+    Environment = var.environment
+  }
+}
+
+output "alert_system_ecr_uri" {
+  description = "ECR repository URI for Alert System"
+  value       = aws_ecr_repository.alert_system.repository_url
+}
+
+# IAM Role for Alert Lambda
+resource "aws_iam_role" "alert_lambda_role" {
+  name = "c21-trends-alert-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "c21-trends-alert-lambda-role"
+    Environment = var.environment
+  }
+}
+
+# IAM Policy for Alert Lambda (CloudWatch Logs + VPC + SES)
+resource "aws_iam_role_policy" "alert_lambda_policy" {
+  name = "c21-trends-alert-lambda-policy"
+  role = aws_iam_role.alert_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface"
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:SendEmail",
+          "ses:SendRawEmail"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Security Group for Alert Lambda
+resource "aws_security_group" "alert_lambda_sg" {
+  name        = "c21-trends-alert-lambda-sg"
+  description = "Security group for Alert Lambda"
+  vpc_id      = data.aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "c21-trends-alert-lambda-sg"
+    Environment = var.environment
+  }
+}
+
+# Alert Lambda Function
+# Uses ECR URI: 129033205317.dkr.ecr.eu-west-2.amazonaws.com/c21-trends-alert-system
+resource "aws_lambda_function" "alert_system" {
+  function_name = "c21-trends-alert-system"
+  role          = aws_iam_role.alert_lambda_role.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.alert_system.repository_url}:latest"
+  timeout       = 300
+  memory_size   = 512
+
+  vpc_config {
+    subnet_ids         = var.public_subnet_ids
+    security_group_ids = [aws_security_group.alert_lambda_sg.id]
+  }
+
+  environment {
+    variables = {
+      DB_HOST      = aws_db_instance.trends_db.address
+      DB_PORT      = "5432"
+      DB_NAME      = var.db_name
+      DB_USER      = var.db_username
+      DB_PASSWORD  = var.db_password
+      AWS_REGION_NAME   = var.aws_region
+      SENDER_EMAIL = "sl-coaches@proton.me"
+    }
+  }
+
+  tags = {
+    Name        = "c21-trends-alert-system"
+    Environment = var.environment
+  }
+}
+
+# IAM Role for Alert Scheduler
+resource "aws_iam_role" "alert_scheduler_role" {
+  name = "c21-trends-alert-scheduler-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "c21-trends-alert-scheduler-role"
+    Environment = var.environment
+  }
+}
+
+# IAM Policy for Alert Scheduler to invoke Lambda
+resource "aws_iam_role_policy" "alert_scheduler_policy" {
+  name = "c21-trends-alert-scheduler-policy"
+  role = aws_iam_role.alert_scheduler_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.alert_system.arn
+      }
+    ]
+  })
+}
+
+# EventBridge Schedule (runs every 5 minutes)
+resource "aws_scheduler_schedule" "alert_system_schedule" {
+  name       = "c21-trends-alert-system-schedule"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = "rate(5 minutes)"
+
+  target {
+    arn      = aws_lambda_function.alert_system.arn
+    role_arn = aws_iam_role.alert_scheduler_role.arn
   }
 }
