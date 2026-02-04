@@ -1,7 +1,7 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY reqs_gt_pipeline.txt .
+RUN pip install --no-cache-dir -r reqs_gt_pipeline.txt
 
 COPY gt_extract.py .
 COPY gt_transform.py .
