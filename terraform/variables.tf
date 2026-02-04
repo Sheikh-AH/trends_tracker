@@ -43,3 +43,13 @@ variable "environment" {
   description = "Environment name"
   type        = string
 }
+
+variable "public_subnet_ids" {
+  description = "Public subnet IDs for Lambda VPC config"
+  type        = list(string)
+  default     = [
+    "subnet-0b2624702047deb8b",
+    "subnet-0fbc8bed69fb32837",
+    "subnet-00c5753756bd9f245"
+  ]
+}
