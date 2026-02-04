@@ -6,7 +6,6 @@ variable "aws_region" {
 variable "vpc_id" {
   description = "VPC ID to deploy into"
   type        = string
-  default     = "vpc-00e544d2dfe3f7848"
 }
 
 variable "db_name" {
