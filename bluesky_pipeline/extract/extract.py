@@ -9,11 +9,24 @@ Provides functions for:
 import json
 import re
 from typing import Optional
+from os import _Environ
 
 import websocket
 
+from load.bs_load import get_db_connection
+
 
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
+
+
+def get_keywords(config: _Environ):
+    """Get keywords from database."""
+    conn = get_db_connection(config)
+    with conn.cursor() as cursor:
+        cursor.execute("SELECT keyword_value FROM keywords")
+        rows = cursor.fetchall()
+    conn.close()
+    return {row[0] for row in rows}
 
 
 def stream_messages():
