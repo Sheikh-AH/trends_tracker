@@ -13,7 +13,7 @@ import websocket
 # Add load directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "load"))
 
-from load.bs_load import get_db_connection
+from bs_load import get_db_connection
 
 
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
