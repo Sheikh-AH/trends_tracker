@@ -4,6 +4,7 @@ import sys
 import json
 import re
 import time
+import logging
 from typing import Optional, Callable
 from os import _Environ
 from pathlib import Path
@@ -18,6 +19,8 @@ from bs_load import get_db_connection
 
 URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsky.feed.post"
 
+logger = logging.getLogger(__name__)
+
 
 def get_keywords(config: _Environ):
     """Get keywords from database."""
@@ -27,7 +30,9 @@ def get_keywords(config: _Environ):
         rows = cursor.fetchall()
     conn.close()
     if not rows:
+        logger.info("No keywords found in database.")
         return set()
+    logger.info(f"Fetched keywords from database: {rows}")
     return {row[0] for row in rows}
 
 
@@ -79,10 +84,12 @@ def stream_filtered_messages(keyword_fetcher: Callable[[], set]):
         # Refresh keywords periodically
         current_time = time.time()
         if current_time - last_refresh >= refresh_interval:
+            logger.info("Refreshing keywords from database.")
             new_keywords = keyword_fetcher()
             if new_keywords != keywords:
                 keywords = new_keywords
                 compiled_patterns = compile_keyword_patterns(keywords)
+                logger.info(f"Keywords updated: {keywords}")
             last_refresh = current_time
 
         if msg.get("kind") != "commit":

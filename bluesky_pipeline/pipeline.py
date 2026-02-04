@@ -2,6 +2,7 @@
 """Main pipeline: Extract -> Transform -> Load."""
 
 import sys
+import logging
 from pathlib import Path
 from os import environ as ENV
 from dotenv import load_dotenv
@@ -19,20 +20,31 @@ from bs_load import load_data, get_db_connection
 
 if __name__ == "__main__":
 
+    # Configure logging
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
+    logger = logging.getLogger(__name__)
+
     load_dotenv()
+    conn = get_db_connection(ENV)
+
+    
+    def keyword_updater():
+        """Function to get updated keywords from environment."""
+        return get_keywords(ENV)
 
     # 1. Extract: stream filtered messages from Bluesky (refreshes keywords every 60s)
-    extracted = stream_filtered_messages(lambda: get_keywords(ENV))
-
+    extracted = stream_filtered_messages(keyword_updater)
+    logger.info("Completed extraction of messages.")
     # 2. Transform: add sentiment scores
     analyzer = SentimentIntensityAnalyzer()
     with_sentiment = add_sentiment(extracted, analyzer)
-
+    logger.info("Completed sentiment analysis.")
     # 3. Transform: add post URIs
     with_uri = add_uri(with_sentiment)
-
+    logger.info("Added URIs to posts.")
     # 4. Load posts
-    conn = get_db_connection(ENV)
     load_data(conn, with_uri, batch_size=100)
-    # for post in with_uri:
-    #     print(post)
+    logger.info("Loaded data into database.")

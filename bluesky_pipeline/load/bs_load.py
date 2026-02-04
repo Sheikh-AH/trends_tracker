@@ -1,8 +1,11 @@
 """Load BlueSky data into PostgreSQL database."""
 
+import logging
 from os import environ as ENV, _Environ
 from dotenv import load_dotenv
 import psycopg2
+
+logger = logging.getLogger(__name__)
 
 
 def get_db_connection(config: _Environ):
@@ -14,6 +17,7 @@ def get_db_connection(config: _Environ):
         host=config.get("DB_HOST"),
         port=config.get("DB_PORT", 5432)
     )
+    logger.info("Database connection established.")
     return conn
 
 
@@ -23,6 +27,7 @@ def upload_batch(posts, connection):
         return
 
     cursor = connection.cursor()
+    logger.info(f"Uploading batch of {len(posts)} posts to database.")
 
     # Insert into bluesky_posts
     cursor.executemany(
@@ -42,6 +47,8 @@ def upload_batch(posts, connection):
         ) for p in posts]
     )
 
+    logger.info("Inserted posts into bluesky_posts table.")
+
     # Insert into matches (one row per keyword per post)
     match_rows = []
     for p in posts:
@@ -56,12 +63,15 @@ def upload_batch(posts, connection):
             match_rows
         )
 
+        logger.info("Inserted matching keywords into matches table.")
+
     connection.commit()
 
 
 def load_data(conn, posts, batch_size: int = 500):
     """Load posts into the database in batches."""
 
+    logger.info("Starting data load into database...")
     buffer = []
 
     for post in posts:
@@ -70,6 +80,7 @@ def load_data(conn, posts, batch_size: int = 500):
             upload_batch(buffer, conn)
             buffer = []
 
+    logger.info("Data load complete.")
     # Flush remaining
     if buffer:
         upload_batch(buffer, conn)
@@ -78,7 +89,4 @@ def load_data(conn, posts, batch_size: int = 500):
 
 
 if __name__ == "__main__":
-    load_dotenv()
-    conn = get_db_connection(ENV)
-    posts = []  # Replace with actual posts to load
-    load_data(conn, posts)
+    pass
