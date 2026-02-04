@@ -36,7 +36,8 @@ def upload_batch(posts, connection):
             p["did"],
             p["commit"]["record"]["text"],
             p["sentiment"],
-            p.get("reply_uri"),
+            p.get("commit", {}).get("record", {}).get(
+                "reply", {}).get("parent", {}).get("uri"),
             p.get("repost_uri"),
         ) for p in posts]
     )
