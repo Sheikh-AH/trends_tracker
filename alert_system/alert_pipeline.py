@@ -33,4 +33,6 @@ def handler(event, context):
 
 
 if __name__ == "__main__":
+    from dotenv import load_dotenv
+    load_dotenv()
     handler(None, None)
