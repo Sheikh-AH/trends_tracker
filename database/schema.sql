@@ -37,13 +37,13 @@ CREATE TABLE bluesky_posts (
 CREATE TABLE matches (
     match_id BIGSERIAL PRIMARY KEY,
     post_uri VARCHAR(255) REFERENCES bluesky_posts(post_uri) ON DELETE CASCADE,
-    keyword_value VARCHAR(255)
+    keyword_value VARCHAR(255) REFERENCES keywords(keyword_value) ON DELETE CASCADE
 );
 
 -- Google trends table
 CREATE TABLE google_trends (
     trend_id BIGSERIAL PRIMARY KEY,
-    keyword_value VARCHAR(255),
+    keyword_value VARCHAR(255) REFERENCES keywords(keyword_value) ON DELETE CASCADE,
     search_volume BIGINT,
     trend_date TIMESTAMP,
     ingested_at TIMESTAMP DEFAULT NOW()
