@@ -1,3 +1,4 @@
+# pylint: skip-file
 """Test suite for the gt_transform module."""
 import pytest
 from datetime import datetime, timezone

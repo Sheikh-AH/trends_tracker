@@ -1,3 +1,4 @@
+# pylint: skip-file
 """Test suite for gt_extract module."""
 import pytest
 from unittest.mock import patch, MagicMock
