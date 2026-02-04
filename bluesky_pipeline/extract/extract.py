@@ -43,34 +43,38 @@ def stream_messages():
         ws.close()
 
 
-def keyword_match(keywords: set, post_text: str) -> Optional[set]:
-    """Return a set of keywords that match as whole words in post_text using regex"""
-    if not keywords or not post_text:
+def compile_keyword_patterns(keywords: set) -> dict:
+    """Pre-compile regex patterns for all keywords."""
+    compiled = {}
+    for keyword in keywords:
+        keyword_lower = keyword.lower()
+        pattern = r"(?:^|\W)" + re.escape(keyword_lower) + r"\w{0,3}(?:\W|$)"
+        compiled[keyword] = re.compile(pattern)
+    return compiled
+
+
+def keyword_match(compiled_patterns: dict, post_text: str) -> Optional[set]:
+    """Return a set of keywords that match as whole words in post_text using pre-compiled regex"""
+    if not compiled_patterns or not post_text:
         return None
 
     matching = set()
     text_lower = post_text.lower()
 
-    for keyword in keywords:
-        keyword_lower = keyword.lower()
-        # Match keyword as a prefix of a word (e.g., 'plant' matches 'plants', 'planting')
-        pattern = r"(?:^|\W)" + re.escape(keyword_lower) + r"\w{0,3}(?:\W|$)"
-        if re.search(pattern, text_lower):
+    for keyword, pattern in compiled_patterns.items():
+        if pattern.search(text_lower):
             matching.add(keyword)
 
     return matching if matching else None
 
 
-def stream_filtered_messages(keyword_fetcher: Callable[[], set], refresh_interval: int = 60):
-    """Stream only messages with posts matching keywords.
+def stream_filtered_messages(keyword_fetcher: Callable[[], set]):
+    """Stream only messages with posts matching keywords."""
 
-    Args:
-        keyword_fetcher: A callable that returns the current set of keywords.
-        refresh_interval: How often (in seconds) to refresh keywords from the database.
-    """
     keywords = keyword_fetcher()
+    compiled_patterns = compile_keyword_patterns(keywords)
     last_refresh = time.time()
-    print(f"Starting with keywords: {keywords}")
+    refresh_interval = 60
 
     for msg in stream_messages():
         # Refresh keywords periodically
@@ -78,27 +82,20 @@ def stream_filtered_messages(keyword_fetcher: Callable[[], set], refresh_interva
         if current_time - last_refresh >= refresh_interval:
             new_keywords = keyword_fetcher()
             if new_keywords != keywords:
-                print(f"Keywords updated: {keywords} -> {new_keywords}")
                 keywords = new_keywords
+                compiled_patterns = compile_keyword_patterns(keywords)
             last_refresh = current_time
 
         if msg.get("kind") != "commit":
             continue
-        
-        record = msg.get("commit", {}).get("record", {})
-        post_text = record.get("text", "")
-        matching_kws = keyword_match(keywords, post_text)
+
+        post_text = msg.get("commit", {}).get("record", {}).get("text", "")
+        matching_kws = keyword_match(compiled_patterns, post_text)
 
         if matching_kws:
             msg["matching_keywords"] = list(matching_kws)
-            # Extract reply_uri for comments (None if not a reply)
-            msg["reply_uri"] = record.get("reply", {}).get("parent", {}).get("uri")
-            msg["repost_uri"] = None  # Not handling reposts
             yield msg
 
 
 if __name__ == "__main__":
-    trending_keywords = {"cat"}
-
-    for message in stream_filtered_messages(trending_keywords):
-        print(message)
+    pass
