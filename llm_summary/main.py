@@ -25,6 +25,9 @@ from typing import Optional
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 from requests import post, exceptions
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configure logging - console only
 logging.basicConfig(
@@ -372,7 +375,7 @@ def lambda_handler(event, context):
                 continue
 
             success = process_user(conn, user_id, email)
-
+            
             if success:
                 results["succeeded"] += 1
                 results["users"].append({
@@ -412,4 +415,5 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
-    pass
+    result = lambda_handler({}, None)
+    print(json.dumps(json.loads(result["body"]), indent=2))
