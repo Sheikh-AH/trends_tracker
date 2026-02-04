@@ -3,7 +3,7 @@ from gt_transform import transform
 from gt_load import load
 
 
-def run_pipeline():
+def handler(event, context):
     print("=" * 50)
     print("Starting Google Trends Pipeline")
     print("=" * 50)
@@ -13,14 +13,20 @@ def run_pipeline():
 
     if not raw_data:
         print("Pipeline stopped: No data extracted")
-        return
+        return {
+            "statusCode": 200,
+            "body": "No keywords found"
+        }
 
     # Transform
     transformed_data = transform(raw_data)
 
     if not transformed_data:
         print("Pipeline stopped: No data transformed")
-        return
+        return {
+            "statusCode": 200,
+            "body": "No data transformed"
+        }
 
     # Load
     load(transformed_data)
@@ -29,8 +35,13 @@ def run_pipeline():
     print("Pipeline complete")
     print("=" * 50)
 
+    return {
+        "statusCode": 200,
+        "body": f"Loaded {len(transformed_data)} records"
+    }
+
 
 if __name__ == "__main__":
     from dotenv import load_dotenv
     load_dotenv()
-    run_pipeline()
+    handler(None, None)
