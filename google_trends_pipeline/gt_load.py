@@ -1,8 +1,9 @@
+"""This module loads keyword search volume data into a PostgreSQL database."""
 import psycopg2
 import os
 
 
-def get_db_connection():
+def get_db_connection() -> psycopg2.extensions.connection:
     return psycopg2.connect(
         host=os.getenv("DB_HOST"),
         port=os.getenv("DB_PORT"),
@@ -12,7 +13,8 @@ def get_db_connection():
     )
 
 
-def load(data: list):
+def load(data: list) -> None:
+    """Load keyword search volume data into the PostgreSQL database."""
     if not data:
         print("No data to load")
         return
