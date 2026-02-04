@@ -3,5 +3,6 @@ pytest
 pytrends
 psycopg2
 pytest-asyncio
-websocket
+websocket-client
 vaderSentiment
+python-dotenv
