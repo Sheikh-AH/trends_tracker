@@ -12,9 +12,9 @@ sys.path.insert(0, str(Path(__file__).parent / "extract"))
 sys.path.insert(0, str(Path(__file__).parent / "transform"))
 sys.path.insert(0, str(Path(__file__).parent / "load"))
 
-from extract.extract import stream_filtered_messages, get_keywords
-from transform.bs_transform import add_sentiment, add_uri
-from load.bs_load import load_data, get_db_connection
+from extract import stream_filtered_messages, get_keywords
+from bs_transform import add_sentiment, add_uri
+from bs_load import load_data, get_db_connection
 
 
 if __name__ == "__main__":
