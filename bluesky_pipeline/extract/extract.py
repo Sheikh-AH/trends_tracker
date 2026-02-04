@@ -22,13 +22,10 @@ URI = "wss://jetstream2.us-east.bsky.network/subscribe?wantedCollections=app.bsk
 logger = logging.getLogger(__name__)
 
 
-def get_keywords(config: _Environ):
+def get_keywords(cursor, config: _Environ):
     """Get keywords from database."""
-    conn = get_db_connection(config)
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT keyword_value FROM keywords")
-        rows = cursor.fetchall()
-    conn.close()
+    cursor.execute("SELECT keyword_value FROM keywords")
+    rows = cursor.fetchall()
     if not rows:
         logger.info("No keywords found in database.")
         return set()

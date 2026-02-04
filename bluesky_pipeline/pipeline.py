@@ -33,7 +33,8 @@ if __name__ == "__main__":
     
     def keyword_updater():
         """Function to get updated keywords from environment."""
-        return get_keywords(ENV)
+        with conn.cursor() as cursor:
+            return get_keywords(cursor, ENV)
 
     # 1. Extract: stream filtered messages from Bluesky (refreshes keywords every 60s)
     extracted = stream_filtered_messages(keyword_updater)
