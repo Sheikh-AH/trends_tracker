@@ -1,9 +1,16 @@
 # pylint: disable=import-error
 """Main pipeline: Extract -> Transform -> Load."""
 
+import sys
+from pathlib import Path
 from os import environ as ENV
 from dotenv import load_dotenv
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+# Add subdirectories to path
+sys.path.insert(0, str(Path(__file__).parent / "extract"))
+sys.path.insert(0, str(Path(__file__).parent / "transform"))
+sys.path.insert(0, str(Path(__file__).parent / "load"))
 
 from extract.extract import stream_filtered_messages, get_keywords
 from transform.bs_transform import add_sentiment, add_uri
