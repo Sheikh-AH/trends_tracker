@@ -89,8 +89,8 @@ def detect_spikes() -> list[dict]:
         current_count = get_post_count_last_5_min(keyword)
         average_count = get_average_5_min_count_last_24h(keyword)
 
-        # Spike if current count is 2x the average (and at least 5 posts)
-        if current_count >= 5 and average_count > 0 and current_count >= (average_count * 2):
+        # Spike if current count is 3x the average (and at least 50 posts)
+        if current_count >= 50 and average_count > 0 and current_count >= (average_count * 3):
             print(
                 f"SPIKE: {keyword} - {current_count} posts (avg: {average_count:.1f})")
             spiking_keywords.append({
