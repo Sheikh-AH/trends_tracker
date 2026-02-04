@@ -39,13 +39,16 @@ if __name__ == "__main__":
     # 1. Extract: stream filtered messages from Bluesky (refreshes keywords every 60s)
     extracted = stream_filtered_messages(keyword_updater)
     logger.info("Completed extraction of messages.")
+
     # 2. Transform: add sentiment scores
     analyzer = SentimentIntensityAnalyzer()
     with_sentiment = add_sentiment(extracted, analyzer)
     logger.info("Completed sentiment analysis.")
+
     # 3. Transform: add post URIs
     with_uri = add_uri(with_sentiment)
     logger.info("Added URIs to posts.")
+    
     # 4. Load posts
     load_data(conn, with_uri, batch_size=100)
     logger.info("Loaded data into database.")
