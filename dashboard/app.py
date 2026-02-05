@@ -1,6 +1,7 @@
 """
 Trends Tracker Dashboard - Streamlit Mockup
 A multi-page dashboard for tracking social media trends and analytics.
+Sources of data are bluesky and Google trends.
 """
 
 import hashlib
