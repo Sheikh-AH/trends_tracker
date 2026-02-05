@@ -9,6 +9,7 @@ from unittest.mock import Mock, MagicMock, patch
 import hashlib
 import hmac
 import psycopg2
+import pandas as pd
 
 from app import (
     get_user_by_username,
@@ -19,58 +20,14 @@ from app import (
     create_user,
     add_user_keyword,
     remove_user_keyword,
-    get_user_keywords
+    get_user_keywords,
+    generate_word_cloud_data,
+    generate_sentiment_calendar_data,
+    generate_trending_velocity,
+    generate_network_graph_data,
+    generate_random_post,
+    generate_ai_insights
 )
-
-
-# ============== Fixtures ==============
-
-@pytest.fixture
-def mock_cursor():
-    """Fixture providing a mock database cursor."""
-    return Mock()
-
-
-@pytest.fixture
-def valid_password():
-    """Fixture providing a valid password for testing."""
-    return "test_password_123"
-
-
-@pytest.fixture
-def password_hash(valid_password):
-    """Fixture providing a valid password hash."""
-    salt = "test_salt_value"
-    iterations = 100000
-    hashed = hashlib.pbkdf2_hmac(
-        "sha256",
-        valid_password.encode("utf-8"),
-        salt.encode("utf-8"),
-        iterations
-    )
-    return f"{salt}${iterations}${hashed.hex()}"
-
-
-@pytest.fixture
-def user_row(password_hash):
-    """Fixture providing a mock user database row (as dictionary from RealDictCursor)."""
-    return {
-        "id": 1,
-        "username": "testuser",
-        "email": "test@example.com",
-        "password_hash": password_hash
-    }
-
-
-@pytest.fixture
-def user_dict(password_hash):
-    """Fixture providing a mock user dictionary."""
-    return {
-        "id": 1,
-        "username": "testuser",
-        "email": "test@example.com",
-        "password_hash": password_hash
-    }
 
 
 # ============== Tests for get_user_by_username ==============
@@ -750,3 +707,259 @@ class TestGetUserKeywords:
         calls = mock_cursor_keyword.execute.call_args_list
         assert calls[0][0][1] == (5,)
         assert calls[1][0][1] == (10,)
+
+
+# ============== Tests for Visualization Data Generators ==============
+
+class TestGenerateWordCloudData:
+    """Tests for generate_word_cloud_data function."""
+
+    def test_returns_dict(self, sample_keyword, sample_days):
+        """Word cloud data returns a dictionary."""
+        result = generate_word_cloud_data(sample_keyword, sample_days)
+
+        assert isinstance(result, dict)
+
+    def test_contains_words(self, sample_keyword, sample_days):
+        """Word cloud data contains word entries."""
+        result = generate_word_cloud_data(sample_keyword, sample_days)
+
+        assert len(result) > 0
+
+    def test_values_are_numeric(self, sample_keyword, sample_days):
+        """Word cloud values are numeric (frequencies)."""
+        result = generate_word_cloud_data(sample_keyword, sample_days)
+
+        for word, freq in result.items():
+            assert isinstance(word, str)
+            assert isinstance(freq, (int, float))
+            assert freq > 0
+
+    def test_different_keywords_different_data(self):
+        """Different keywords produce different word cloud data."""
+        result1 = generate_word_cloud_data("matcha", 30)
+        result2 = generate_word_cloud_data("coffee", 30)
+
+        assert result1 != result2
+
+    def test_deterministic_with_same_seed(self, sample_keyword, sample_days):
+        """Same keyword produces same data (deterministic)."""
+        result1 = generate_word_cloud_data(sample_keyword, sample_days)
+        result2 = generate_word_cloud_data(sample_keyword, sample_days)
+
+        assert result1 == result2
+
+
+class TestGenerateSentimentCalendarData:
+    """Tests for generate_sentiment_calendar_data function."""
+
+    def test_returns_dataframe(self, sample_keyword, sample_days):
+        """Sentiment calendar data returns a DataFrame."""
+        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
+
+        assert isinstance(result, pd.DataFrame)
+
+    def test_contains_required_columns(self, sample_keyword, sample_days):
+        """DataFrame contains required columns for calendar heatmap."""
+        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
+
+        assert "date" in result.columns
+        assert "sentiment" in result.columns
+        assert "day_of_week" in result.columns
+        assert "week" in result.columns
+
+    def test_correct_number_of_days(self, sample_keyword, sample_days):
+        """DataFrame has correct number of rows for days."""
+        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
+
+        assert len(result) == sample_days
+
+    def test_sentiment_in_range(self, sample_keyword, sample_days):
+        """Sentiment values are within valid range [-1, 1]."""
+        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
+
+        assert result["sentiment"].min() >= -1
+        assert result["sentiment"].max() <= 1
+
+    def test_day_of_week_valid(self, sample_keyword, sample_days):
+        """Day of week values are 0-6."""
+        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
+
+        assert result["day_of_week"].min() >= 0
+        assert result["day_of_week"].max() <= 6
+
+
+class TestGenerateTrendingVelocity:
+    """Tests for generate_trending_velocity function."""
+
+    def test_returns_dict(self, sample_keyword, sample_days):
+        """Trending velocity returns a dictionary."""
+        result = generate_trending_velocity(sample_keyword, sample_days)
+
+        assert isinstance(result, dict)
+
+    def test_contains_velocity_value(self, sample_keyword, sample_days):
+        """Result contains velocity value."""
+        result = generate_trending_velocity(sample_keyword, sample_days)
+
+        assert "velocity" in result
+        assert isinstance(result["velocity"], (int, float))
+
+    def test_contains_trend_direction(self, sample_keyword, sample_days):
+        """Result contains trend direction."""
+        result = generate_trending_velocity(sample_keyword, sample_days)
+
+        assert "direction" in result
+        assert result["direction"] in ["accelerating", "decelerating", "stable"]
+
+    def test_contains_percentage_change(self, sample_keyword, sample_days):
+        """Result contains percentage change."""
+        result = generate_trending_velocity(sample_keyword, sample_days)
+
+        assert "percent_change" in result
+        assert isinstance(result["percent_change"], (int, float))
+
+    def test_velocity_range(self, sample_keyword, sample_days):
+        """Velocity is within reasonable range [0, 100]."""
+        result = generate_trending_velocity(sample_keyword, sample_days)
+
+        assert 0 <= result["velocity"] <= 100
+
+
+class TestGenerateNetworkGraphData:
+    """Tests for generate_network_graph_data function."""
+
+    def test_returns_dict_with_nodes_and_edges(self, sample_keywords):
+        """Network graph data returns dict with nodes and edges."""
+        result = generate_network_graph_data(sample_keywords)
+
+        assert isinstance(result, dict)
+        assert "nodes" in result
+        assert "edges" in result
+
+    def test_nodes_is_list(self, sample_keywords):
+        """Nodes is a list."""
+        result = generate_network_graph_data(sample_keywords)
+
+        assert isinstance(result["nodes"], list)
+
+    def test_edges_is_list(self, sample_keywords):
+        """Edges is a list."""
+        result = generate_network_graph_data(sample_keywords)
+
+        assert isinstance(result["edges"], list)
+
+    def test_nodes_contain_keyword_data(self, sample_keywords):
+        """Each node contains required keyword data."""
+        result = generate_network_graph_data(sample_keywords)
+
+        for node in result["nodes"]:
+            assert "id" in node
+            assert "label" in node
+
+    def test_edges_contain_connection_data(self, sample_keywords):
+        """Each edge contains source, target, and weight."""
+        result = generate_network_graph_data(sample_keywords)
+
+        for edge in result["edges"]:
+            assert "source" in edge
+            assert "target" in edge
+            assert "weight" in edge
+
+    def test_empty_keywords_returns_empty(self):
+        """Empty keywords list returns empty nodes and edges."""
+        result = generate_network_graph_data([])
+
+        assert result["nodes"] == []
+        assert result["edges"] == []
+
+
+class TestGenerateRandomPost:
+    """Tests for generate_random_post function."""
+
+    def test_returns_dict(self, sample_keyword):
+        """Random post returns a dictionary."""
+        result = generate_random_post(sample_keyword)
+
+        assert isinstance(result, dict)
+
+    def test_contains_text(self, sample_keyword):
+        """Random post contains text field."""
+        result = generate_random_post(sample_keyword)
+
+        assert "text" in result
+        assert isinstance(result["text"], str)
+        assert len(result["text"]) > 0
+
+    def test_contains_author(self, sample_keyword):
+        """Random post contains author field."""
+        result = generate_random_post(sample_keyword)
+
+        assert "author" in result
+        assert isinstance(result["author"], str)
+
+    def test_contains_timestamp(self, sample_keyword):
+        """Random post contains timestamp field."""
+        result = generate_random_post(sample_keyword)
+
+        assert "timestamp" in result
+
+    def test_contains_engagement(self, sample_keyword):
+        """Random post contains engagement metrics."""
+        result = generate_random_post(sample_keyword)
+
+        assert "likes" in result
+        assert "reposts" in result
+
+    def test_text_contains_keyword(self, sample_keyword):
+        """Post text contains the keyword."""
+        result = generate_random_post(sample_keyword)
+
+        assert sample_keyword.lower() in result["text"].lower()
+
+
+class TestGenerateAIInsights:
+    """Tests for generate_ai_insights function."""
+
+    def test_returns_dict(self, sample_keyword, sample_days):
+        """AI insights returns a dictionary."""
+        result = generate_ai_insights(sample_keyword, sample_days)
+
+        assert isinstance(result, dict)
+
+    def test_contains_summary(self, sample_keyword, sample_days):
+        """AI insights contains summary field."""
+        result = generate_ai_insights(sample_keyword, sample_days)
+
+        assert "summary" in result
+        assert isinstance(result["summary"], str)
+        assert len(result["summary"]) > 0
+
+    def test_contains_themes(self, sample_keyword, sample_days):
+        """AI insights contains themes list."""
+        result = generate_ai_insights(sample_keyword, sample_days)
+
+        assert "themes" in result
+        assert isinstance(result["themes"], list)
+
+    def test_contains_sentiment_drivers(self, sample_keyword, sample_days):
+        """AI insights contains sentiment drivers."""
+        result = generate_ai_insights(sample_keyword, sample_days)
+
+        assert "sentiment_drivers" in result
+        assert isinstance(result["sentiment_drivers"], dict)
+        assert "positive" in result["sentiment_drivers"]
+        assert "negative" in result["sentiment_drivers"]
+
+    def test_contains_recommendations(self, sample_keyword, sample_days):
+        """AI insights contains recommendations."""
+        result = generate_ai_insights(sample_keyword, sample_days)
+
+        assert "recommendations" in result
+        assert isinstance(result["recommendations"], list)
+
+    def test_summary_mentions_keyword(self, sample_keyword, sample_days):
+        """Summary mentions the keyword."""
+        result = generate_ai_insights(sample_keyword, sample_days)
+
+        assert sample_keyword.lower() in result["summary"].lower()
