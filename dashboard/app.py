@@ -290,6 +290,190 @@ def generate_llm_summary(keyword: str, days: int) -> str:
     """
 
 
+# ============== Visualization Data Generators ==============
+
+def generate_word_cloud_data(keyword: str, days: int) -> dict:
+    """Generate word frequency data for word cloud visualization."""
+    random.seed(hash(keyword) + days)
+
+    # Associated words vary by keyword
+    word_pools = {
+        "matcha": ["latte", "green", "tea", "healthy", "cafe", "japanese", "powder", "organic", "iced", "oat"],
+        "boba": ["milk", "tea", "tapioca", "pearls", "sweet", "bubble", "drink", "asian", "chewy", "sugar"],
+        "coffee": ["espresso", "latte", "beans", "morning", "caffeine", "roast", "brew", "americano", "mocha", "cold"],
+    }
+
+    # Use keyword-specific words or generic ones
+    base_words = word_pools.get(keyword.lower(), [
+        "trending", "popular", "viral", "discussed", "mentioned", "shared", "liked", "commented", "posted", "engaged"
+    ])
+
+    # Add some common words
+    common_words = ["love", "great", "best", "new", "try", "amazing", "delicious", "perfect", "favorite", "recommend"]
+    all_words = base_words + common_words
+
+    # Generate frequencies
+    return {word: random.randint(10, 100) for word in all_words}
+
+
+def generate_sentiment_calendar_data(keyword: str, days: int) -> pd.DataFrame:
+    """Generate daily sentiment data for calendar heatmap visualization."""
+    random.seed(hash(keyword) + days)
+
+    dates = [datetime.now() - timedelta(days=x) for x in range(days, 0, -1)]
+
+    data = []
+    for date in dates:
+        sentiment = round(random.uniform(-0.5, 0.8), 2)
+        data.append({
+            "date": date,
+            "sentiment": sentiment,
+            "day_of_week": date.weekday(),
+            "week": date.isocalendar()[1]
+        })
+
+    return pd.DataFrame(data)
+
+
+def generate_trending_velocity(keyword: str, days: int) -> dict:
+    """Generate trending velocity data for speedometer visualization."""
+    random.seed(hash(keyword) + days)
+
+    velocity = random.randint(20, 85)
+    percent_change = round(random.uniform(-30, 50), 1)
+
+    if percent_change > 10:
+        direction = "accelerating"
+    elif percent_change < -10:
+        direction = "decelerating"
+    else:
+        direction = "stable"
+
+    return {
+        "velocity": velocity,
+        "direction": direction,
+        "percent_change": percent_change,
+        "current_mentions": random.randint(500, 3000),
+        "previous_mentions": random.randint(400, 2500)
+    }
+
+
+def generate_network_graph_data(keywords: list) -> dict:
+    """Generate node and edge data for keyword network graph visualization."""
+    if not keywords:
+        return {"nodes": [], "edges": []}
+
+    random.seed(hash(tuple(keywords)))
+
+    # Create nodes for each keyword
+    nodes = [{"id": kw, "label": kw, "size": random.randint(20, 50)} for kw in keywords]
+
+    # Add related topic nodes
+    related_topics = {
+        "matcha": ["latte", "green tea", "healthy"],
+        "boba": ["milk tea", "tapioca", "asian drinks"],
+        "coffee": ["espresso", "caffeine", "morning"]
+    }
+
+    for kw in keywords:
+        topics = related_topics.get(kw.lower(), ["topic1", "topic2"])
+        for topic in topics[:2]:  # Limit to 2 related topics per keyword
+            nodes.append({"id": topic, "label": topic, "size": random.randint(10, 30)})
+
+    # Create edges between keywords and their related topics
+    edges = []
+    for kw in keywords:
+        topics = related_topics.get(kw.lower(), ["topic1", "topic2"])
+        for topic in topics[:2]:
+            edges.append({
+                "source": kw,
+                "target": topic,
+                "weight": random.randint(5, 30)
+            })
+
+    # Add edges between keywords that co-occur
+    for i, kw1 in enumerate(keywords):
+        for kw2 in keywords[i+1:]:
+            if random.random() > 0.5:  # 50% chance of connection
+                edges.append({
+                    "source": kw1,
+                    "target": kw2,
+                    "weight": random.randint(10, 40)
+                })
+
+    return {"nodes": nodes, "edges": edges}
+
+
+def generate_random_post(keyword: str) -> dict:
+    """Generate a random post for typing animation display."""
+    random.seed(hash(keyword) + int(datetime.now().timestamp() // 60))  # Changes every minute
+
+    post_templates = [
+        f"Just discovered the best {keyword} spot in town! Highly recommend 🙌",
+        f"Anyone else obsessed with {keyword} lately? Can't get enough!",
+        f"Hot take: {keyword} is overrated. Change my mind 🤔",
+        f"My morning routine isn't complete without {keyword} ☀️",
+        f"Tried a new {keyword} recipe today and it was amazing!",
+        f"The {keyword} trend is everywhere and I'm here for it 💯",
+        f"Unpopular opinion: {keyword} hits different at night",
+        f"Finally found a place that does {keyword} right! 🎯",
+    ]
+
+    authors = ["@trendwatcher", "@foodie_life", "@daily_vibes", "@lifestyle_guru", "@taste_explorer"]
+
+    return {
+        "text": random.choice(post_templates),
+        "author": random.choice(authors),
+        "timestamp": datetime.now() - timedelta(hours=random.randint(1, 48)),
+        "likes": random.randint(50, 500),
+        "reposts": random.randint(10, 100)
+    }
+
+
+def generate_ai_insights(keyword: str, days: int) -> dict:
+    """Generate AI-powered insights for a keyword."""
+    random.seed(hash(keyword) + days)
+
+    themes = [
+        "Product reviews and recommendations",
+        "Lifestyle and wellness content",
+        "Community discussions",
+        "Recipe sharing",
+        "Price comparisons"
+    ]
+
+    positive_drivers = [
+        "High-quality product mentions",
+        "Positive customer experiences",
+        "Influencer endorsements"
+    ]
+
+    negative_drivers = [
+        "Price concerns",
+        "Availability issues",
+        "Quality inconsistencies"
+    ]
+
+    recommendations = [
+        f"Monitor '{keyword} alternatives' - emerging search term",
+        f"Peak engagement for {keyword} occurs between 9-11 AM",
+        f"Consider tracking related hashtags for broader reach",
+        f"Sentiment dips on weekends - investigate weekend-specific concerns"
+    ]
+
+    summary = f"""The topic "{keyword}" has shown {'strong' if random.random() > 0.5 else 'moderate'} engagement over the last {days} days. Overall sentiment is {'predominantly positive' if random.random() > 0.4 else 'mixed'}, with notable spikes during {'morning' if random.random() > 0.5 else 'evening'} hours. Key discussions center around product quality and lifestyle integration. {'An emerging trend shows increased interest in premium variants.' if random.random() > 0.5 else 'Community-driven content is gaining traction.'}"""
+
+    return {
+        "summary": summary,
+        "themes": random.sample(themes, k=3),
+        "sentiment_drivers": {
+            "positive": random.sample(positive_drivers, k=2),
+            "negative": random.sample(negative_drivers, k=2)
+        },
+        "recommendations": random.sample(recommendations, k=3)
+    }
+
+
 # ============== Login Page ==============
 def show_login_page():
     """Display the login/signup page."""
@@ -371,452 +555,16 @@ def show_login_page():
                         st.error("Unable to connect to database. Please try again later.")
 
 
-# ============== Main Analytics Dashboard ==============
-def show_analytics_dashboard():
-    """Display the main analytics dashboard."""
-    st.title("📊 Analytics Dashboard")
-
-    # Top controls row
-    col1, col2, col3 = st.columns([2, 2, 4])
-    with col1:
-        selected_keyword = st.selectbox(
-            "Select Keyword",
-            options=st.session_state.keywords,
-            index=0
-        )
-    with col2:
-        days_options = {"Last 7 days": 7, "Last 14 days": 14, "Last 30 days": 30, "Last 90 days": 90}
-        selected_period = st.selectbox("Time Period", options=list(days_options.keys()))
-        days = days_options[selected_period]
-
-    st.markdown("---")
-
-    # LLM Summary Section
-    st.markdown(generate_llm_summary(selected_keyword, days))
-
-    st.markdown("---")
-
-    # KPI Metrics Row
-    metrics = generate_placeholder_metrics(selected_keyword, days)
-
-    kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5 = st.columns(5)
-
-    with kpi_col1:
-        st.metric(
-            label="📢 Mentions",
-            value=f"{metrics['mentions']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col2:
-        st.metric(
-            label="📝 Posts",
-            value=f"{metrics['posts']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col3:
-        st.metric(
-            label="🔄 Reposts",
-            value=f"{metrics['reposts']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col4:
-        st.metric(
-            label="💬 Comments",
-            value=f"{metrics['comments']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col5:
-        sentiment_color = "normal" if metrics['avg_sentiment'] >= 0 else "inverse"
-        st.metric(
-            label="😊 Avg Sentiment",
-            value=f"{metrics['avg_sentiment']:.2f}",
-            delta=f"{random.uniform(-0.1, 0.1):.2f}",
-            delta_color=sentiment_color
-        )
-
-    st.markdown("---")
-
-    # Charts Row 1: Activity Over Time & Sentiment Breakdown
-    chart_col1, chart_col2 = st.columns(2)
-
-    with chart_col1:
-        st.markdown("### 📈 Activity Metrics Over Time")
-        time_data = generate_time_series_data(selected_keyword, days)
-
-        # Melt data for Altair multi-line chart
-        time_data_melted = time_data.melt(
-            id_vars=["date"],
-            value_vars=["posts", "reposts", "comments"],
-            var_name="Metric",
-            value_name="Count"
-        )
-
-        line_chart = alt.Chart(time_data_melted).mark_line(point=True).encode(
-            x=alt.X("date:T", title="Date"),
-            y=alt.Y("Count:Q", title="Count"),
-            color=alt.Color("Metric:N", scale=alt.Scale(
-                domain=["posts", "reposts", "comments"],
-                range=["#636EFA", "#EF553B", "#00CC96"]
-            )),
-            tooltip=["date:T", "Metric:N", "Count:Q"]
-        ).properties(height=350).interactive()
-
-        st.altair_chart(line_chart, use_container_width=True)
-
-    with chart_col2:
-        st.markdown("### 🎭 Sentiment Breakdown")
-        sentiment_data = generate_sentiment_breakdown(selected_keyword)
-
-        sentiment_df = pd.DataFrame({
-            "Sentiment": list(sentiment_data.keys()),
-            "Percentage": list(sentiment_data.values())
-        })
-
-        pie_chart = alt.Chart(sentiment_df).mark_arc(innerRadius=50).encode(
-            theta=alt.Theta("Percentage:Q"),
-            color=alt.Color("Sentiment:N", scale=alt.Scale(
-                domain=["Positive", "Neutral", "Negative"],
-                range=["#00CC96", "#636EFA", "#EF553B"]
-            )),
-            tooltip=["Sentiment:N", "Percentage:Q"]
-        ).properties(height=350)
-
-        st.altair_chart(pie_chart, use_container_width=True)
-
-    st.markdown("---")
-
-    # Charts Row 2: Overall Sentiment & Daily Averages
-    chart_col3, chart_col4 = st.columns(2)
-
-    with chart_col3:
-        st.markdown("### 📊 Overall Sentiment Score Over Time")
-        time_data["sentiment"] = [round(random.uniform(-0.5, 0.8), 2) for _ in range(len(time_data))]
-
-        # Area chart with sentiment
-        sentiment_area = alt.Chart(time_data).mark_area(
-            line={"color": "#AB63FA"},
-            color=alt.Gradient(
-                gradient="linear",
-                stops=[
-                    alt.GradientStop(color="white", offset=0),
-                    alt.GradientStop(color="#AB63FA", offset=1)
-                ],
-                x1=1, x2=1, y1=1, y2=0
-            )
-        ).encode(
-            x=alt.X("date:T", title="Date"),
-            y=alt.Y("sentiment:Q", title="Sentiment Score", scale=alt.Scale(domain=[-1, 1])),
-            tooltip=["date:T", "sentiment:Q"]
-        ).properties(height=300)
-
-        # Add horizontal line at y=0
-        zero_line = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(
-            strokeDash=[5, 5], color="gray"
-        ).encode(y="y:Q")
-
-        st.altair_chart(sentiment_area + zero_line, use_container_width=True)
-
-    with chart_col4:
-        st.markdown("### 📅 Daily Average by Metric Type")
-        avg_data = pd.DataFrame({
-            "Metric": ["Posts", "Reposts", "Comments"],
-            "Daily Avg": [
-                round(time_data["posts"].mean(), 1),
-                round(time_data["reposts"].mean(), 1),
-                round(time_data["comments"].mean(), 1)
-            ]
-        })
-
-        bar_chart = alt.Chart(avg_data).mark_bar().encode(
-            x=alt.X("Metric:N", title="Metric"),
-            y=alt.Y("Daily Avg:Q", title="Daily Average"),
-            color=alt.Color("Metric:N", scale=alt.Scale(
-                domain=["Posts", "Reposts", "Comments"],
-                range=["#636EFA", "#EF553B", "#00CC96"]
-            ), legend=None),
-            tooltip=["Metric:N", "Daily Avg:Q"]
-        ).properties(height=300)
-
-        st.altair_chart(bar_chart, use_container_width=True)
-
-    st.markdown("---")
-
-    # Chart Row 3: Keyword Comparison
-    st.markdown("### 🔍 Keyword Mentions Comparison")
-    if len(st.session_state.keywords) > 0:
-        comparison_data = pd.DataFrame({
-            "Keyword": st.session_state.keywords,
-            "Mentions": [generate_placeholder_metrics(kw, days)["mentions"] for kw in st.session_state.keywords]
-        })
-
-        comparison_chart = alt.Chart(comparison_data).mark_bar().encode(
-            x=alt.X("Keyword:N", title="Keyword"),
-            y=alt.Y("Mentions:Q", title="Mentions"),
-            color=alt.Color("Keyword:N", scale=alt.Scale(scheme="set2"), legend=None),
-            tooltip=["Keyword:N", "Mentions:Q"]
-        ).properties(height=300)
-
-        st.altair_chart(comparison_chart, use_container_width=True)
-    else:
-        st.info("Add keywords in the Topics tab to see comparison data.")
-
-    st.markdown("---")
-
-    # Summary Table
-    st.markdown("### 📋 Keywords Summary Table")
-    if len(st.session_state.keywords) > 0:
-        summary_df = generate_keywords_summary(st.session_state.keywords, days)
-
-        # Style the dataframe
-        def color_sentiment(val):
-            if val > 0.2:
-                return "background-color: #d4edda"
-            elif val < -0.2:
-                return "background-color: #f8d7da"
-            return ""
-
-        styled_df = summary_df.style.applymap(
-            color_sentiment, subset=["Avg Sentiment"]
-        ).format({"Avg Sentiment": "{:.2f}"})
-
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("Add keywords in the Topics tab to see summary data.")
-
-
-# ============== Topics Dashboard ==============
-def show_topics_dashboard():
-    """Display the topics/keywords management dashboard."""
-    st.title("🏷️ Topics Management")
-    st.markdown("Manage your tracked keywords and topics here.")
-
-    st.markdown("---")
-
-    # Load keywords from database on first visit
-    if "keywords_loaded" not in st.session_state:
-        conn = get_db_connection()
-        if conn and st.session_state.user_id:
-            cursor = conn.cursor(cursor_factory=RealDictCursor)
-            db_keywords = get_user_keywords(cursor, st.session_state.user_id)
-            cursor.close()
-            st.session_state.keywords = db_keywords
-            st.session_state.keywords_loaded = True
-
-    # Add new keyword section
-    st.markdown("### ➕ Add New Keyword")
-    col1, col2 = st.columns([3, 1])
-
-    with col1:
-        new_keyword = st.text_input(
-            "Enter keyword",
-            placeholder="e.g., matcha, tea, boba...",
-            label_visibility="collapsed"
-        )
-    with col2:
-        if st.button("Add Keyword", type="primary", use_container_width=True):
-            if new_keyword:
-                if new_keyword.lower() not in [k.lower() for k in st.session_state.keywords]:
-                    # Add to database
-                    conn = get_db_connection()
-                    if conn and st.session_state.user_id:
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        add_user_keyword(cursor, st.session_state.user_id, new_keyword)
-                        cursor.close()
-
-                    # Add to session state
-                    st.session_state.keywords.append(new_keyword.lower())
-                    st.success(f'Added "{new_keyword}" to your keywords!')
-                    st.rerun()
-                else:
-                    st.warning("This keyword already exists.")
-            else:
-                st.error("Please enter a keyword.")
-
-    st.markdown("---")
-
-    # Current keywords display
-    st.markdown("### 📝 Your Keywords")
-
-    if len(st.session_state.keywords) > 0:
-        # Display keywords as a grid with delete buttons
-        cols = st.columns(4)
-        for idx, keyword in enumerate(st.session_state.keywords):
-            with cols[idx % 4]:
-                col_a, col_b = st.columns([3, 1])
-                with col_a:
-                    st.markdown(f"""
-                    <div style="
-                        background-color: #f0f2f6;
-                        padding: 10px 15px;
-                        border-radius: 20px;
-                        margin: 5px 0;
-                        text-align: center;
-                        font-weight: 500;
-                    ">
-                        {keyword}
-                    </div>
-                    """, unsafe_allow_html=True)
-                with col_b:
-                    if st.button("🗑️", key=f"delete_{idx}"):
-                        # Remove from database
-                        conn = get_db_connection()
-                        if conn and st.session_state.user_id:
-                            cursor = conn.cursor(cursor_factory=RealDictCursor)
-                            remove_user_keyword(cursor, st.session_state.user_id, keyword)
-                            cursor.close()
-
-                        # Remove from session state
-                        st.session_state.keywords.remove(keyword)
-                        st.rerun()
-
-        st.markdown("---")
-
-# ============== Alerts Dashboard ==============
-def show_alerts_dashboard():
-    """Display the alerts/notifications management dashboard."""
-    st.title("🔔 Alerts & Notifications")
-    st.markdown("Configure your alert preferences and notification settings.")
-
-    st.markdown("---")
-
-    # Email alerts section
-    st.markdown("### 📧 Email Alerts")
-
-    alerts_enabled = st.toggle(
-        "Enable Email Alerts",
-        value=st.session_state.alerts_enabled,
-        help="Receive email notifications for significant trend changes"
-    )
-    st.session_state.alerts_enabled = alerts_enabled
-
-    if alerts_enabled:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            alert_email = st.text_input(
-                "Email Address",
-                value=st.session_state.alert_email,
-                placeholder="your@email.com"
-            )
-        with col2:
-            if st.button("Save Email", type="primary", use_container_width=True):
-                if alert_email and "@" in alert_email:
-                    st.session_state.alert_email = alert_email
-                    st.success("Email saved successfully!")
-                else:
-                    st.error("Please enter a valid email address.")
-
-        st.markdown("---")
-
-        # Alert preferences
-        st.markdown("### ⚙️ Alert Preferences")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("**Trigger Alerts When:**")
-            st.checkbox("Mentions increase by more than 50%", value=True)
-            st.checkbox("Sentiment drops below -0.3", value=True)
-            st.checkbox("New trending keyword detected", value=False)
-            st.checkbox("Daily summary report", value=True)
-
-        with col2:
-            st.markdown("**Alert Frequency:**")
-            st.radio(
-                "How often should we send alerts?",
-                options=["Immediately", "Hourly digest", "Daily digest"],
-                index=0,
-                label_visibility="collapsed"
-            )
-
-        st.markdown("---")
-
-        # Keywords to monitor
-        st.markdown("### 🏷️ Keywords to Monitor")
-        st.markdown("Select which keywords should trigger alerts:")
-
-        if len(st.session_state.keywords) > 0:
-            monitored_keywords = []
-            cols = st.columns(4)
-            for idx, keyword in enumerate(st.session_state.keywords):
-                with cols[idx % 4]:
-                    if st.checkbox(keyword, value=True, key=f"monitor_{keyword}"):
-                        monitored_keywords.append(keyword)
-
-            st.info(f"Monitoring {len(monitored_keywords)} of {len(st.session_state.keywords)} keywords")
-        else:
-            st.warning("No keywords to monitor. Add keywords in the Topics tab first.")
-
-    else:
-        st.info("Enable email alerts above to configure notification settings.")
-
-    st.markdown("---")
-
-    # Alert history placeholder
-    st.markdown("### 📜 Recent Alerts")
-    st.markdown("*Alert history will be displayed here when connected to the database.*")
-
-    # Placeholder alert history
-    placeholder_alerts = pd.DataFrame({
-        "Date": ["2026-02-03", "2026-02-02", "2026-02-01"],
-        "Type": ["Mention Spike", "Sentiment Drop", "Daily Summary"],
-        "Keyword": ["matcha", "boba", "All"],
-        "Status": ["Sent", "Sent", "Sent"]
-    })
-    st.dataframe(placeholder_alerts, use_container_width=True, hide_index=True)
-
-
-# ============== Sidebar Navigation ==============
-def show_sidebar():
-    """Display the sidebar navigation."""
-    with st.sidebar:
-        st.markdown(f"### 👋 Hello, {st.session_state.username}!")
-        st.markdown("---")
-
-        # Navigation
-        st.markdown("### 🧭 Navigation")
-        page = st.radio(
-            "Go to",
-            options=["📊 Analytics", "🏷️ Topics", "🔔 Alerts"],
-            label_visibility="collapsed"
-        )
-
-        st.markdown("---")
-
-        # Quick stats
-        st.markdown("### 📈 Quick Stats")
-        st.metric("Keywords Tracked", len(st.session_state.keywords))
-        st.metric("Alerts Enabled", "Yes" if st.session_state.alerts_enabled else "No")
-
-        st.markdown("---")
-
-        # Logout button
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.username = ""
-            st.session_state.user_id = None
-            st.rerun()
-
-        st.markdown("---")
-        st.caption("Trends Tracker v1.0 (Mockup)")
-
-    return page
-
-
 # ============== Main App ==============
 def main():
     """Main application entry point."""
     if not st.session_state.logged_in:
         show_login_page()
     else:
-        page = show_sidebar()
-
-        if page == "📊 Analytics":
-            show_analytics_dashboard()
-        elif page == "🏷️ Topics":
-            show_topics_dashboard()
-        elif page == "🔔 Alerts":
-            show_alerts_dashboard()
+        # Redirect to Home page after login
+        st.switch_page("pages/1_Home.py")
 
 
 if __name__ == "__main__":
     main()
+

@@ -4,3 +4,10 @@ psycopg2-binary
 python-dotenv
 pytest
 streamlit
+
+# Visualization libraries
+wordcloud
+matplotlib
+
+# Network graph visualization
+st-link-analysis
