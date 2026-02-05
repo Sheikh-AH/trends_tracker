@@ -195,8 +195,13 @@ def remove_user_keyword(cursor, user_id: int, keyword: str) -> bool:
 
 def get_user_keywords(cursor, user_id: int) -> list:
     """Retrieve all keywords for a user."""
-    cursor.execute(
-        "SELECT k.keyword_value FROM keywords k JOIN user_keywords uk ON k.keyword_id = uk.keyword_id WHERE uk.user_id = %s ORDER BY k.keyword_value",
+    cursor.execute("""
+        SELECT k.keyword_value 
+        FROM keywords k 
+        JOIN user_keywords uk ON k.keyword_id = uk.keyword_id 
+        WHERE uk.user_id = %s
+        ORDER BY k.keyword_value
+        """,
         (user_id,)
     )
     results = cursor.fetchall()
@@ -219,7 +224,7 @@ if "username" not in st.session_state:
 if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "keywords" not in st.session_state:
-    st.session_state.keywords = ["matcha", "boba", "coffee"]
+    st.session_state.keywords = []
 if "emails_enabled" not in st.session_state:
     st.session_state.emails_enabled = False
 if "alerts_enabled" not in st.session_state:
