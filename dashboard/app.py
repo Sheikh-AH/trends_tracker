@@ -219,10 +219,12 @@ if "user_id" not in st.session_state:
     st.session_state.user_id = None
 if "keywords" not in st.session_state:
     st.session_state.keywords = ["matcha", "boba", "coffee"]
+if "emails_enabled" not in st.session_state:
+    st.session_state.emails_enabled = False
 if "alerts_enabled" not in st.session_state:
     st.session_state.alerts_enabled = False
-if "alert_email" not in st.session_state:
-    st.session_state.alert_email = ""
+if "email" not in st.session_state or not st.session_state.logged_in:
+    st.session_state.email = ""
 
 
 # ============== Placeholder Data Generators ==============
@@ -320,6 +322,7 @@ def show_login_page():
                             st.session_state.logged_in = True
                             st.session_state.username = login_username
                             st.session_state.user_id = user["user_id"]
+                            st.session_state.email = user["email"]
                             st.success("Login successful!")
                             st.rerun()
                         else:
@@ -362,6 +365,7 @@ def show_login_page():
                             st.session_state.logged_in = True
                             st.session_state.username = signup_name.split()[0]
                             st.session_state.user_id = user["user_id"]
+                            st.session_state.email = user["email"]
                             st.success("Account created successfully!")
                             st.rerun()
                         else:
@@ -671,100 +675,6 @@ def show_topics_dashboard():
 
         st.markdown("---")
 
-# ============== Alerts Dashboard ==============
-def show_alerts_dashboard():
-    """Display the alerts/notifications management dashboard."""
-    st.title("🔔 Alerts & Notifications")
-    st.markdown("Configure your alert preferences and notification settings.")
-
-    st.markdown("---")
-
-    # Email alerts section
-    st.markdown("### 📧 Email Alerts")
-
-    alerts_enabled = st.toggle(
-        "Enable Email Alerts",
-        value=st.session_state.alerts_enabled,
-        help="Receive email notifications for significant trend changes"
-    )
-    st.session_state.alerts_enabled = alerts_enabled
-
-    if alerts_enabled:
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            alert_email = st.text_input(
-                "Email Address",
-                value=st.session_state.alert_email,
-                placeholder="your@email.com"
-            )
-        with col2:
-            if st.button("Save Email", type="primary", use_container_width=True):
-                if alert_email and "@" in alert_email:
-                    st.session_state.alert_email = alert_email
-                    st.success("Email saved successfully!")
-                else:
-                    st.error("Please enter a valid email address.")
-
-        st.markdown("---")
-
-        # Alert preferences
-        st.markdown("### ⚙️ Alert Preferences")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("**Trigger Alerts When:**")
-            st.checkbox("Mentions increase by more than 50%", value=True)
-            st.checkbox("Sentiment drops below -0.3", value=True)
-            st.checkbox("New trending keyword detected", value=False)
-            st.checkbox("Daily summary report", value=True)
-
-        with col2:
-            st.markdown("**Alert Frequency:**")
-            st.radio(
-                "How often should we send alerts?",
-                options=["Immediately", "Hourly digest", "Daily digest"],
-                index=0,
-                label_visibility="collapsed"
-            )
-
-        st.markdown("---")
-
-        # Keywords to monitor
-        st.markdown("### 🏷️ Keywords to Monitor")
-        st.markdown("Select which keywords should trigger alerts:")
-
-        if len(st.session_state.keywords) > 0:
-            monitored_keywords = []
-            cols = st.columns(4)
-            for idx, keyword in enumerate(st.session_state.keywords):
-                with cols[idx % 4]:
-                    if st.checkbox(keyword, value=True, key=f"monitor_{keyword}"):
-                        monitored_keywords.append(keyword)
-
-            st.info(f"Monitoring {len(monitored_keywords)} of {len(st.session_state.keywords)} keywords")
-        else:
-            st.warning("No keywords to monitor. Add keywords in the Topics tab first.")
-
-    else:
-        st.info("Enable email alerts above to configure notification settings.")
-
-    st.markdown("---")
-
-    # Alert history placeholder
-    st.markdown("### 📜 Recent Alerts")
-    st.markdown("*Alert history will be displayed here when connected to the database.*")
-
-    # Placeholder alert history
-    placeholder_alerts = pd.DataFrame({
-        "Date": ["2026-02-03", "2026-02-02", "2026-02-01"],
-        "Type": ["Mention Spike", "Sentiment Drop", "Daily Summary"],
-        "Keyword": ["matcha", "boba", "All"],
-        "Status": ["Sent", "Sent", "Sent"]
-    })
-    st.dataframe(placeholder_alerts, use_container_width=True, hide_index=True)
-
-
 # ============== Sidebar Navigation ==============
 def show_sidebar():
     """Display the sidebar navigation."""
@@ -814,8 +724,6 @@ def main():
             show_analytics_dashboard()
         elif page == "🏷️ Topics":
             show_topics_dashboard()
-        elif page == "🔔 Alerts":
-            show_alerts_dashboard()
 
 
 if __name__ == "__main__":
