@@ -6,6 +6,12 @@ import boto3
 from dotenv import load_dotenv
 from psycopg2 import connect
 
+def login_prompt():
+    """Prompt the user to log in if they are not already authenticated."""
+    if not st.session_state.get("logged_in"):
+        st.warning("Please log in to access the alerts dashboard.")
+        st.stop()
+
 def get_db_connection():
     """Establish a connection to the PostgreSQL database."""
     return connect(
@@ -16,49 +22,77 @@ def get_db_connection():
         port=os.getenv('DB_PORT')
     )
 
+def get_boto3_client():
+    return boto3.client(
+        'ses',
+        region_name=os.getenv('AWS_REGION', 'eu-west-2'),
+        aws_access_key_id=os.getenv('AWS_ACCESS_KEY'),
+        aws_secret_access_key=os.getenv('AWS_SECRET_KEY')
+    )
 
-ses_client = boto3.client(
-    'ses',
-    region_name=os.getenv('AWS_REGION', 'eu-west-2'),
-    aws_access_key_id=os.getenv('AWS_ACCESS_KEY'),
-    aws_secret_access_key=os.getenv('AWS_SECRET_KEY')
-)
-
-def is_email_verified(email: str) -> bool:
+def is_email_verified(client, email: str) -> bool:
     """Check if the email is verified with AWS SES."""
-    response = ses_client.list_verified_email_addresses()
+    response = client.list_verified_email_addresses()
     return email in response['VerifiedEmailAddresses']
 
-def send_verification_email(email: str) -> dict:
+def send_verification_email(client, email: str) -> dict:
     """Send a verification email to the specified address."""
-    return ses_client.verify_email_identity(EmailAddress=email)
+    return client.verify_email_identity(EmailAddress=email)
 
-def verify_email(email: str) -> bool:
+def verify_email(client, email: str) -> bool:
     """Verify the email address and send verification if not already verified."""
-    if is_email_verified(email):
+    if is_email_verified(client, email):
         st.success(f"{email} is a verified email address.")
         return True
     else:
         st.info(f"Sending verification to {email}")
-        send_verification_email(email)
+        send_verification_email(client, email)
         return False
     
-def update_db_alert_settings(conn, email_enabled: bool, alerts_enabled: bool):
+def get_user_alert_settings(conn):
+    """Fetch the user's current alert settings from the database."""
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            SELECT send_email, send_alert
+            FROM users
+            WHERE email = %s
+        """, (st.session_state.email,))
+        result = cursor.fetchone()
+        if result:
+            st.session_state.emails_enabled = result[0]
+            st.session_state.alerts_enabled = result[1]
+        else:
+            st.session_state.emails_enabled = False
+            st.session_state.alerts_enabled = False
+    
+def update_users_settings(conn, emails_enabled: bool, alerts_enabled: bool):
     """Update the user's alert settings in the database."""
     with conn.cursor() as cursor:
         cursor.execute("""
             UPDATE users
             SET send_email = %s, send_alert = %s
             WHERE email = %s
-        """, (email_enabled, alerts_enabled, st.session_state.email))
+        """, (emails_enabled, alerts_enabled, st.session_state.email))
+        st.session_state.emails_enabled = emails_enabled
+        st.session_state.alerts_enabled = alerts_enabled
         conn.commit()
+
+def email_toggle_on_change(conn):
+    """Handle changes to the email toggle."""
+    update_users_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
+
+def alert_toggle_on_change(conn):
+    """Handle changes to the alert toggle."""
+    update_users_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
     
 def gen_email_toggle(conn):
     """Generate email toggle"""
     return st.toggle(
         "Enable Email Reports",
         value=st.session_state.emails_enabled,
-        on_change=update_db_alert_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled),
+        key="emails_enabled",
+        on_change=email_toggle_on_change,
+        args=(conn,),
         help="Receive a weekly email summary of trends and insights based on your keywords"
     )
 
@@ -67,25 +101,25 @@ def gen_alert_toggle(conn):
     return st.toggle(
         "Enable Spike Alerts",
         value=st.session_state.alerts_enabled,
-        on_change=update_db_alert_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled),
+        key="alerts_enabled",
+        on_change=alert_toggle_on_change,
+        args=(conn,),
         help="Receive alerts for significant trend changes"
     )
 
 
-def show_alerts_dashboard():
+def show_alerts_dashboard(conn):
     """Display the alerts/notifications management dashboard."""
 
     st.markdown("---")
     st.markdown("### 📧 Email Weekly Reports")
 
-    emails_enabled = gen_email_toggle()
-    st.session_state.emails_enabled = emails_enabled
-
-    alerts_enabled = gen_alert_toggle()
-    st.session_state.alerts_enabled = alerts_enabled
+    emails_enabled = gen_email_toggle(conn)
+    alerts_enabled = gen_alert_toggle(conn)
 
     if st.session_state.emails_enabled or st.session_state.alerts_enabled:
-        verified = verify_email(st.session_state.email)
+        client = get_boto3_client()
+        verified = verify_email(client, st.session_state.email)
         if not verified:
             emails_enabled = False
             st.session_state.emails_enabled = False
@@ -95,12 +129,18 @@ def show_alerts_dashboard():
     st.markdown("---")
 
 if __name__ == "__main__":
+
+    login_prompt()
     
     load_dotenv()
     conn = get_db_connection()
 
+    if "alerts_loaded" not in st.session_state:
+        get_user_alert_settings(conn)
+        st.session_state.alerts_loaded = True
+
     st.title("🔔 Alerts & Notifications")
     st.markdown("Configure your alert preferences and notification settings.")
-    show_alerts_dashboard()
+    show_alerts_dashboard(conn)
 
     
