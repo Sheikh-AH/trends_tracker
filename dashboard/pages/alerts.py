@@ -1,4 +1,4 @@
-"""Email alerts and notifications management dashboard."""
+"""Manage user alerts."""
 
 import os
 import streamlit as st
@@ -137,6 +137,8 @@ def show_alerts_dashboard(conn):
     st.markdown("---")
 
 if __name__ == "__main__":
+
+    st.set_page_config(page_title="Alerts & Notifications")
 
     login_prompt()
     
