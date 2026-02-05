@@ -1,4 +1,25 @@
 import streamlit as st
+import boto3
+
+
+def verify_email(email: str) -> bool:
+    """Check if user is verified on AWS with boto3."""
+    ses = boto3.client("ses", region_name="eu-west-2")
+
+    response = ses.get_identity_verification_attributes(
+        Identities=[email]
+    )
+    status = response["VerificationAttributes"][email]["VerificationStatus"]
+    
+    if status == "Success":
+        return True
+    elif status == "Pending":
+        st.warning(f"Email {email} is pending verification. Please check your inbox and verify to receive alerts.")
+        return False
+    else:
+        st.error(f"Email {email} is not verified. Please verify your email to receive alerts.")
+        return False
+
 
 def show_alerts_dashboard():
     """Display the alerts/notifications management dashboard."""
