@@ -73,6 +73,7 @@ def show_login_page():
             login_username = st.text_input("Username", key="login_username", placeholder="username")
             login_password = st.text_input("Password", type="password", key="login_password", placeholder="password")
 
+            st.write("")
             col1, _ = st.columns([1, 3])
             with col1:
                 if st.button("Login", type="primary", use_container_width=True):
