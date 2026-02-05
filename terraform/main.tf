@@ -564,10 +564,6 @@ resource "aws_lambda_function" "alert_system" {
   timeout       = 300
   memory_size   = 512
 
-  vpc_config {
-    subnet_ids         = var.public_subnet_ids
-    security_group_ids = [aws_security_group.alert_lambda_sg.id]
-  }
 
   environment {
     variables = {
