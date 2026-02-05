@@ -77,33 +77,41 @@ def update_users_settings(conn, emails_enabled: bool, alerts_enabled: bool):
         st.session_state.alerts_enabled = alerts_enabled
         conn.commit()
 
-def email_toggle_on_change(conn):
+def email_toggle_on_change(conn, client):
     """Handle changes to the email toggle."""
+    if st.session_state.emails_enabled:
+        if not is_email_verified(client, st.session_state.email):
+            st.session_state.emails_enabled = False
+            st.error("Please verify your email before enabling this feature.")
+            return
     update_users_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
 
-def alert_toggle_on_change(conn):
+def alert_toggle_on_change(conn, client):
     """Handle changes to the alert toggle."""
+    if st.session_state.alerts_enabled:
+        if not is_email_verified(client, st.session_state.email):
+            st.session_state.alerts_enabled = False
+            st.error("Please verify your email before enabling this feature.")
+            return
     update_users_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
     
-def gen_email_toggle(conn):
+def gen_email_toggle(conn, client):
     """Generate email toggle"""
     return st.toggle(
         "Enable Email Reports",
-        value=st.session_state.emails_enabled,
         key="emails_enabled",
         on_change=email_toggle_on_change,
-        args=(conn,),
+        args=(conn, client),
         help="Receive a weekly email summary of trends and insights based on your keywords"
     )
 
-def gen_alert_toggle(conn):
+def gen_alert_toggle(conn, client):
     """Generate alert toggle"""
     return st.toggle(
         "Enable Spike Alerts",
-        value=st.session_state.alerts_enabled,
         key="alerts_enabled",
         on_change=alert_toggle_on_change,
-        args=(conn,),
+        args=(conn, client),
         help="Receive alerts for significant trend changes"
     )
 
@@ -114,11 +122,11 @@ def show_alerts_dashboard(conn):
     st.markdown("---")
     st.markdown("### 📧 Email Weekly Reports")
 
-    emails_enabled = gen_email_toggle(conn)
-    alerts_enabled = gen_alert_toggle(conn)
+    client = get_boto3_client()
+    emails_enabled = gen_email_toggle(conn, client)
+    alerts_enabled = gen_alert_toggle(conn, client)
 
     if st.session_state.emails_enabled or st.session_state.alerts_enabled:
-        client = get_boto3_client()
         verified = verify_email(client, st.session_state.email)
         if not verified:
             emails_enabled = False
