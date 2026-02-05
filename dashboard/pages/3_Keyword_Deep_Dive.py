@@ -9,16 +9,16 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-# Import shared functions from main app
+# Import shared functions from utils module
 import sys
-sys.path.insert(0, '..')
-from app import (
+from utils import (
     get_db_connection,
     get_user_keywords,
     generate_placeholder_metrics,
     generate_time_series_data,
     generate_sentiment_breakdown,
-    generate_keywords_summary
+    generate_keywords_summary,
+    render_sidebar
 )
 from psycopg2.extras import RealDictCursor
 
@@ -44,7 +44,7 @@ def configure_page():
 
 def load_keywords():
     """Load keywords from database if needed."""
-    if "keywords_loaded" not in st.session_state:
+    if not st.session_state.get("keywords_loaded", False):
         conn = get_db_connection()
         if conn and st.session_state.get("user_id"):
             cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -304,23 +304,13 @@ def main():
     render_summary_table(keywords, days)
 
     # Default Sidebar
-    with st.sidebar:
-        st.markdown(f"### 👋 Hello, {st.session_state.get('username', 'User')}!")
-        st.markdown("---")
-        st.markdown("### 📈 Quick Stats")
-        st.metric("Keywords Tracked", len(st.session_state.get("keywords", [])))
-        st.metric("Alerts Enabled", "Yes" if st.session_state.get("alerts_enabled", False) else "No")
-        st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.username = ""
-            st.session_state.user_id = None
-            st.switch_page("app.py")
-        st.markdown("---")
-        st.caption("Trends Tracker v1.0")
+    # Render shared sidebar
+    render_sidebar()
 
 
 # ============== Entry Point ==============
 # Streamlit pages are executed as modules, so we run at module level
 configure_page()
-main()
+if __name__ == "__main__":
+    configure_page()
+    main()
