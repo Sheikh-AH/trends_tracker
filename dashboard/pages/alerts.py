@@ -4,8 +4,18 @@ import os
 import streamlit as st
 import boto3
 from dotenv import load_dotenv
+from psycopg2 import connect
 
-load_dotenv()
+def get_db_connection():
+    """Establish a connection to the PostgreSQL database."""
+    return connect(
+        dbname=os.getenv('DB_NAME'),
+        user=os.getenv('DB_USER'),
+        password=os.getenv('DB_PASSWORD'),
+        host=os.getenv('DB_HOST'),
+        port=os.getenv('DB_PORT')
+    )
+
 
 ses_client = boto3.client(
     'ses',
@@ -33,19 +43,31 @@ def verify_email(email: str) -> bool:
         send_verification_email(email)
         return False
     
-def gen_email_toggle():
+def update_db_alert_settings(conn, email_enabled: bool, alerts_enabled: bool):
+    """Update the user's alert settings in the database."""
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            UPDATE users
+            SET send_email = %s, send_alert = %s
+            WHERE email = %s
+        """, (email_enabled, alerts_enabled, st.session_state.email))
+        conn.commit()
+    
+def gen_email_toggle(conn):
     """Generate email toggle"""
     return st.toggle(
         "Enable Email Reports",
         value=st.session_state.emails_enabled,
+        on_change=update_db_alert_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled),
         help="Receive a weekly email summary of trends and insights based on your keywords"
     )
 
-def gen_alert_toggle():
+def gen_alert_toggle(conn):
     """Generate alert toggle"""
     return st.toggle(
         "Enable Spike Alerts",
         value=st.session_state.alerts_enabled,
+        on_change=update_db_alert_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled),
         help="Receive alerts for significant trend changes"
     )
 
@@ -68,12 +90,17 @@ def show_alerts_dashboard():
             emails_enabled = False
             st.session_state.emails_enabled = False
             alerts_enabled = False
-            st.session_state.alerts_enabled = False    
+            st.session_state.alerts_enabled = False
 
     st.markdown("---")
 
 if __name__ == "__main__":
+    
+    load_dotenv()
+    conn = get_db_connection()
+
     st.title("🔔 Alerts & Notifications")
     st.markdown("Configure your alert preferences and notification settings.")
     show_alerts_dashboard()
+
     
