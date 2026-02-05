@@ -1,7 +1,8 @@
 """
-Unit tests for authentication and signup functions in app.py using pytest.
+Unit tests for utility functions and authentication in utils.py using pytest.
 
-Tests cover user retrieval, password verification, authentication flow, and user creation.
+Tests cover user retrieval, password verification, authentication flow, user creation,
+keyword management, and data generation functions.
 """
 
 import pytest
@@ -11,7 +12,7 @@ import hmac
 import psycopg2
 import pandas as pd
 
-from app import (
+from utils import (
     get_user_by_username,
     verify_password,
     authenticate_user,
@@ -963,3 +964,19 @@ class TestGenerateAIInsights:
         result = generate_ai_insights(sample_keyword, sample_days)
 
         assert sample_keyword.lower() in result["summary"].lower()
+
+
+# ============== Test Coverage Summary ==============
+# All tests now import from utils.py instead of app.py
+# This ensures proper separation of concerns:
+#   - utils.py: Contains all shared utility functions
+#   - app.py: Contains only authentication flow and routing
+#
+# Test Coverage:
+#   ✓ Database functions (get_db_connection)
+#   ✓ Authentication functions (verify_password, authenticate_user, etc.)
+#   ✓ User management (get_user_by_username, create_user)
+#   ✓ Keyword management (get_user_keywords, add_user_keyword, remove_user_keyword)
+#   ✓ Data generators (generate_placeholder_metrics, generate_time_series_data, etc.)
+#   ✓ Visualization generators (generate_word_cloud_data, generate_network_graph_data, etc.)
+#   ✓ AI insights generation (generate_ai_insights)
