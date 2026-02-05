@@ -658,3 +658,178 @@ resource "aws_scheduler_schedule" "alert_system_schedule" {
     role_arn = aws_iam_role.alert_scheduler_role.arn
   }
 }
+
+# ECR Repository for LLM Summary Pipeline
+resource "aws_ecr_repository" "llm_summary" {
+  name                 = "c21-trends-llm-summary"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "c21-trends-llm-summary"
+    Environment = var.environment
+  }
+}
+
+output "llm_summary_ecr_uri" {
+  description = "ECR repository URI for LLM Summary pipeline"
+  value       = aws_ecr_repository.llm_summary.repository_url
+}
+
+
+# IAM Role for LLM Summary Lambda
+resource "aws_iam_role" "llm_summary_lambda_role" {
+  name = "c21-trends-llm-summary-lambda-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "lambda.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "c21-trends-llm-summary-lambda-role"
+    Environment = var.environment
+  }
+}
+
+# IAM Policy for LLM Summary Lambda (CloudWatch Logs + VPC)
+resource "aws_iam_role_policy" "llm_summary_lambda_policy" {
+  name = "c21-trends-llm-summary-lambda-policy"
+  role = aws_iam_role.llm_summary_lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:CreateLogStream",
+          "logs:PutLogEvents"
+        ]
+        Resource = "arn:aws:logs:*:*:*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "ec2:CreateNetworkInterface",
+          "ec2:DescribeNetworkInterfaces",
+          "ec2:DeleteNetworkInterface"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Security Group for LLM Summary Lambda
+resource "aws_security_group" "llm_summary_lambda_sg" {
+  name        = "c21-trends-llm-summary-lambda-sg"
+  description = "Security group for LLM Summary Lambda"
+  vpc_id      = data.aws_vpc.main.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "c21-trends-llm-summary-lambda-sg"
+    Environment = var.environment
+  }
+}
+
+# LLM Summary Lambda Function
+resource "aws_lambda_function" "llm_summary" {
+  function_name = "c21-trends-llm-summary"
+  role          = aws_iam_role.llm_summary_lambda_role.arn
+  package_type  = "Image"
+  image_uri     = "${aws_ecr_repository.llm_summary.repository_url}:latest"
+  timeout       = 300
+  memory_size   = 512
+
+  environment {
+    variables = {
+      DB_HOST     = aws_db_instance.trends_db.address
+      DB_PORT     = "5432"
+      DB_NAME     = var.db_name
+      DB_USER     = var.db_username
+      DB_PASSWORD = var.db_password
+    }
+  }
+
+  tags = {
+    Name        = "c21-trends-llm-summary"
+    Environment = var.environment
+  }
+}
+
+# IAM Role for LLM Summary Scheduler
+resource "aws_iam_role" "llm_summary_scheduler_role" {
+  name = "c21-trends-llm-summary-scheduler-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "scheduler.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "c21-trends-llm-summary-scheduler-role"
+    Environment = var.environment
+  }
+}
+
+# IAM Policy for LLM Summary Scheduler to invoke Lambda
+resource "aws_iam_role_policy" "llm_summary_scheduler_policy" {
+  name = "c21-trends-llm-summary-scheduler-policy"
+  role = aws_iam_role.llm_summary_scheduler_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = "lambda:InvokeFunction"
+        Resource = aws_lambda_function.llm_summary.arn
+      }
+    ]
+  })
+}
+
+# EventBridge Schedule for LLM Summary (runs daily at 3pm UTC)
+resource "aws_scheduler_schedule" "llm_summary_schedule" {
+  name       = "c21-trends-llm-summary-schedule"
+  group_name = "default"
+
+  flexible_time_window {
+    mode = "OFF"
+  }
+
+  schedule_expression = "cron(0 15 * * ? *)"
+
+  target {
+    arn      = aws_lambda_function.llm_summary.arn
+    role_arn = aws_iam_role.llm_summary_scheduler_role.arn
+  }
+}
