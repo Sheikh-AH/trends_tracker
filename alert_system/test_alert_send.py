@@ -89,10 +89,12 @@ class TestMarkAsAlerted:
 
 class TestSendEmail:
 
+    @patch('alert_send.get_recent_posts_for_keyword')
     @patch('alert_send.boto3.client')
-    def test_sends_email_successfully(self, mock_boto):
+    def test_sends_email_successfully(self, mock_boto, mock_get_posts):
         mock_ses = MagicMock()
         mock_boto.return_value = mock_ses
+        mock_get_posts.return_value = []
 
         with patch.dict('os.environ', {'AWS_REGION': 'eu-west-2', 'SENDER_EMAIL': 'noreply@test.com'}):
             result = send_email('user@test.com', 'matcha', 15)
@@ -100,30 +102,34 @@ class TestSendEmail:
         assert result is True
         mock_ses.send_email.assert_called_once()
 
+    @patch('alert_send.get_recent_posts_for_keyword')
     @patch('alert_send.boto3.client')
-    def test_returns_false_on_failure(self, mock_boto):
+    def test_returns_false_on_failure(self, mock_boto, mock_get_posts):
         mock_ses = MagicMock()
         mock_ses.send_email.side_effect = Exception("SES Error")
         mock_boto.return_value = mock_ses
+        mock_get_posts.return_value = []
 
         with patch.dict('os.environ', {'AWS_REGION': 'eu-west-2', 'SENDER_EMAIL': 'noreply@test.com'}):
             result = send_email('user@test.com', 'matcha', 15)
 
         assert result is False
 
+    @patch('alert_send.get_recent_posts_for_keyword')
     @patch('alert_send.boto3.client')
-    def test_email_contains_keyword(self, mock_boto):
+    def test_email_contains_keyword(self, mock_boto, mock_get_posts):
         mock_ses = MagicMock()
         mock_boto.return_value = mock_ses
+        mock_get_posts.return_value = []
 
         with patch.dict('os.environ', {'AWS_REGION': 'eu-west-2', 'SENDER_EMAIL': 'noreply@test.com'}):
             send_email('user@test.com', 'matcha', 15)
 
         call_args = mock_ses.send_email.call_args
-        body = call_args[1]['Message']['Body']['Text']['Data']
+        html_body = call_args[1]['Message']['Body']['Html']['Data']
         subject = call_args[1]['Message']['Subject']['Data']
 
-        assert 'matcha' in body
+        assert 'matcha' in html_body
         assert 'matcha' in subject
 
 
