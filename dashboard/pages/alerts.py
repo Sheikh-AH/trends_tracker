@@ -62,11 +62,18 @@ def show_alerts_dashboard():
     alerts_enabled = gen_alert_toggle()
     st.session_state.alerts_enabled = alerts_enabled
 
+    if st.session_state.emails_enabled or st.session_state.alerts_enabled:
+        verified = verify_email(st.session_state.email)
+        if not verified:
+            emails_enabled = False
+            st.session_state.emails_enabled = False
+            alerts_enabled = False
+            st.session_state.alerts_enabled = False    
+
     st.markdown("---")
 
 if __name__ == "__main__":
     st.title("🔔 Alerts & Notifications")
     st.markdown("Configure your alert preferences and notification settings.")
     show_alerts_dashboard()
-    if st.session_state.emails_enabled or st.session_state.alerts_enabled:
-        verify_email(st.session_state.email)
+    
