@@ -768,6 +768,7 @@ resource "aws_lambda_function" "llm_summary" {
       DB_NAME     = var.db_name
       DB_USER     = var.db_username
       DB_PASSWORD = var.db_password
+      OPENROUTER_API_KEY = var.openrouter_api_key
     }
   }
 
