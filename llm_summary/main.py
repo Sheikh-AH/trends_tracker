@@ -25,9 +25,6 @@ from typing import Optional
 from psycopg2 import connect
 from psycopg2.extras import RealDictCursor
 from requests import post, exceptions
-from dotenv import load_dotenv
-
-load_dotenv()
 
 # Configure logging - console only
 logging.basicConfig(
