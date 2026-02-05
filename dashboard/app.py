@@ -223,8 +223,8 @@ if "emails_enabled" not in st.session_state:
     st.session_state.emails_enabled = False
 if "alerts_enabled" not in st.session_state:
     st.session_state.alerts_enabled = False
-if "alert_email" not in st.session_state:
-    st.session_state.alert_email = ""
+if "email" not in st.session_state or not st.session_state.logged_in:
+    st.session_state.email = ""
 
 
 # ============== Placeholder Data Generators ==============

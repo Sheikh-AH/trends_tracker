@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize SES client
 ses_client = boto3.client(
     'ses',
     region_name=os.getenv('AWS_REGION', 'eu-west-2'),
@@ -16,13 +15,16 @@ ses_client = boto3.client(
 )
 
 def is_email_verified(email: str) -> bool:
+    """Check if the email is verified with AWS SES."""
     response = ses_client.list_verified_email_addresses()
     return email in response['VerifiedEmailAddresses']
 
 def send_verification_email(email: str) -> dict:
+    """Send a verification email to the specified address."""
     return ses_client.verify_email_identity(EmailAddress=email)
 
 def verify_email(email: str) -> bool:
+    """Verify the email address and send verification if not already verified."""
     if is_email_verified(email):
         st.success(f"{email} is a verified email address.")
         return True
@@ -62,12 +64,9 @@ def show_alerts_dashboard():
 
     st.markdown("---")
 
-    return emails_enabled, alerts_enabled
-
-
 if __name__ == "__main__":
     st.title("🔔 Alerts & Notifications")
     st.markdown("Configure your alert preferences and notification settings.")
-    emails_enabled, alerts_enabled = show_alerts_dashboard()
-    if emails_enabled or alerts_enabled:
+    show_alerts_dashboard()
+    if st.session_state.emails_enabled or st.session_state.alerts_enabled:
         verify_email(st.session_state.email)
