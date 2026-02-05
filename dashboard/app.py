@@ -61,92 +61,95 @@ def show_login_page():
         </style>
     """, unsafe_allow_html=True)
 
-    st.title("🔐 Trends Tracker")
-    st.markdown("### Welcome! Please login or create an account to continue.")
+    # Center content to middle third of screen
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col2:
+        st.title("Trends Tracker")
 
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+        tab1, tab2 = st.tabs(["Login", "Sign Up"])
 
-    with tab1:
-        st.markdown("#### Login to Your Account")
-        login_username = st.text_input("Username", key="login_username", placeholder="your_username")
-        login_password = st.text_input("Password", type="password", key="login_password")
+        with tab1:
+            login_username = st.text_input("Username", key="login_username", placeholder="username")
+            login_password = st.text_input("Password", type="password", key="login_password", placeholder="password")
 
-        col1, _ = st.columns([1, 3])
-        with col1:
-            if st.button("Login", type="primary", use_container_width=True):
-                if login_username and login_password:
-                    conn = get_db_connection()
-                    if conn:
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        is_authenticated = authenticate_user(cursor, login_username, login_password)
+            col1, _ = st.columns([1, 3])
+            with col1:
+                if st.button("Login", type="primary", use_container_width=True):
+                    if login_username and login_password:
+                        conn = get_db_connection()
+                        if conn:
+                            cursor = conn.cursor(cursor_factory=RealDictCursor)
+                            is_authenticated = authenticate_user(cursor, login_username, login_password)
 
-                        if is_authenticated:
-                            # Get user_id from database
-                            user = get_user_by_username(cursor, login_username)
-                            cursor.close()
+                            if is_authenticated:
+                                # Get user_id from database
+                                user = get_user_by_username(cursor, login_username)
+                                cursor.close()
 
-                            st.session_state.logged_in = True
-                            st.session_state.username = login_username
-                            st.session_state.user_id = user["user_id"]
-                            st.session_state.email = user["email"]
-                            # Clear user-specific data from previous sessions
-                            st.session_state.keywords = []
-                            st.session_state.keywords_loaded = False
-                            st.session_state.alerts_loaded = False
-                            st.success("Login successful!")
-                            st.rerun()
+                                st.session_state.logged_in = True
+                                st.session_state.username = login_username
+                                st.session_state.user_id = user["user_id"]
+                                st.session_state.email = user["email"]
+                                # Clear user-specific data from previous sessions
+                                st.session_state.keywords = []
+                                st.session_state.keywords_loaded = False
+                                st.session_state.alerts_loaded = False
+                                st.success("Login successful!")
+                                st.rerun()
+                            else:
+                                cursor.close()
+                                st.error("Invalid username or password.")
                         else:
-                            cursor.close()
-                            st.error("Invalid username or password.")
+                            st.error("Unable to connect to database. Please try again later.")
                     else:
-                        st.error("Unable to connect to database. Please try again later.")
-                else:
-                    st.error("Please enter both username and password.")
+                        st.error("Please enter both username and password.")
 
-    with tab2:
-        st.markdown("#### Create a New Account")
-        signup_name = st.text_input("Full Name", key="signup_name", placeholder="John Doe")
-        signup_email = st.text_input("Email", key="signup_email", placeholder="your@email.com")
-        signup_password = st.text_input("Password", type="password", key="signup_password")
-        signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm")
+        with tab2:
+            st.markdown("#### Create a New Account")
+            signup_name = st.text_input("Full Name", key="signup_name", placeholder="John Doe")
+            signup_email = st.text_input("Email", key="signup_email", placeholder="your@email.com")
+            signup_password = st.text_input("Password", type="password", key="signup_password")
+            signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm")
 
-        col1, _ = st.columns([1, 3])
-        with col1:
-            if st.button("Sign Up", type="primary", use_container_width=True):
-                if not signup_name:
-                    st.error("Please enter your full name.")
-                elif signup_password != signup_confirm:
-                    st.error("Passwords do not match.")
-                elif not validate_signup_input(signup_email, signup_password):
-                    st.error("Email must be valid and password must be longer than 8 characters.")
-                else:
-                    # Hash the password and create the user
-                    password_hash = generate_password_hash(signup_password)
-                    conn = get_db_connection()
-                    if conn:
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        user_created = create_user(cursor, signup_email, password_hash)
+            st.write("")  # Add spacing before button
+            col1, _ = st.columns([1, 3])
+            with col1:
+                if st.button("Sign Up", type="primary", use_container_width=True):
+                    if not signup_name:
+                        st.error("Please enter your full name.")
+                    elif signup_password != signup_confirm:
+                        st.error("Passwords do not match.")
+                    elif not validate_signup_input(signup_email, signup_password):
+                        st.error("Email must be valid and password must be longer than 8 characters.")
+                    else:
+                        # Hash the password and create the user
+                        password_hash = generate_password_hash(signup_password)
+                        conn = get_db_connection()
+                        if conn:
+                            cursor = conn.cursor(cursor_factory=RealDictCursor)
+                            user_created = create_user(cursor, signup_email, password_hash)
 
-                        if user_created:
-                            # Get the newly created user's ID
-                            user = get_user_by_username(cursor, signup_email)
-                            cursor.close()
+                            if user_created:
+                                # Get the newly created user's ID
+                                user = get_user_by_username(cursor, signup_email)
+                                cursor.close()
 
-                            st.session_state.logged_in = True
-                            st.session_state.username = signup_name.split()[0]
-                            st.session_state.user_id = user["user_id"]
-                            st.session_state.email = user["email"]
-                            # Clear user-specific data from previous sessions
-                            st.session_state.keywords = []
-                            st.session_state.keywords_loaded = False
-                            st.session_state.alerts_loaded = False
-                            st.success("Account created successfully!")
-                            st.rerun()
+                                st.session_state.logged_in = True
+                                st.session_state.username = signup_name.split()[0]
+                                st.session_state.user_id = user["user_id"]
+                                st.session_state.email = user["email"]
+                                # Clear user-specific data from previous sessions
+                                st.session_state.keywords = []
+                                st.session_state.keywords_loaded = False
+                                st.session_state.alerts_loaded = False
+                                st.success("Account created successfully!")
+                                st.rerun()
+                            else:
+                                cursor.close()
+                                st.error("Email already exists. Please use a different email.")
                         else:
-                            cursor.close()
-                            st.error("Email already exists. Please use a different email.")
-                    else:
-                        st.error("Unable to connect to database. Please try again later.")
+                            st.error("Unable to connect to database. Please try again later.")
 
 
 # ============== Main App Control Navigation ==============
