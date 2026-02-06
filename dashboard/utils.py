@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import secrets
+import streamlit as st
 from datetime import datetime, timedelta
 from os import environ as ENV
 from typing import Optional
@@ -155,9 +156,11 @@ def create_user(cursor, email: str, password_hash: str) -> bool:
     except psycopg2.IntegrityError:
         # Email already exists
         cursor.connection.rollback()
+        st.error("Email already exists. Please use a different email.")
         return False
     except psycopg2.Error as e:
         logger.error(f"Database error creating user: {e}")
+        st.error("Database error occurred. Please try again later.")
         cursor.connection.rollback()
         return False
 
