@@ -43,12 +43,13 @@ def initialize_session_state() -> None:
         ss.emails_enabled = False
         ss.alerts_enabled = False
 
-def set_user_session(user: dict) -> None:
+def set_user_session(user: dict, conn) -> None:
     """Set session state variables for the logged-in user."""
     ss.logged_in = True
     ss.username = user["email"].split("@")[0]  # Use email prefix as username
     ss.user_id = user["user_id"]
     ss.email = user["email"]
+    ss.db_conn = conn
     st.success("Login successful!")
     st.rerun()
 
@@ -79,8 +80,8 @@ def render_login_tab() -> None:
                 cursor = conn.cursor(cursor_factory=RealDictCursor)
                 user = get_user_by_username(cursor, login_username)
                 cursor.close()
-                set_user_session(user)
-                
+                set_user_session(user, conn)
+
             else:
                 st.error("Invalid username or password.")
 
@@ -125,6 +126,7 @@ def render_get_new_account() -> None:
                 ss.username = signup_name.split()[0]
                 ss.user_id = user["user_id"]
                 ss.email = user["email"]
+                ss.db_conn = conn
                 ss.keywords = []
                 ss.keywords_loaded = False
                 ss.alerts_loaded = False
@@ -133,9 +135,9 @@ def render_get_new_account() -> None:
 
 
 def show_login_page() -> None:
-    """Display the login/signup page."""    
+    """Display the login/signup page."""
     col1, col2, col3 = st.columns([1, 1, 1])
-    
+
     with col2:
         st.title("Trends Tracker")
         tab1, tab2 = st.tabs(["Login", "Sign Up"])
