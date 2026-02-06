@@ -14,29 +14,35 @@ from streamlit import session_state as ss
 sys.path.insert(0, '..')
 
 
+def configure_page():
+    """Configure page settings and check authentication."""
+    if 'sidebar_state' not in ss:
+        ss.sidebar_state = 'collapsed'
 
-if 'sidebar_state' not in ss:
-    ss.sidebar_state = 'collapsed'
-
-
-def change():
-    ss.sidebar_state = (
-        "collapsed" if ss.sidebar_state == "expanded" else "expanded"
+    st.set_page_config(
+        page_title="TrendsFunnel",
+        page_icon="images/logo_blue.svg",
+        layout="wide",
+        initial_sidebar_state=ss.sidebar_state
     )
 
+    # Check authentication
+    if "logged_in" not in ss or not ss.logged_in:
+        st.warning("Please login to access this page.")
+        st.switch_page("app.py")
+        st.stop()
 
-st.set_page_config(
-    page_title="TrendsFunnel",
-    page_icon="images/logo_blue.svg",
-    layout="wide",
-    initial_sidebar_state=ss.sidebar_state
-)
+def load_styled_component(filepath: str) -> str:
+    """Load HTML/CSS styling from a file."""
+    try:
+        with open(filepath, 'r') as f:
+            styling = f.read()
+            return styling
+    except FileNotFoundError:
+        return st.error("Error loading styled component.")
 
-# Check authentication
-if "logged_in" not in ss or not ss.logged_in:
-    st.warning("Please login to access this page.")
-    st.switch_page("app.py")
-    st.stop()
+
+
 
 
 def load_keywords():
@@ -61,13 +67,11 @@ def add_logo_and_title():
             st.image("images/logo_blue.svg", width=100)
         with col_text:
             st.markdown(
-                "<h1 style='font-family: Ubuntu, sans-serif; margin: 0; padding-top: 10px; font-weight: bold; font-size: 50px; margin-bottom: -20px;'>TrendFunnel</h1>",
-                unsafe_allow_html=True,
-            )
+                load_styled_component("styling/home_title.html"),
+                unsafe_allow_html=True)
             st.markdown(
-                "<p style='font-family: Ubuntu, sans-serif; margin: 0; padding-top: 0px; font-style: italic; font-size: 15px; color: #555555;'>Turning fuzz into biz</p>",
-                unsafe_allow_html=True,
-            )
+                load_styled_component("styling/home_tagline.html"),
+                unsafe_allow_html=True)
 
 
 def render_add_keyword_section():
@@ -113,19 +117,9 @@ def render_keywords_display():
         cols = st.columns(4)
         for i, keyword in enumerate(keywords):
             with cols[i % 4]:
-                st.markdown(f"""
-                <div style="
-                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-                    color: white;
-                    padding: 15px;
-                    border-radius: 10px;
-                    text-align: center;
-                    margin-bottom: 10px;
-                    font-size: 1.1em;
-                ">
-                    {keyword}
-                </div>
-                """, unsafe_allow_html=True)
+                styling = load_styled_component("styling/home_keywords.html")
+                st.markdown(styling.format(keyword=keyword),
+                            unsafe_allow_html=True)
 
                 if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
                     # Remove from database
@@ -181,31 +175,12 @@ def render_getting_started(has_keywords):
             changes in trends or sentiment for your tracked keywords.
             """)
 
-# ============== Main Function ==============
-
 
 def main():
     """Main function for the Welcome page."""
     # Custom CSS for buttons and fonts
-    st.markdown("""
-        <style>
-        @import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap');
-        
-        /* Style secondary/regular buttons (Remove and Feature buttons) */
-        .stButton > button:not([kind="primary"]) {
-            background-color: rgba(25, 118, 210, 0.2) !important;
-            color: #1976D2 !important;
-            border: 1px solid rgba(25, 118, 210, 0.5) !important;
-        }
-        .stButton > button:not([kind="primary"]):hover {
-            background-color: rgba(25, 118, 210, 0.5) !important;
-        }
-        
-        h1, h2, h3, p {
-            font-family: 'Ubuntu', sans-serif !important;
-        }
-        </style>
-    """, unsafe_allow_html=True)
+    styling = load_styled_component("styling/home_font_buttons.html")
+    st.markdown(styling, unsafe_allow_html=True)
 
     load_keywords()
     # hide_sidebar()
@@ -293,4 +268,4 @@ def main():
                       key="comparisons_bottom_disabled", use_container_width=True)
 
 
-main()
+if __name__ == "__main__":
