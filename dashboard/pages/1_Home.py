@@ -1,17 +1,17 @@
 """Home - Welcome and introduction page for Trends Tracker."""
 
-from psycopg2.extras import RealDictCursor
-import sys
-import streamlit as st
-
-sys.path.insert(0, '..')
-
 from utils import (
     get_db_connection,
     get_user_keywords,
     add_user_keyword,
     remove_user_keyword,
 )
+from psycopg2.extras import RealDictCursor
+import sys
+import streamlit as st
+
+sys.path.insert(0, '..')
+
 
 def configure_page():
     """Configure page settings and check authentication."""
@@ -54,11 +54,12 @@ def load_keywords():
 
 def add_logo_and_title():
     """Add logo and title to the page."""
-    col1, col2, col3 = st.columns([1, 1, 1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        col_img, col_text = st.columns([0.3, 1], gap="small")
+        col_img_spacer, col_img, col_text = st.columns(
+            [0.1, 0.2, 1], gap="small")
         with col_img:
-            st.image("images/logo_blue.svg", width=250)
+            st.image("images/logo_blue.svg", width=100)
         with col_text:
             st.markdown(
                 "<h1 style='font-family: Ubuntu, sans-serif; margin: 0; padding-top: 10px; font-weight: bold; font-size: 50px; margin-bottom: -20px;'>TrendFunnel</h1>",
@@ -155,6 +156,7 @@ def render_what_is_trends_tracker():
         - **AI-Powered Insights**: Receive intelligent recommendations and trend analysis
         - **Smart Alerts**: Stay notified about important changes and trending patterns
         """)
+
 
 def render_getting_started(has_keywords):
     with st.expander("Getting Started"):
@@ -257,7 +259,7 @@ def main():
         else:
             st.button("📅 Daily Summary", disabled=True,
                       key="ai_bottom_disabled", use_container_width=True)
-    
+
     with col4:
         st.markdown("""
         ### Keyword Comparisons
@@ -270,7 +272,6 @@ def main():
         else:
             st.button("⚡ Keyword Comparisons", disabled=True,
                       key="comparisons_bottom_disabled", use_container_width=True)
-
 
 
 if __name__ == "__main__":
