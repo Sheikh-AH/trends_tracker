@@ -215,7 +215,7 @@ def main():
     st.markdown("---")
 
     # Feature cards
-    st.markdown("## ✨ Key Features")
+    st.markdown("## Key Features")
 
     col1, col2, col3 = st.columns(3)
 
@@ -258,21 +258,6 @@ def main():
             st.button("AI Insights", disabled=True,
                       key="ai_bottom_disabled", use_container_width=True)
 
-    st.markdown("---")
-
-    # Status indicator
-    if has_keywords:
-        st.success(
-            f"✅ You're tracking {len(st.session_state.keywords)} keyword(s). Ready to explore!")
-    else:
-        st.info("👉 Get started by adding some keywords to track!")
-
-    # Quick stats if keywords exist
-    if has_keywords:
-        st.markdown("### 📋 Your Keywords")
-        keywords_display = ", ".join(
-            [f"`{kw}`" for kw in st.session_state.keywords])
-        st.markdown(keywords_display)
 
 
 if __name__ == "__main__":
