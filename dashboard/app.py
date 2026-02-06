@@ -142,20 +142,22 @@ def show_login_page():
 
 
 
-if st.session_state.logged_in:
+if not st.session_state.logged_in:
+    show_login_page()
+else:
     nav = st.navigation(
         [
             st.Page("pages/1_Home.py", title="Home", icon="🏠"),
             st.Page("pages/2_Semantics.py", title="Semantics", icon="📖"),
-            st.Page("pages/3_Daily_Summary.py", title="Daily Summary", icon="📅"),
-            st.Page("pages/3_Keyword_Deep_Dive.py", title="Keyword Deep Dive", icon="🔍"),
+            st.Page("pages/3_Daily_Summary.py",
+                    title="Daily Summary", icon="📅"),
+            st.Page("pages/3_Keyword_Deep_Dive.py",
+                    title="Keyword Deep Dive", icon="🔍"),
             st.Page("pages/4_AI_Insights.py", title="AI Insights", icon="🤖"),
-            st.Page("pages/5_Manage_Topics.py", title="Manage Topics", icon="⚙️"),
+            st.Page("pages/5_Manage_Topics.py",
+                    title="Manage Topics", icon="⚙️"),
             st.Page("pages/6_Alerts.py", title="Alerts", icon="🚨"),
         ]
     )
     nav.run()
-else:
-    # Show login page when not logged in
-    show_login_page()
 
