@@ -46,6 +46,7 @@ def load_keywords():
             st.session_state.keywords = db_keywords if db_keywords else []
             st.session_state.keywords_loaded = True
 
+
 def add_logo_and_title():
     """Add logo and title to the page."""
     col1, col2, col3 = st.columns([1, 1, 1])
@@ -66,7 +67,7 @@ def add_logo_and_title():
 
 def render_add_keyword_section():
     """Render the add keyword section."""
-    st.markdown("### ➕ Add New Keyword")
+    # st.markdown("### ➕ Add New Keyword")
     col1, col2 = st.columns([3, 1])
 
     with col1:
@@ -98,69 +99,88 @@ def render_add_keyword_section():
             else:
                 st.warning("Please enter a valid keyword.")
 
+
+def render_keywords_display():
+    """Render the current keywords display."""
+
+    keywords = st.session_state.get("keywords", [])
+    if keywords:
+        # Display in a grid
+        cols = st.columns(4)
+        for i, keyword in enumerate(keywords):
+            with cols[i % 4]:
+                st.markdown(f"""
+                <div style="
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                    padding: 15px;
+                    border-radius: 10px;
+                    text-align: center;
+                    margin-bottom: 10px;
+                    font-size: 1.1em;
+                ">
+                    {keyword}
+                </div>
+                """, unsafe_allow_html=True)
+
+                if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
+                    # Remove from database
+                    conn = get_db_connection()
+                    if conn and st.session_state.get("user_id"):
+                        cursor = conn.cursor(cursor_factory=RealDictCursor)
+                        remove_user_keyword(
+                            cursor, st.session_state.user_id, keyword)
+                        conn.commit()
+                        cursor.close()
+                        st.session_state.keywords.remove(keyword)
+                        st.success(f"Removed '{keyword}'")
+                        st.rerun()
+    else:
+        st.info("No keywords added yet. Add some above to start tracking!")
+
+
+def render_what_is_trends_tracker():
+    """Render the 'What is Trends Tracker?' section."""
+    with st.expander("## What is Trends Tracker?"):
+        st.markdown("""
+        Trends Tracker is your comprehensive social media analytics platform that helps you:
+
+        - **Track Keywords**: Monitor trending topics and keywords across Bluesky and Google Trends
+        - **Deep Dive Analytics**: Get detailed insights into keyword performance, sentiment, and engagement
+        - **AI-Powered Insights**: Receive intelligent recommendations and trend analysis
+        - **Smart Alerts**: Stay notified about important changes and trending patterns
+        """)
+
 # ============== Main Function ==============
+
+
 def main():
     """Main function for the Welcome page."""
     hide_sidebar()
+    load_keywords()
+    has_keywords = len(st.session_state.get("keywords", [])) > 0
 
     # Add vertical space
     st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
 
     add_logo_and_title()
 
-    st.space()
+    st.space("medium")
 
     col1, col2, col3 = st.columns([1, 3, 1])
-    
+
     with col2:
         render_add_keyword_section()
+        st.space('medium')
+        render_keywords_display()
+
+    st.space('medium')
+
     # Introduction section
-    st.markdown("""
-    ## What is Trends Tracker?
-
-    Trends Tracker is your comprehensive social media analytics platform that helps you:
-
-    - **Track Keywords**: Monitor trending topics and keywords across Bluesky and Google Trends
-    - **Deep Dive Analytics**: Get detailed insights into keyword performance, sentiment, and engagement
-    - **AI-Powered Insights**: Receive intelligent recommendations and trend analysis
-    - **Smart Alerts**: Stay notified about important changes and trending patterns
-    """)
-
-    st.markdown("---")
-
-    # Load keywords to check if user has set them up
-    load_keywords()
-    has_keywords = len(st.session_state.get("keywords", [])) > 0
+    render_what_is_trends_tracker()
 
     # Getting Started section
-    st.markdown("## 🚀 Getting Started")
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.markdown("### 📝 Step 1: Set Up Keywords")
-        st.markdown("""
-        Start by adding the keywords and topics you want to track.
-        These can be brands, products, hashtags, or any topics of interest.
-        """)
-
-        if st.button("🏷️ Manage Topics", type="primary", use_container_width=True):
-            st.switch_page("pages/5_Manage_Topics.py")
-
-    with col2:
-        st.markdown("### 📊 Step 2: Explore Analytics")
-        st.markdown("""
-        Once you've added keywords, dive into the analytics to see
-        trends, sentiment analysis, and engagement metrics.
-        """)
-
-        if has_keywords:
-            if st.button("📈 View Semantics", type="primary", use_container_width=True):
-                st.switch_page("pages/2_Semantics.py")
-        else:
-            st.button("📈 View Semantics", disabled=True,
-                      use_container_width=True)
-            st.caption("⚠️ Add keywords first to view analytics")
+    
 
     st.markdown("---")
 
