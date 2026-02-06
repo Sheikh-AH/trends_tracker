@@ -1,11 +1,8 @@
-"""
-Trends Tracker Dashboard - Streamlit Mockup
-A multi-page dashboard for tracking social media trends and analytics.
-Sources of data are bluesky and Google trends.
-"""
+"""Login Page and Main App Runner for Trends Tracker Dashboard."""
 
 import logging
 import streamlit as st
+from streamlit import session_state as ss
 from psycopg2.extras import RealDictCursor
 
 # Import shared utilities
@@ -19,146 +16,160 @@ from utils import (
     create_user
 )
 
-# ============== Logging Configuration ==============
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Register cleanup
-_cleanup = get_db_connection_cleanup()
+
+def configure_page() -> None:
+    """Set up the Streamlit page configuration."""
+    st.set_page_config(
+        page_title="Trends Tracker",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
+
+def initialize_session_state() -> None:
+    """Initialize session state variables for user authentication and data."""
+    if "logged_in" not in ss:
+        ss.logged_in = False
+
+    if not ss.logged_in:
+        ss.username = ""
+        ss.user_id = None
+        ss.email = ""
+        ss.keywords = []
+        ss.keywords_loaded = False
+        ss.alerts_loaded = False
+        ss.emails_enabled = False
+        ss.alerts_enabled = False
+
+def set_user_session(user: dict) -> None:
+    """Set session state variables for the logged-in user."""
+    ss.logged_in = True
+    ss.username = user["email"].split("@")[0]  # Use email prefix as username
+    ss.user_id = user["user_id"]
+    ss.email = user["email"]
+    st.success("Login successful!")
+    st.rerun()
+
+def render_login_tab() -> None:
+    """Render the login tab content."""
+
+    st.space('xxsmall')
+    login_username = st.text_input("Username", key="login_username", placeholder="username")
+    login_password = st.text_input("Password", type="password", key="login_password", placeholder="password")
+    st.space('xxsmall')
+
+    try:
+        conn = get_db_connection()
+    except Exception as e:
+        st.error("Unable to connect to database. Please try again later.")
+        return
+
+    col1, _ = st.columns([1, 3])
+    with col1:
+        if st.button("Login", type="primary", use_container_width=True):
+            if login_username and login_password:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                is_authenticated = authenticate_user(cursor, login_username, login_password)
+                cursor.close()
+            else:
+                st.error("Please enter both username and password.")
+            if is_authenticated:
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                user = get_user_by_username(cursor, login_username)
+                cursor.close()
+                set_user_session(user)
+                
+            else:
+                st.error("Invalid username or password.")
+
+def new_account_fields() -> tuple:
+    """Create input fields for new account registration and return the values."""
+    st.space('xxsmall')
+    signup_name = st.text_input(
+        "Full Name", key="signup_name")
+    signup_email = st.text_input(
+        "Email", key="signup_email")
+    signup_password = st.text_input(
+        "Password", type="password", key="signup_password")
+    signup_confirm = st.text_input(
+        "Confirm Password", type="password", key="signup_confirm")
+    st.space('xxsmall')
+    return signup_name, signup_email, signup_password, signup_confirm
+
+def render_get_new_account() -> None:
+    """Render the sign-up tab content."""
+    signup_name, signup_email, signup_password, signup_confirm = new_account_fields()
+
+    col1, _ = st.columns([1, 3])
+    with col1:
+        if st.button("Sign Up", type="primary", use_container_width=True):
+            if not signup_name:
+                st.error("Please enter your full name.")
+            elif signup_password != signup_confirm:
+                st.error("Passwords do not match.")
+            elif not validate_signup_input(signup_email, signup_password):
+                st.error(
+                    "Email must be valid and password must be longer than 8 characters.")
+            else:
+                # Hash the password and create the user
+                password_hash = generate_password_hash(signup_password)
+                conn = get_db_connection()
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                user_created = create_user(cursor, signup_email, password_hash)
+                user = get_user_by_username(cursor, signup_email)
+                cursor.close()
+
+                ss.logged_in = True
+                ss.username = signup_name.split()[0]
+                ss.user_id = user["user_id"]
+                ss.email = user["email"]
+                ss.keywords = []
+                ss.keywords_loaded = False
+                ss.alerts_loaded = False
+                st.success("Account created successfully!")
+                st.rerun()
 
 
-# ============== Page Configuration ==============
-st.set_page_config(
-    page_title="Trends Tracker",
-    page_icon="📊",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+def show_login_page() -> None:
+    """Display the login/signup page."""    
+    col1, col2, col3 = st.columns([1, 1, 1])
+    
+    with col2:
+        st.title("Trends Tracker")
+        tab1, tab2 = st.tabs(["Login", "Sign Up"])
+        with tab1:
+            render_login_tab()
 
-# ============== Session State Initialization ==============
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "emails_enabled" not in st.session_state:
-    st.session_state.emails_enabled = False
-if "alerts_enabled" not in st.session_state:
-    st.session_state.alerts_enabled = False
-if "email" not in st.session_state or not st.session_state.logged_in:
-    st.session_state.email = ""
+        with tab2:
+            render_get_new_account()
 
 
-# ============== Login Page ==============
-def show_login_page():
-    """Display the login/signup page."""
-    # Hide sidebar on login page
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"] {
-                display: none;
-            }
-        </style>
-    """, unsafe_allow_html=True)
+def create_nav() -> st.Navigation:
+    """Create the navigation menu for logged-in users."""
+    return st.navigation(
+        [
+            st.Page("pages/1_Home.py", title="Home"),
+            st.Page("pages/2_Semantics.py", title="Semantics"),
+            st.Page("pages/3_Daily_Summary.py", title="Daily Summary"),
+            st.Page("pages/3_Keyword_Deep_Dive.py", title="Keyword Deep Dive"),
+            st.Page("pages/4_AI_Insights.py", title="AI Insights"),
+            st.Page("pages/5_Manage_Topics.py", title="Manage Topics"),
+            st.Page("pages/6_Alerts.py", title="Alerts"),
+        ]
+    )
 
-    st.title("🔐 Trends Tracker")
-    st.markdown("### Welcome! Please login or create an account to continue.")
+if __name__ == "__main__":
 
-    tab1, tab2 = st.tabs(["Login", "Sign Up"])
+    configure_page()
+    initialize_session_state()
 
-    with tab1:
-        st.markdown("#### Login to Your Account")
-        login_username = st.text_input("Username", key="login_username", placeholder="your_username")
-        login_password = st.text_input("Password", type="password", key="login_password")
-
-        col1, _ = st.columns([1, 3])
-        with col1:
-            if st.button("Login", type="primary", use_container_width=True):
-                if login_username and login_password:
-                    conn = get_db_connection()
-                    if conn:
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        is_authenticated = authenticate_user(cursor, login_username, login_password)
-
-                        if is_authenticated:
-                            # Get user_id from database
-                            user = get_user_by_username(cursor, login_username)
-                            cursor.close()
-
-                            st.session_state.logged_in = True
-                            st.session_state.username = login_username
-                            st.session_state.user_id = user["user_id"]
-                            st.session_state.email = user["email"]
-                            # Clear user-specific data from previous sessions
-                            st.session_state.keywords = []
-                            st.session_state.keywords_loaded = False
-                            st.session_state.alerts_loaded = False
-                            st.success("Login successful!")
-                            st.rerun()
-                        else:
-                            cursor.close()
-                            st.error("Invalid username or password.")
-                    else:
-                        st.error("Unable to connect to database. Please try again later.")
-                else:
-                    st.error("Please enter both username and password.")
-
-    with tab2:
-        st.markdown("#### Create a New Account")
-        signup_name = st.text_input("Full Name", key="signup_name", placeholder="John Doe")
-        signup_email = st.text_input("Email", key="signup_email", placeholder="your@email.com")
-        signup_password = st.text_input("Password", type="password", key="signup_password")
-        signup_confirm = st.text_input("Confirm Password", type="password", key="signup_confirm")
-
-        col1, _ = st.columns([1, 3])
-        with col1:
-            if st.button("Sign Up", type="primary", use_container_width=True):
-                if not signup_name:
-                    st.error("Please enter your full name.")
-                elif signup_password != signup_confirm:
-                    st.error("Passwords do not match.")
-                elif not validate_signup_input(signup_email, signup_password):
-                    st.error("Email must be valid and password must be longer than 8 characters.")
-                else:
-                    # Hash the password and create the user
-                    password_hash = generate_password_hash(signup_password)
-                    conn = get_db_connection()
-                    if conn:
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        user_created = create_user(cursor, signup_email, password_hash)
-
-                        if user_created:
-                            # Get the newly created user's ID
-                            user = get_user_by_username(cursor, signup_email)
-                            cursor.close()
-
-                            st.session_state.logged_in = True
-                            st.session_state.username = signup_name.split()[0]
-                            st.session_state.user_id = user["user_id"]
-                            st.session_state.email = user["email"]
-                            # Clear user-specific data from previous sessions
-                            st.session_state.keywords = []
-                            st.session_state.keywords_loaded = False
-                            st.session_state.alerts_loaded = False
-                            st.success("Account created successfully!")
-                            st.rerun()
-                        else:
-                            cursor.close()
-                            st.error("Email already exists. Please use a different email.")
-                    else:
-                        st.error("Unable to connect to database. Please try again later.")
-
-
-# ============== Main App ==============
-def main():
-    """Main application entry point."""
     if not st.session_state.logged_in:
         show_login_page()
     else:
-        st.switch_page("pages/1_Home.py")
+        nav = create_nav()
+        nav.run()
 
-
-if __name__ == "__main__":
-    main()
-
+    # Register cleanup
+    _cleanup = get_db_connection_cleanup()
