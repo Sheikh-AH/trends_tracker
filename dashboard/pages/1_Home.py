@@ -46,16 +46,8 @@ def load_keywords():
             st.session_state.keywords = db_keywords if db_keywords else []
             st.session_state.keywords_loaded = True
 
-
-# ============== Main Function ==============
-def main():
-    """Main function for the Welcome page."""
-    hide_sidebar()
-
-    # Add vertical space
-    st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
-
-    # Logo and TrendFunnel title side by side
+def add_logo_and_title():
+    """Add logo and title to the page."""
     col1, col2, col3 = st.columns([1, 1, 1])
     with col2:
         col_img, col_text = st.columns([0.3, 1], gap="small")
@@ -72,7 +64,56 @@ def main():
             )
 
 
+def render_add_keyword_section():
+    """Render the add keyword section."""
+    st.markdown("### ➕ Add New Keyword")
+    col1, col2 = st.columns([3, 1])
 
+    with col1:
+        new_keyword = st.text_input(
+            "Enter keyword",
+            placeholder="e.g., matcha, tea, boba...",
+            label_visibility="collapsed"
+        )
+
+    with col2:
+        if st.button("Add Keyword", use_container_width=True, type="primary"):
+            if new_keyword and new_keyword.strip():
+                keyword_clean = new_keyword.strip().lower()
+                if keyword_clean not in st.session_state.keywords:
+                    # Add to database
+                    conn = get_db_connection()
+                    if conn and st.session_state.get("user_id"):
+                        cursor = conn.cursor(cursor_factory=RealDictCursor)
+                        add_user_keyword(
+                            cursor, st.session_state.user_id, keyword_clean)
+                        conn.commit()
+                        cursor.close()
+                        st.session_state.keywords.append(keyword_clean)
+                        st.success(
+                            f"Added '{keyword_clean}' to your keywords!")
+                        st.rerun()
+                else:
+                    st.warning(f"'{keyword_clean}' is already in your list.")
+            else:
+                st.warning("Please enter a valid keyword.")
+
+# ============== Main Function ==============
+def main():
+    """Main function for the Welcome page."""
+    hide_sidebar()
+
+    # Add vertical space
+    st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
+
+    add_logo_and_title()
+
+    st.space()
+
+    col1, col2, col3 = st.columns([1, 3, 1])
+    
+    with col2:
+        render_add_keyword_section()
     # Introduction section
     st.markdown("""
     ## What is Trends Tracker?
