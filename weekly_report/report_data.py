@@ -92,65 +92,43 @@ def get_post_count_between(conn: psycopg2.extensions.connection, keyword: str, s
 
 
 def get_sentiment_breakdown(conn: psycopg2.extensions.connection, keyword: str, hours: int = 168) -> dict:
-    """Fetches sentiment breakdown (positive/neutral/negative) for a keyword over the last N hours (default 7 days)."""
+    """Fetches sentiment breakdown (positive/neutral/negative) for a keyword over the last N hours (default 7 days).
+
+    Sentiment score ranges:
+    - Positive: > 0.1
+    - Neutral: -0.1 to 0.1
+    - Negative: < -0.1
+    """
     cur = conn.cursor()
 
     cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
 
     cur.execute("""
         SELECT 
-            bp.sentiment_score,
-            COUNT(*) as count
+            SUM(CASE WHEN bp.sentiment_score::NUMERIC > 0.1 THEN 1 ELSE 0 END) as positive,
+            SUM(CASE WHEN bp.sentiment_score::NUMERIC >= -0.1 AND bp.sentiment_score::NUMERIC <= 0.1 THEN 1 ELSE 0 END) as neutral,
+            SUM(CASE WHEN bp.sentiment_score::NUMERIC < -0.1 THEN 1 ELSE 0 END) as negative,
+            COUNT(*) as total
         FROM matches m
         JOIN bluesky_posts bp ON m.post_uri = bp.post_uri
         WHERE m.keyword_value = %s
         AND bp.posted_at >= %s
         AND bp.sentiment_score IS NOT NULL
-        GROUP BY bp.sentiment_score
     """, (keyword, cutoff_time))
-
-    rows = cur.fetchall()
-    cur.close()
-
-    # Initialize counts
-    sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
-    total = 0
-
-    for row in rows:
-        sentiment = row[0].lower() if row[0] else "neutral"
-        count = row[1]
-        if sentiment in sentiment_counts:
-            sentiment_counts[sentiment] = count
-        total += count
-
-    # Calculate percentages
-    if total > 0:
-        return {
-            "positive": round((sentiment_counts["positive"] / total) * 100),
-            "neutral": round((sentiment_counts["neutral"] / total) * 100),
-            "negative": round((sentiment_counts["negative"] / total) * 100),
-            "total": total
-        }
-
-    return {"positive": 0, "neutral": 0, "negative": 0, "total": 0}
-
-
-def get_latest_google_trends(conn: psycopg2.extensions.connection, keyword: str) -> int | None:
-    """Fetches the latest Google Trends search volume for a keyword."""
-    cur = conn.cursor()
-
-    cur.execute("""
-        SELECT search_volume
-        FROM google_trends
-        WHERE keyword_value = %s
-        ORDER BY trend_date DESC
-        LIMIT 1
-    """, (keyword,))
 
     row = cur.fetchone()
     cur.close()
 
-    return row[0] if row else None
+    if row and row[3] > 0:  # row[3] is total
+        total = row[3]
+        return {
+            "positive": round((row[0] / total) * 100),
+            "neutral": round((row[1] / total) * 100),
+            "negative": round((row[2] / total) * 100),
+            "total": total
+        }
+
+    return {"positive": 0, "neutral": 0, "negative": 0, "total": 0}
 
 
 def get_llm_summary(conn: psycopg2.extensions.connection, user_id: int) -> str | None:
@@ -196,7 +174,6 @@ def get_keyword_stats(conn: psycopg2.extensions.connection, keyword: str) -> dic
         conn, keyword, start_hours_ago=336, end_hours_ago=168)
 
     sentiment = get_sentiment_breakdown(conn, keyword, hours=168)
-    google_trends = get_latest_google_trends(conn, keyword)
     trend = calculate_trend(conn, posts_7d, posts_previous_7d)
     return {
         "keyword": keyword,
@@ -204,7 +181,6 @@ def get_keyword_stats(conn: psycopg2.extensions.connection, keyword: str) -> dic
         "posts_7d": posts_7d,
         "posts_previous_7d": posts_previous_7d,
         "sentiment": sentiment,
-        "google_trends": google_trends,
         "trend": trend
     }
 

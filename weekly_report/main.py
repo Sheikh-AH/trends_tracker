@@ -1,7 +1,7 @@
 """Main pipeline for generating and sending weekly email reports."""
 import os
 import boto3
-from report_data import get_all_users, get_user_report_data
+from report_data import get_all_users, get_user_report_data, get_db_connection
 from gen_html_report import build_weekly_report_email
 
 
@@ -33,7 +33,8 @@ def run_weekly_report_pipeline() -> dict:
     """Runs the full weekly report pipeline for all users."""
     print("Starting weekly report pipeline...")
 
-    users = get_all_users()
+    conn = get_db_connection()
+    users = get_all_users(conn)
     print(f"Found {len(users)} users with email enabled")
 
     total_sent = 0
@@ -47,7 +48,7 @@ def run_weekly_report_pipeline() -> dict:
 
         try:
             # Get all report data for this user
-            report_data = get_user_report_data(user_id)
+            report_data = get_user_report_data(conn, user_id)
 
             # Skip if user has no keywords
             if not report_data["keywords"]:
@@ -55,7 +56,9 @@ def run_weekly_report_pipeline() -> dict:
                 continue
 
             # Build the HTML email
-            html_body = build_weekly_report_email(report_data, email)
+            logo_url = "https://c21-trends-funnel-assets.s3.eu-west-2.amazonaws.com/logo_blue.png"
+            html_body = build_weekly_report_email(
+                report_data, email, logo_url=logo_url)
 
             # Send the email
             if send_email(email, html_body):
