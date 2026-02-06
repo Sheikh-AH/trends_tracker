@@ -9,24 +9,31 @@ from utils import (
 from psycopg2.extras import RealDictCursor
 import sys
 import streamlit as st
+from streamlit import session_state as ss
 
 sys.path.insert(0, '..')
 
 
-def configure_page():
-    """Configure page settings and check authentication."""
-    st.set_page_config(
-        page_title="Welcome - Trends Tracker",
-        page_icon="🏠",
-        layout="wide",
-        initial_sidebar_state="collapsed"
+if 'sidebar_state' not in ss:
+    ss.sidebar_state = 'collapsed'
+
+def change():
+    ss.sidebar_state = (
+        "collapsed" if ss.sidebar_state == "expanded" else "expanded"
     )
 
-    # Check authentication
-    if "logged_in" not in st.session_state or not st.session_state.logged_in:
-        st.warning("Please login to access this page.")
-        st.switch_page("app.py")
-        st.stop()
+st.set_page_config(
+    page_title="TrendsFunnel",
+    page_icon="images/logo_blue.svg",
+    layout="wide",
+    initial_sidebar_state=ss.sidebar_state
+)
+
+# Check authentication
+if "logged_in" not in ss or not ss.logged_in:
+    st.warning("Please login to access this page.")
+    st.switch_page("app.py")
+    st.stop()
 
 
 def hide_sidebar():
@@ -42,14 +49,14 @@ def hide_sidebar():
 
 def load_keywords():
     """Load user keywords from database."""
-    if not st.session_state.get("keywords_loaded", False):
+    if not ss.get("keywords_loaded", False):
         conn = get_db_connection()
-        if conn and st.session_state.get("user_id"):
+        if conn and ss.get("user_id"):
             cursor = conn.cursor(cursor_factory=RealDictCursor)
-            db_keywords = get_user_keywords(cursor, st.session_state.user_id)
+            db_keywords = get_user_keywords(cursor, ss.user_id)
             cursor.close()
-            st.session_state.keywords = db_keywords if db_keywords else []
-            st.session_state.keywords_loaded = True
+            ss.keywords = db_keywords if db_keywords else []
+            ss.keywords_loaded = True
 
 
 def add_logo_and_title():
@@ -87,16 +94,16 @@ def render_add_keyword_section():
         if st.button("Add Keyword", use_container_width=True, type="primary"):
             if new_keyword and new_keyword.strip():
                 keyword_clean = new_keyword.strip().lower()
-                if keyword_clean not in st.session_state.keywords:
+                if keyword_clean not in ss.keywords:
                     # Add to database
                     conn = get_db_connection()
-                    if conn and st.session_state.get("user_id"):
+                    if conn and ss.get("user_id"):
                         cursor = conn.cursor(cursor_factory=RealDictCursor)
                         add_user_keyword(
-                            cursor, st.session_state.user_id, keyword_clean)
+                            cursor, ss.user_id, keyword_clean)
                         conn.commit()
                         cursor.close()
-                        st.session_state.keywords.append(keyword_clean)
+                        ss.keywords.append(keyword_clean)
                         st.success(
                             f"Added '{keyword_clean}' to your keywords!")
                         st.rerun()
@@ -109,7 +116,7 @@ def render_add_keyword_section():
 def render_keywords_display():
     """Render the current keywords display."""
 
-    keywords = st.session_state.get("keywords", [])
+    keywords = ss.get("keywords", [])
     if keywords:
         # Display in a grid
         cols = st.columns(4)
@@ -132,13 +139,13 @@ def render_keywords_display():
                 if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
                     # Remove from database
                     conn = get_db_connection()
-                    if conn and st.session_state.get("user_id"):
+                    if conn and ss.get("user_id"):
                         cursor = conn.cursor(cursor_factory=RealDictCursor)
                         remove_user_keyword(
-                            cursor, st.session_state.user_id, keyword)
+                            cursor, ss.user_id, keyword)
                         conn.commit()
                         cursor.close()
-                        st.session_state.keywords.remove(keyword)
+                        ss.keywords.remove(keyword)
                         st.success(f"Removed '{keyword}'")
                         st.rerun()
     else:
@@ -188,9 +195,9 @@ def render_getting_started(has_keywords):
 
 def main():
     """Main function for the Welcome page."""
-    hide_sidebar()
     load_keywords()
-    has_keywords = len(st.session_state.get("keywords", [])) > 0
+    # hide_sidebar()
+    has_keywords = len(ss.get("keywords", [])) > 0
 
     # Add vertical space
     st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
@@ -274,6 +281,4 @@ def main():
                       key="comparisons_bottom_disabled", use_container_width=True)
 
 
-if __name__ == "__main__":
-    configure_page()
-    main()
+main()
