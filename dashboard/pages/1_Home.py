@@ -1,12 +1,17 @@
 """Home - Welcome and introduction page for Trends Tracker."""
 
 from psycopg2.extras import RealDictCursor
-from utils import get_db_connection, get_user_keywords
 import sys
 import streamlit as st
 
 sys.path.insert(0, '..')
 
+from utils import (
+    get_db_connection,
+    get_user_keywords,
+    add_user_keyword,
+    remove_user_keyword,
+)
 
 def configure_page():
     """Configure page settings and check authentication."""
