@@ -19,7 +19,6 @@ from utils import (
     create_user
 )
 
-# ============== Logging Configuration ==============
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -27,10 +26,8 @@ logger = logging.getLogger(__name__)
 _cleanup = get_db_connection_cleanup()
 
 
-# ============== Page Configuration ==============
 st.set_page_config(
     page_title="Trends Tracker",
-    page_icon="📊",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -127,34 +124,24 @@ def show_login_page():
                         # Hash the password and create the user
                         password_hash = generate_password_hash(signup_password)
                         conn = get_db_connection()
-                        if conn:
-                            cursor = conn.cursor(cursor_factory=RealDictCursor)
-                            user_created = create_user(cursor, signup_email, password_hash)
+                        cursor = conn.cursor(cursor_factory=RealDictCursor)
+                        user_created = create_user(cursor, signup_email, password_hash)
+                        user = get_user_by_username(cursor, signup_email)
+                        cursor.close()
 
-                            if user_created:
-                                # Get the newly created user's ID
-                                user = get_user_by_username(cursor, signup_email)
-                                cursor.close()
+                        st.session_state.logged_in = True
+                        st.session_state.username = signup_name.split()[0]
+                        st.session_state.user_id = user["user_id"]
+                        st.session_state.email = user["email"]
 
-                                st.session_state.logged_in = True
-                                st.session_state.username = signup_name.split()[0]
-                                st.session_state.user_id = user["user_id"]
-                                st.session_state.email = user["email"]
-                                # Clear user-specific data from previous sessions
-                                st.session_state.keywords = []
-                                st.session_state.keywords_loaded = False
-                                st.session_state.alerts_loaded = False
-                                st.success("Account created successfully!")
-                                st.rerun()
-                            else:
-                                cursor.close()
-                                st.error("Email already exists. Please use a different email.")
-                        else:
-                            st.error("Unable to connect to database. Please try again later.")
+                        st.session_state.keywords = []
+                        st.session_state.keywords_loaded = False
+                        st.session_state.alerts_loaded = False
+                        st.success("Account created successfully!")
+                        st.rerun()
 
 
-# ============== Main App Control Navigation ==============
-# Hide login page from sidebar - only show dashboard pages when logged in
+
 if st.session_state.logged_in:
     nav = st.navigation(
         [
