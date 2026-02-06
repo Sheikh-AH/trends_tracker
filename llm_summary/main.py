@@ -88,13 +88,17 @@ def fetch_user_keywords(conn, user_id: int) -> list[dict]:
 
 
 def fetch_bluesky_posts_for_user_keywords(
-    conn, keyword_values: list[str], hours: int = 24
+    conn, keyword_values: list[str]
 ) -> list[dict]:
-    """Fetch recent Bluesky posts matching any of the user's keywords via matches table."""
+    """Fetch Bluesky posts matching any of the user's keywords from the previous day."""
     if not keyword_values:
         return []
 
-    cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+    # Calculate previous day boundaries
+    today = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today - timedelta(days=1)
+    yesterday_end = today
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("""
@@ -107,20 +111,25 @@ def fetch_bluesky_posts_for_user_keywords(
             INNER JOIN matches m ON bp.post_uri = m.post_uri
             WHERE m.keyword_value = ANY(%s)
               AND bp.posted_at >= %s
+              AND bp.posted_at < %s
             ORDER BY bp.posted_at DESC
             LIMIT 500;
-        """, (keyword_values, cutoff_time))
+        """, (keyword_values, yesterday_start, yesterday_end))
         return cur.fetchall()
 
 
 def fetch_google_trends_for_user_keywords(
-    conn, keyword_values: list[str], days: int = 7
+    conn, keyword_values: list[str]
 ) -> list[dict]:
-    """Fetch recent Google Trends data for the user's keywords."""
+    """Fetch Google Trends data for the user's keywords from the previous day."""
     if not keyword_values:
         return []
 
-    cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
+    # Calculate previous day boundaries
+    today = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today - timedelta(days=1)
+    yesterday_end = today
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("""
@@ -131,8 +140,9 @@ def fetch_google_trends_for_user_keywords(
             FROM google_trends
             WHERE keyword_value = ANY(%s)
               AND trend_date >= %s
+              AND trend_date < %s
             ORDER BY trend_date DESC
-        """, (keyword_values, cutoff_time))
+        """, (keyword_values, yesterday_start, yesterday_end))
         return cur.fetchall()
 
 
