@@ -1,4 +1,5 @@
 """This module fetches all data needed for the weekly email report."""
+import requests
 import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
@@ -131,22 +132,61 @@ def get_sentiment_breakdown(conn: psycopg2.extensions.connection, keyword: str, 
     return {"positive": 0, "neutral": 0, "negative": 0, "total": 0}
 
 
-def get_llm_summary(conn: psycopg2.extensions.connection, user_id: int) -> str | None:
-    """Fetches the latest LLM-generated summary for a user."""
+def get_llm_summaries(conn: psycopg2.extensions.connection, user_id: int) -> list[str]:
+    """Fetches the last 7 LLM-generated summaries for a user."""
     cur = conn.cursor()
-
     cur.execute("""
         SELECT summary
         FROM llm_summary
         WHERE user_id = %s
         ORDER BY summary_id DESC
-        LIMIT 1
+        LIMIT 7
     """, (user_id,))
-
-    row = cur.fetchone()
+    rows = cur.fetchall()
     cur.close()
+    return [row[0] for row in rows]
 
-    return row[0] if row else None
+
+def generate_weekly_digest(daily_summaries: list[str]) -> str | None:
+    """Calls OpenRouter API to consolidate daily summaries into a weekly digest."""
+    if not daily_summaries:
+        return None
+
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1/chat/completions"
+
+    combined = "\n\n---\n\n".join(daily_summaries)
+
+    prompt = f"""You are summarizing a week of daily social media trend reports.
+Consolidate these {len(daily_summaries)} daily summaries into one cohesive weekly digest.
+Highlight the key themes, notable trends, and any patterns across the week.
+
+Daily Summaries:
+{combined}
+
+Provide a concise weekly digest (2-3 paragraphs) that is actionable for someone monitoring these topics."""
+
+    try:
+        response = requests.post(
+            OPENROUTER_BASE_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://trendgetter.app",
+                "X-Title": "Trend Getter"
+            },
+            json={
+                "model": "openai/gpt-4o-mini",
+                "max_tokens": 500,
+                "messages": [{"role": "user", "content": prompt}]
+            },
+            timeout=30
+        )
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"]
+    except Exception as e:
+        print(f"Error generating weekly digest: {e}")
+        return None
 
 
 def calculate_trend(conn: psycopg2.extensions.connection, current: int, previous: int) -> dict:
@@ -204,7 +244,8 @@ def get_user_report_data(conn: psycopg2.extensions.connection, user_id: int) -> 
     else:
         avg_positive = 0
 
-    llm_summary = get_llm_summary(conn, user_id)
+    daily_summaries = get_llm_summaries(conn, user_id)
+    llm_summary = generate_weekly_digest(daily_summaries)
 
     return {
         "user_id": user_id,
