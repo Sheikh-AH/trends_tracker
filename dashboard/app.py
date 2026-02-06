@@ -29,8 +29,8 @@ _cleanup = get_db_connection_cleanup()
 
 # ============== Page Configuration ==============
 st.set_page_config(
-    page_title="Trends Tracker",
-    page_icon="📊",
+    page_title="Trendfunnel",
+    page_icon="art/logo_blue.svg",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -48,6 +48,8 @@ if "alerts_enabled" not in st.session_state:
     st.session_state.alerts_enabled = False
 if "email" not in st.session_state or not st.session_state.logged_in:
     st.session_state.email = ""
+if "db_conn" not in st.session_state:
+    st.session_state.db_conn = get_db_connection()
 
 
 # ============== Login Page ==============
@@ -76,7 +78,7 @@ def show_login_page():
         with col1:
             if st.button("Login", type="primary", use_container_width=True):
                 if login_username and login_password:
-                    conn = get_db_connection()
+                    conn = st.session_state.db_conn
                     if conn:
                         cursor = conn.cursor(cursor_factory=RealDictCursor)
                         is_authenticated = authenticate_user(cursor, login_username, login_password)
@@ -123,7 +125,7 @@ def show_login_page():
                 else:
                     # Hash the password and create the user
                     password_hash = generate_password_hash(signup_password)
-                    conn = get_db_connection()
+                    conn = st.session_state.db_conn
                     if conn:
                         cursor = conn.cursor(cursor_factory=RealDictCursor)
                         user_created = create_user(cursor, signup_email, password_hash)

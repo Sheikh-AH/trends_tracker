@@ -1,8 +1,12 @@
 """
-Home - Welcome and introduction page for Trends Tracker.
+Home - Welcome and introduction page for Trendfunnel.
 """
 
+import random
+from datetime import datetime, timedelta
 import streamlit as st
+import altair as alt
+import pandas as pd
 
 # Import shared functions from utils module
 import sys
@@ -15,8 +19,8 @@ from psycopg2.extras import RealDictCursor
 def configure_page():
     """Configure page settings and check authentication."""
     st.set_page_config(
-        page_title="Welcome - Trends Tracker",
-        page_icon="🏠",
+        page_title="Trendfunnel",
+        page_icon="art/logo_blue.svg",
         layout="wide"
     )
 
@@ -35,6 +39,19 @@ def hide_sidebar():
             [data-testid="stSidebar"] {
                 display: none;
             }
+            /* Google Trends inspired minimal styling */
+            .main {
+                background-color: #ffffff;
+            }
+            h1, h2, h3 {
+                font-weight: 400;
+                color: #202124;
+            }
+            .stButton button {
+                border-radius: 4px;
+                font-weight: 500;
+                text-transform: none;
+            }
         </style>
     """, unsafe_allow_html=True)
 
@@ -52,121 +69,211 @@ def load_keywords():
             st.session_state.keywords_loaded = True
 
 
+# ============== Generate Trending Line Chart ==============
+def generate_trending_chart():
+    """Generate an animated trending line chart like Google Trends."""
+    # Dummy keywords for demo
+    keywords = ["AI", "Climate", "Tech", "Travel", "Food"]
+
+    # Generate time series data
+    dates = pd.date_range(end=datetime.now(), periods=30, freq='D')
+
+    data = []
+    for keyword in keywords:
+        random.seed(hash(keyword))
+        base = random.randint(20, 80)
+        for i, date in enumerate(dates):
+            # Add some variance to make it look realistic
+            value = base + random.randint(-15, 15) + (i * random.uniform(-1, 2))
+            data.append({
+                'Date': date,
+                'Keyword': keyword,
+                'Interest': max(0, min(100, value))
+            })
+
+    df = pd.DataFrame(data)
+
+    # Create Altair chart with Google Trends styling
+    chart = alt.Chart(df).mark_line(point=False, strokeWidth=2).encode(
+        x=alt.X('Date:T',
+                axis=alt.Axis(
+                    title=None,
+                    labelAngle=0,
+                    format='%b %d',
+                    grid=False,
+                    labelColor='#5f6368',
+                    tickColor='#dadce0'
+                )),
+        y=alt.Y('Interest:Q',
+                axis=alt.Axis(
+                    title=None,
+                    grid=True,
+                    gridColor='#f1f3f4',
+                    labelColor='#5f6368',
+                    tickColor='#dadce0'
+                ),
+                scale=alt.Scale(domain=[0, 100])),
+        color=alt.Color('Keyword:N',
+                       scale=alt.Scale(
+                           range=['#1a73e8', '#ea4335', '#fbbc04', '#34a853', '#ff6d01']
+                       ),
+                       legend=alt.Legend(
+                           orient='top',
+                           direction='horizontal',
+                           title=None,
+                           labelColor='#5f6368'
+                       )),
+        tooltip=['Keyword:N', 'Date:T', 'Interest:Q']
+    ).properties(
+        height=300,
+        width='container'
+    ).configure_view(
+        strokeWidth=0
+    ).configure_axis(
+        domainColor='#dadce0'
+    )
+
+    return chart
+
+
 # ============== Main Function ==============
 def main():
     """Main function for the Welcome page."""
     hide_sidebar()
 
-    # Welcome header
-    st.title("🎉 Welcome to Trends Tracker!")
-    st.markdown(f"### Hello, {st.session_state.get('username', 'User')}!")
+    # Hero section with logo and branding
+    col_logo, col_text = st.columns([1, 4])
 
-    st.markdown("---")
+    with col_logo:
+        st.image("art/logo_blue.svg", width=120)
 
-    # Introduction section
-    st.markdown("""
-    ## What is Trends Tracker?
+    with col_text:
+        st.markdown("""
+        <div style="padding-top: 20px;">
+            <h1 style="margin: 0; font-size: 2.5rem; font-weight: 400; color: #202124;">
+                Trendfunnel
+            </h1>
+            <p style="margin: 5px 0 0 0; font-size: 1.1rem; color: #5f6368; font-weight: 300;">
+                Turning fuzz into bizz
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
-    Trends Tracker is your comprehensive social media analytics platform that helps you:
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    - 📊 **Track Keywords**: Monitor trending topics and keywords across Bluesky and Google Trends
-    - 🔍 **Deep Dive Analytics**: Get detailed insights into keyword performance, sentiment, and engagement
-    - 🤖 **AI-Powered Insights**: Receive intelligent recommendations and trend analysis
-    - 🔔 **Smart Alerts**: Stay notified about important changes and trending patterns
+    # Trending chart visualization
+    st.altair_chart(generate_trending_chart(), use_container_width=True)
 
-    """)
-
-    st.markdown("---")
+    st.markdown("<br><br>", unsafe_allow_html=True)
 
     # Load keywords to check if user has set them up
     load_keywords()
     has_keywords = len(st.session_state.get("keywords", [])) > 0
 
-    # Getting Started section
-    st.markdown("## 🚀 Getting Started")
+    # Getting Started section - Vertical layout
+    st.markdown("""
+    <h2 style="font-weight: 400; color: #202124; margin-bottom: 10px;">
+        Explore your trends
+    </h2>
+    """, unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
+    # Vertical button layout
+    st.markdown("<br>", unsafe_allow_html=True)
 
-    with col1:
-        st.markdown("### 📝 Step 1: Set Up Keywords")
+    # Manage Topics Button (always available)
+    col1, col2, col3 = st.columns([2, 3, 2])
+    with col2:
         st.markdown("""
-        Start by adding the keywords and topics you want to track.
-        These can be brands, products, hashtags, or any topics of interest.
-        """)
-
-        if st.button("🏷️ Manage Topics", type="primary", use_container_width=True):
+        <div style="text-align: left; margin-bottom: 20px;">
+            <h3 style="font-weight: 400; color: #202124; font-size: 1.1rem; margin-bottom: 5px;">
+                📝 Manage Topics
+            </h3>
+            <p style="color: #5f6368; margin: 0 0 10px 0;">
+                Add keywords and topics you want to track
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Set up keywords", type="primary", use_container_width=True, key="manage_topics"):
             st.switch_page("pages/5_Manage_Topics.py")
 
-    with col2:
-        st.markdown("### 📊 Step 2: Explore Analytics")
-        st.markdown("""
-        Once you've added keywords, dive into the analytics to see
-        trends, sentiment analysis, and engagement metrics.
-        """)
+    st.markdown("<br>", unsafe_allow_html=True)
 
-        if has_keywords:
-            if st.button("📈 View Semantics", type="primary", use_container_width=True):
-                st.switch_page("pages/2_Semantics.py")
-        else:
-            st.button("📈 View Semantics", disabled=True, use_container_width=True)
-            st.caption("⚠️ Add keywords first to view analytics")
-
-    st.markdown("---")
-
-    # Feature cards
-    st.markdown("## ✨ Key Features")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.markdown("""
-        ### 📊 Semantics Dashboard
-        Visualize trends over time with interactive charts,
-        word clouds, and sentiment analysis.
-        """)
-        if has_keywords:
-            if st.button("Go to Semantics", key="semantics_bottom", use_container_width=True):
-                st.switch_page("pages/2_Semantics.py")
-        else:
-            st.button("Go to Semantics", disabled=True, key="semantics_bottom_disabled", use_container_width=True)
-
+    # Semantics Button
     with col2:
         st.markdown("""
-        ### 🔍 Keyword Deep Dive
-        Get detailed analytics for individual keywords with
-        comprehensive performance metrics.
-        """)
+        <div style="text-align: left; margin-bottom: 20px;">
+            <h3 style="font-weight: 400; color: #202124; font-size: 1.1rem; margin-bottom: 5px;">
+                📊 Semantics Dashboard
+            </h3>
+            <p style="color: #5f6368; margin: 0 0 10px 0;">
+                Visualize trends with interactive charts and word clouds
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         if has_keywords:
-            if st.button("Deep Dive Analysis", key="deepdive_bottom", use_container_width=True):
+            if st.button("View trends", use_container_width=True, key="semantics"):
+                st.switch_page("pages/2_Semantics.py")
+        else:
+            st.button("View trends", disabled=True, use_container_width=True, key="semantics_disabled")
+            st.caption("⚠️ Add keywords first")
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # Deep Dive Button
+    with col2:
+        st.markdown("""
+        <div style="text-align: left; margin-bottom: 20px;">
+            <h3 style="font-weight: 400; color: #202124; font-size: 1.1rem; margin-bottom: 5px;">
+                🔍 Keyword Deep Dive
+            </h3>
+            <p style="color: #5f6368; margin: 0 0 10px 0;">
+                Detailed analytics for individual keywords
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        if has_keywords:
+            if st.button("Analyze keywords", use_container_width=True, key="deepdive"):
                 st.switch_page("pages/3_Keyword_Deep_Dive.py")
         else:
-            st.button("Deep Dive Analysis", disabled=True, key="deepdive_bottom_disabled", use_container_width=True)
+            st.button("Analyze keywords", disabled=True, use_container_width=True, key="deepdive_disabled")
+            st.caption("⚠️ Add keywords first")
 
-    with col3:
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    # AI Insights Button
+    with col2:
         st.markdown("""
-        ### 🤖 AI Insights
-        Leverage AI-powered analysis to discover patterns,
-        themes, and actionable recommendations.
-        """)
+        <div style="text-align: left; margin-bottom: 20px;">
+            <h3 style="font-weight: 400; color: #202124; font-size: 1.1rem; margin-bottom: 5px;">
+                🤖 AI Insights
+            </h3>
+            <p style="color: #5f6368; margin: 0 0 10px 0;">
+                AI-powered analysis and recommendations
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         if has_keywords:
-            if st.button("AI Insights", key="ai_bottom", use_container_width=True):
+            if st.button("Get insights", use_container_width=True, key="ai"):
                 st.switch_page("pages/4_AI_Insights.py")
         else:
-            st.button("AI Insights", disabled=True, key="ai_bottom_disabled", use_container_width=True)
+            st.button("Get insights", disabled=True, use_container_width=True, key="ai_disabled")
+            st.caption("⚠️ Add keywords first")
 
-    st.markdown("---")
-
-    # Status indicator
+    # Status indicator at bottom
+    st.markdown("<br><br>", unsafe_allow_html=True)
     if has_keywords:
-        st.success(f"✅ You're tracking {len(st.session_state.keywords)} keyword(s). Ready to explore!")
+        keywords_text = ", ".join(st.session_state.keywords)
+        st.markdown(f"""
+        <div style="text-align: center; color: #5f6368; padding: 20px;">
+            <p style="margin: 0;">Currently tracking: <strong>{keywords_text}</strong></p>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        st.info("👉 Get started by adding some keywords to track!")
-
-    # Quick stats if keywords exist
-    if has_keywords:
-        st.markdown("### 📋 Your Keywords")
-        keywords_display = ", ".join([f"`{kw}`" for kw in st.session_state.keywords])
-        st.markdown(keywords_display)
+        st.markdown("""
+        <div style="text-align: center; color: #5f6368; padding: 20px;">
+            <p style="margin: 0;">👉 Get started by setting up your first keywords</p>
+        </div>
+        """, unsafe_allow_html=True)
 
 
 # ============== Entry Point ==============
