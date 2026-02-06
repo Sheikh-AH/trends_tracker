@@ -6,6 +6,7 @@ Sources of data are bluesky and Google trends.
 
 import logging
 import streamlit as st
+from streamlit import session_state as ss
 from psycopg2.extras import RealDictCursor
 
 # Import shared utilities
@@ -22,29 +23,29 @@ from utils import (
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Register cleanup
-_cleanup = get_db_connection_cleanup()
 
+def configure_page():
+    """Set up the Streamlit page configuration."""
+    st.set_page_config(
+        page_title="Trends Tracker",
+        layout="wide",
+        initial_sidebar_state="collapsed"
+    )
 
-st.set_page_config(
-    page_title="Trends Tracker",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
+def initialize_session_state():
+    if "logged_in" not in ss:
+        ss.logged_in = False
 
-# ============== Session State Initialization ==============
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-if "user_id" not in st.session_state:
-    st.session_state.user_id = None
-if "emails_enabled" not in st.session_state:
-    st.session_state.emails_enabled = False
-if "alerts_enabled" not in st.session_state:
-    st.session_state.alerts_enabled = False
-if "email" not in st.session_state or not st.session_state.logged_in:
-    st.session_state.email = ""
+    if not ss.logged_in:
+        ss.username = ""
+        ss.user_id = None
+        ss.email = ""
+        ss.keywords = []
+        ss.keywords_loaded = False
+        ss.alerts_loaded = False
+        ss.emails_enabled = False
+        ss.alerts_enabled = False
+
 
 # ============== Login Page ==============
 def show_login_page():
@@ -141,23 +142,31 @@ def show_login_page():
                         st.rerun()
 
 
+def main():
+    if not st.session_state.logged_in:
+        show_login_page()
+    else:
+        nav = st.navigation(
+            [
+                st.Page("pages/1_Home.py", title="Home", icon="🏠"),
+                st.Page("pages/2_Semantics.py", title="Semantics", icon="📖"),
+                st.Page("pages/3_Daily_Summary.py",
+                        title="Daily Summary", icon="📅"),
+                st.Page("pages/3_Keyword_Deep_Dive.py",
+                        title="Keyword Deep Dive", icon="🔍"),
+                st.Page("pages/4_AI_Insights.py", title="AI Insights", icon="🤖"),
+                st.Page("pages/5_Manage_Topics.py",
+                        title="Manage Topics", icon="⚙️"),
+                st.Page("pages/6_Alerts.py", title="Alerts", icon="🚨"),
+            ]
+        )
+        nav.run()
 
-if not st.session_state.logged_in:
-    show_login_page()
-else:
-    nav = st.navigation(
-        [
-            st.Page("pages/1_Home.py", title="Home", icon="🏠"),
-            st.Page("pages/2_Semantics.py", title="Semantics", icon="📖"),
-            st.Page("pages/3_Daily_Summary.py",
-                    title="Daily Summary", icon="📅"),
-            st.Page("pages/3_Keyword_Deep_Dive.py",
-                    title="Keyword Deep Dive", icon="🔍"),
-            st.Page("pages/4_AI_Insights.py", title="AI Insights", icon="🤖"),
-            st.Page("pages/5_Manage_Topics.py",
-                    title="Manage Topics", icon="⚙️"),
-            st.Page("pages/6_Alerts.py", title="Alerts", icon="🚨"),
-        ]
-    )
-    nav.run()
+if __name__ == "__main__":
 
+    configure_page()
+    initialize_session_state()
+    main()
+
+    # Register cleanup
+    _cleanup = get_db_connection_cleanup()
