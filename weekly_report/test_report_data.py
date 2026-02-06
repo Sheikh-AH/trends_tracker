@@ -7,7 +7,6 @@ from report_data import (
     get_post_count,
     get_post_count_between,
     get_sentiment_breakdown,
-    get_latest_google_trends,
     get_llm_summary,
     calculate_trend,
     get_keyword_stats,
@@ -159,39 +158,6 @@ class TestGetSentimentBreakdown:
         assert result["positive"] == 50
 
 
-class TestGetLatestGoogleTrends:
-
-    def test_returns_search_volume(self):
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = (78,)
-        mock_conn.cursor.return_value = mock_cursor
-
-        result = get_latest_google_trends(mock_conn, "matcha")
-
-        assert result == 78
-
-    def test_returns_none_when_no_google_trends_data(self):
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = None
-        mock_conn.cursor.return_value = mock_cursor
-
-        result = get_latest_google_trends(mock_conn, "matcha")
-
-        assert result is None
-
-    def test_handles_empty_google_trends_table(self):
-        mock_conn = MagicMock()
-        mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = None
-        mock_conn.cursor.return_value = mock_cursor
-
-        result = get_latest_google_trends(mock_conn, "nonexistent_keyword")
-
-        assert result is None
-
-
 class TestGetLlmSummary:
 
     def test_returns_summary(self):
@@ -267,15 +233,13 @@ class TestGetKeywordStats:
     @patch('report_data.get_post_count')
     @patch('report_data.get_post_count_between')
     @patch('report_data.get_sentiment_breakdown')
-    @patch('report_data.get_latest_google_trends')
     @patch('report_data.calculate_trend')
-    def test_returns_complete_stats(self, mock_trend, mock_google, mock_sentiment, mock_between, mock_count):
+    def test_returns_complete_stats(self, mock_trend, mock_sentiment, mock_between, mock_count):
         mock_conn = MagicMock()
         mock_count.side_effect = [156, 1247]  # 24h, 7d
         mock_between.return_value = 1000  # previous 7d
         mock_sentiment.return_value = {
             "positive": 62, "neutral": 28, "negative": 10, "total": 100}
-        mock_google.return_value = 78
         mock_trend.return_value = {
             "direction": "up", "percent": 23, "symbol": "↑"}
 
@@ -284,42 +248,18 @@ class TestGetKeywordStats:
         assert result["keyword"] == "matcha"
         assert result["posts_24h"] == 156
         assert result["posts_7d"] == 1247
-        assert result["google_trends"] == 78
         assert result["sentiment"]["positive"] == 62
 
     @patch('report_data.get_post_count')
     @patch('report_data.get_post_count_between')
     @patch('report_data.get_sentiment_breakdown')
-    @patch('report_data.get_latest_google_trends')
     @patch('report_data.calculate_trend')
-    def test_handles_missing_google_trends_data(self, mock_trend, mock_google, mock_sentiment, mock_between, mock_count):
-        mock_conn = MagicMock()
-        mock_count.side_effect = [156, 1247]
-        mock_between.return_value = 1000
-        mock_sentiment.return_value = {
-            "positive": 62, "neutral": 28, "negative": 10, "total": 100}
-        mock_google.return_value = None  # No Google Trends data
-        mock_trend.return_value = {
-            "direction": "up", "percent": 23, "symbol": "↑"}
-
-        result = get_keyword_stats(mock_conn, "matcha")
-
-        assert result["keyword"] == "matcha"
-        assert result["google_trends"] is None
-        assert result["posts_24h"] == 156  # Other data still present
-
-    @patch('report_data.get_post_count')
-    @patch('report_data.get_post_count_between')
-    @patch('report_data.get_sentiment_breakdown')
-    @patch('report_data.get_latest_google_trends')
-    @patch('report_data.calculate_trend')
-    def test_handles_no_posts_with_missing_google_trends(self, mock_trend, mock_google, mock_sentiment, mock_between, mock_count):
+    def test_handles_no_posts(self, mock_trend, mock_sentiment, mock_between, mock_count):
         mock_conn = MagicMock()
         mock_count.side_effect = [0, 0]  # No posts
         mock_between.return_value = 0
         mock_sentiment.return_value = {
             "positive": 0, "neutral": 0, "negative": 0, "total": 0}
-        mock_google.return_value = None  # No Google Trends data
         mock_trend.return_value = {
             "direction": "stable", "percent": 0, "symbol": "→"}
 
@@ -328,7 +268,6 @@ class TestGetKeywordStats:
         assert result["keyword"] == "new_keyword"
         assert result["posts_24h"] == 0
         assert result["posts_7d"] == 0
-        assert result["google_trends"] is None
         assert result["sentiment"]["total"] == 0
 
 
@@ -347,7 +286,6 @@ class TestGetUserReportData:
                 "posts_7d": 1247,
                 "posts_previous_7d": 1000,
                 "sentiment": {"positive": 62, "neutral": 28, "negative": 10, "total": 100},
-                "google_trends": 78,
                 "trend": {"direction": "up", "percent": 23, "symbol": "↑"}
             },
             {
@@ -356,7 +294,6 @@ class TestGetUserReportData:
                 "posts_7d": 892,
                 "posts_previous_7d": 900,
                 "sentiment": {"positive": 55, "neutral": 30, "negative": 15, "total": 100},
-                "google_trends": 65,
                 "trend": {"direction": "down", "percent": 5, "symbol": "↓"}
             }
         ]
@@ -369,77 +306,6 @@ class TestGetUserReportData:
         assert result["totals"]["posts_24h"] == 268
         assert result["totals"]["posts_7d"] == 2139
         assert result["llm_summary"] == "Matcha is trending..."
-
-    @patch('report_data.get_user_keywords')
-    @patch('report_data.get_keyword_stats')
-    @patch('report_data.get_llm_summary')
-    def test_handles_missing_google_trends_for_all_keywords(self, mock_summary, mock_stats, mock_keywords):
-        mock_conn = MagicMock()
-        mock_keywords.return_value = ["matcha", "coffee"]
-        mock_stats.side_effect = [
-            {
-                "keyword": "matcha",
-                "posts_24h": 156,
-                "posts_7d": 1247,
-                "posts_previous_7d": 1000,
-                "sentiment": {"positive": 62, "neutral": 28, "negative": 10, "total": 100},
-                "google_trends": None,  # No Google Trends
-                "trend": {"direction": "up", "percent": 23, "symbol": "↑"}
-            },
-            {
-                "keyword": "coffee",
-                "posts_24h": 112,
-                "posts_7d": 892,
-                "posts_previous_7d": 900,
-                "sentiment": {"positive": 55, "neutral": 30, "negative": 15, "total": 100},
-                "google_trends": None,  # No Google Trends
-                "trend": {"direction": "down", "percent": 5, "symbol": "↓"}
-            }
-        ]
-        mock_summary.return_value = "Matcha is trending..."
-
-        result = get_user_report_data(mock_conn, user_id=1)
-
-        assert result["user_id"] == 1
-        assert len(result["keywords"]) == 2
-        assert result["keywords"][0]["google_trends"] is None
-        assert result["keywords"][1]["google_trends"] is None
-        # Report should still be valid without Google Trends
-        assert result["totals"]["posts_24h"] == 268
-
-    @patch('report_data.get_user_keywords')
-    @patch('report_data.get_keyword_stats')
-    @patch('report_data.get_llm_summary')
-    def test_handles_partial_google_trends_data(self, mock_summary, mock_stats, mock_keywords):
-        mock_conn = MagicMock()
-        mock_keywords.return_value = ["matcha", "coffee"]
-        mock_stats.side_effect = [
-            {
-                "keyword": "matcha",
-                "posts_24h": 156,
-                "posts_7d": 1247,
-                "posts_previous_7d": 1000,
-                "sentiment": {"positive": 62, "neutral": 28, "negative": 10, "total": 100},
-                "google_trends": 78,  # Has Google Trends
-                "trend": {"direction": "up", "percent": 23, "symbol": "↑"}
-            },
-            {
-                "keyword": "coffee",
-                "posts_24h": 112,
-                "posts_7d": 892,
-                "posts_previous_7d": 900,
-                "sentiment": {"positive": 55, "neutral": 30, "negative": 15, "total": 100},
-                "google_trends": None,  # Missing Google Trends
-                "trend": {"direction": "down", "percent": 5, "symbol": "↓"}
-            }
-        ]
-        mock_summary.return_value = "Matcha is trending..."
-
-        result = get_user_report_data(mock_conn, user_id=1)
-
-        assert result["keywords"][0]["google_trends"] == 78
-        assert result["keywords"][1]["google_trends"] is None
-        assert result["totals"]["posts_24h"] == 268
 
     @patch('report_data.get_user_keywords')
     @patch('report_data.get_keyword_stats')
@@ -468,10 +334,9 @@ class TestGetUserReportData:
             "posts_7d": 1247,
             "posts_previous_7d": 1000,
             "sentiment": {"positive": 62, "neutral": 28, "negative": 10, "total": 100},
-            "google_trends": None,
             "trend": {"direction": "up", "percent": 23, "symbol": "↑"}
         }
-        mock_summary.return_value = None  # No LLM summary
+        mock_summary.return_value = None
 
         result = get_user_report_data(mock_conn, user_id=1)
 
@@ -489,7 +354,6 @@ class TestGetUserReportData:
             "posts_7d": 0,
             "posts_previous_7d": 0,
             "sentiment": {"positive": 0, "neutral": 0, "negative": 0, "total": 0},
-            "google_trends": None,
             "trend": {"direction": "stable", "percent": 0, "symbol": "→"}
         }
         mock_summary.return_value = None
