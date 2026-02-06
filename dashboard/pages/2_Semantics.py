@@ -48,19 +48,19 @@ def configure_page():
 
 # ============== Cached Featured Posts ==============
 @st.cache_data(ttl=1800)  # 30 minutes = 1800 seconds
-def get_cached_featured_posts(keyword: str, limit: int = 10) -> list:
+def get_cached_featured_posts(_conn, keyword: str, limit: int = 10) -> list:
     """Fetch featured posts with 30-minute cache TTL.
-
+    
     Args:
+        _conn: Database connection (underscore prefix tells Streamlit not to hash it)
         keyword: The keyword to filter posts by
         limit: Number of posts to retrieve (default: 10)
-
+    
     Returns:
         List of featured post dictionaries
     """
     try:
-        conn = st.session_state.db_conn
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        cursor = _conn.cursor(cursor_factory=RealDictCursor)
         posts = get_featured_posts(cursor, keyword=keyword, limit=limit)
         cursor.close()
         return posts
@@ -78,7 +78,8 @@ def render_typing_animation(selected_keyword: str):
     st.markdown("### ⌨️ Featured Post")
 
     # Get cached featured posts (refreshes every 30 minutes)
-    featured_posts = get_cached_featured_posts(selected_keyword, limit=10)
+    conn = st.session_state.db_conn
+    featured_posts = get_cached_featured_posts(conn, selected_keyword, limit=10)
 
     if not featured_posts:
         st.info(f"No posts related to '{selected_keyword}' found yet.")
@@ -392,7 +393,6 @@ def main():
 
     # KPI Metrics Row
     metrics = get_kpi_metrics_from_db(conn, selected_keyword, days)
-    print(metrics)
     render_kpi_metrics(metrics)
 
     st.markdown("---")
