@@ -151,6 +151,31 @@ def render_what_is_trends_tracker():
         - **Smart Alerts**: Stay notified about important changes and trending patterns
         """)
 
+def render_getting_started(has_keywords):
+    with st.expander("Getting Started"):
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.markdown("### Step 1: Set Up Keywords")
+            st.markdown("""
+            Start by adding the keywords and topics you want to track.
+            These can be brands, products, or any topics of interest.
+            """)
+
+        with col2:
+            st.markdown("### Step 2: Explore Analytics")
+            st.markdown("""
+            Once you've added keywords, dive into the analytics to see
+            trends, sentiment analysis, and engagement metrics.
+            """)
+
+        with col3:
+            st.markdown("### Step 3: Set Up Alerts")
+            st.markdown("""
+            Stay informed with smart alerts that notify you about significant 
+            changes in trends or sentiment for your tracked keywords.
+            """)
+
 # ============== Main Function ==============
 
 
@@ -180,7 +205,7 @@ def main():
     render_what_is_trends_tracker()
 
     # Getting Started section
-    
+    render_getting_started(has_keywords)
 
     st.markdown("---")
 
