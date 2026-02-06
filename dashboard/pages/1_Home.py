@@ -215,48 +215,61 @@ def main():
     st.markdown("---")
 
     # Feature cards
-    st.markdown("## Key Features")
+    # st.markdown("## Key Features")
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.markdown("""
-        ### 📊 Semantics Dashboard
+        ### Semantics Dashboard
         Visualize trends over time with interactive charts,
         word clouds, and sentiment analysis.
         """)
         if has_keywords:
-            if st.button("Go to Semantics", key="semantics_bottom", use_container_width=True):
+            if st.button("📊 Go to Semantics", key="semantics_bottom", use_container_width=True):
                 st.switch_page("pages/2_Semantics.py")
         else:
-            st.button("Go to Semantics", disabled=True,
+            st.button("📊 Go to Semantics", disabled=True,
                       key="semantics_bottom_disabled", use_container_width=True)
 
     with col2:
         st.markdown("""
-        ### 🔍 Keyword Deep Dive
+        ### Keyword Deep Dive
         Get detailed analytics for individual keywords with
         comprehensive performance metrics.
         """)
         if has_keywords:
-            if st.button("Deep Dive Analysis", key="deepdive_bottom", use_container_width=True):
+            if st.button("🔍 Deep Dive Analysis", key="deepdive_bottom", use_container_width=True):
                 st.switch_page("pages/3_Keyword_Deep_Dive.py")
         else:
-            st.button("Deep Dive Analysis", disabled=True,
+            st.button("🔍 Deep Dive Analysis", disabled=True,
                       key="deepdive_bottom_disabled", use_container_width=True)
 
     with col3:
         st.markdown("""
-        ### 🤖 AI Insights
-        Leverage AI-powered analysis to discover patterns,
-        themes, and actionable recommendations.
+        ### Daily Summary
+        Leverage AI-powered analysis to discover daily patterns,
+        and themes for your keywords.
         """)
         if has_keywords:
-            if st.button("AI Insights", key="ai_bottom", use_container_width=True):
+            if st.button("📅 Daily Summary", key="ai_bottom", use_container_width=True):
                 st.switch_page("pages/4_AI_Insights.py")
         else:
-            st.button("AI Insights", disabled=True,
+            st.button("📅 Daily Summary", disabled=True,
                       key="ai_bottom_disabled", use_container_width=True)
+    
+    with col4:
+        st.markdown("""
+        ### Keyword Comparisons
+        Compare multiple keywords side-by-side to identify trends
+         and competitive insights.
+        """)
+        if has_keywords:
+            if st.button("⚡ Keyword Comparisons", key="comparisons_bottom", use_container_width=True):
+                st.switch_page("pages/5_Keyword_Comparisons.py")
+        else:
+            st.button("⚡ Keyword Comparisons", disabled=True,
+                      key="comparisons_bottom_disabled", use_container_width=True)
 
 
 
