@@ -17,10 +17,12 @@ sys.path.insert(0, '..')
 if 'sidebar_state' not in ss:
     ss.sidebar_state = 'collapsed'
 
+
 def change():
     ss.sidebar_state = (
         "collapsed" if ss.sidebar_state == "expanded" else "expanded"
     )
+
 
 st.set_page_config(
     page_title="TrendsFunnel",
@@ -64,7 +66,7 @@ def add_logo_and_title():
     col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
         col_img_spacer, col_img, col_text = st.columns(
-            [0.1, 0.2, 1], gap="small")
+            [0.3, 0.2, 1], gap="small")
         with col_img:
             st.image("images/logo_blue.svg", width=100)
         with col_text:
@@ -86,7 +88,7 @@ def render_add_keyword_section():
     with col1:
         new_keyword = st.text_input(
             "Enter keyword",
-            placeholder="e.g., matcha, tea, boba...",
+            placeholder="e.g. matcha, tea, boba...",
             label_visibility="collapsed"
         )
 
@@ -195,6 +197,21 @@ def render_getting_started(has_keywords):
 
 def main():
     """Main function for the Welcome page."""
+    # Custom CSS for buttons
+    st.markdown("""
+        <style>
+        /* Style secondary/regular buttons (Remove and Feature buttons) */
+        .stButton > button:not([kind="primary"]) {
+            background-color: rgba(25, 118, 210, 0.2) !important;
+            color: #1976D2 !important;
+            border: 1px solid rgba(25, 118, 210, 0.5) !important;
+        }
+        .stButton > button:not([kind="primary"]):hover {
+            background-color: rgba(25, 118, 210, 0.5) !important;
+        }
+        </style>
+    """, unsafe_allow_html=True)
+
     load_keywords()
     # hide_sidebar()
     has_keywords = len(ss.get("keywords", [])) > 0
