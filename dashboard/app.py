@@ -1,8 +1,4 @@
-"""
-Trends Tracker Dashboard - Streamlit Mockup
-A multi-page dashboard for tracking social media trends and analytics.
-Sources of data are bluesky and Google trends.
-"""
+"""Login Page and Main App Runner for Trends Tracker Dashboard."""
 
 import logging
 import streamlit as st
@@ -24,7 +20,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def configure_page():
+def configure_page() -> None:
     """Set up the Streamlit page configuration."""
     st.set_page_config(
         page_title="Trends Tracker",
@@ -32,7 +28,8 @@ def configure_page():
         initial_sidebar_state="collapsed"
     )
 
-def initialize_session_state():
+def initialize_session_state() -> None:
+    """Initialize session state variables for user authentication and data."""
     if "logged_in" not in ss:
         ss.logged_in = False
 
@@ -46,7 +43,7 @@ def initialize_session_state():
         ss.emails_enabled = False
         ss.alerts_enabled = False
 
-def set_user_session(user):
+def set_user_session(user: dict) -> None:
     """Set session state variables for the logged-in user."""
     ss.logged_in = True
     ss.username = user["email"].split("@")[0]  # Use email prefix as username
@@ -55,7 +52,7 @@ def set_user_session(user):
     st.success("Login successful!")
     st.rerun()
 
-def render_login_tab():
+def render_login_tab() -> None:
     """Render the login tab content."""
 
     st.space('xxsmall')
@@ -87,7 +84,7 @@ def render_login_tab():
             else:
                 st.error("Invalid username or password.")
 
-def new_account_fields():
+def new_account_fields() -> tuple:
     """Create input fields for new account registration and return the values."""
     st.space('xxsmall')
     signup_name = st.text_input(
@@ -101,7 +98,7 @@ def new_account_fields():
     st.space('xxsmall')
     return signup_name, signup_email, signup_password, signup_confirm
 
-def render_get_new_account():
+def render_get_new_account() -> None:
     """Render the sign-up tab content."""
     signup_name, signup_email, signup_password, signup_confirm = new_account_fields()
 
@@ -135,10 +132,8 @@ def render_get_new_account():
                 st.rerun()
 
 
-def show_login_page():
+def show_login_page() -> None:
     """Display the login/signup page."""    
-
-    # Center content to middle third of screen
     col1, col2, col3 = st.columns([1, 1, 1])
     
     with col2:
@@ -151,7 +146,7 @@ def show_login_page():
             render_get_new_account()
 
 
-def create_nav():
+def create_nav() -> st.Navigation:
     """Create the navigation menu for logged-in users."""
     return st.navigation(
         [
