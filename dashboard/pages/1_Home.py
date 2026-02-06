@@ -14,6 +14,7 @@ from streamlit import session_state as ss
 sys.path.insert(0, '..')
 
 
+
 if 'sidebar_state' not in ss:
     ss.sidebar_state = 'collapsed'
 
@@ -36,17 +37,6 @@ if "logged_in" not in ss or not ss.logged_in:
     st.warning("Please login to access this page.")
     st.switch_page("app.py")
     st.stop()
-
-
-def hide_sidebar():
-    """Hide the sidebar on this page."""
-    st.markdown("""
-        <style>
-            [data-testid="stSidebar"] {
-                display: none;
-            }
-        </style>
-    """, unsafe_allow_html=True)
 
 
 def load_keywords():
