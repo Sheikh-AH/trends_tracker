@@ -82,7 +82,6 @@ def add_logo_and_title():
 
 def render_add_keyword_section():
     """Render the add keyword section."""
-    # st.markdown("### ➕ Add New Keyword")
     col1, col2 = st.columns([3, 1])
 
     with col1:
@@ -197,9 +196,11 @@ def render_getting_started(has_keywords):
 
 def main():
     """Main function for the Welcome page."""
-    # Custom CSS for buttons
+    # Custom CSS for buttons and fonts
     st.markdown("""
         <style>
+        @import url('https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;700&display=swap');
+        
         /* Style secondary/regular buttons (Remove and Feature buttons) */
         .stButton > button:not([kind="primary"]) {
             background-color: rgba(25, 118, 210, 0.2) !important;
@@ -208,6 +209,10 @@ def main():
         }
         .stButton > button:not([kind="primary"]):hover {
             background-color: rgba(25, 118, 210, 0.5) !important;
+        }
+        
+        h1, h2, h3, p {
+            font-family: 'Ubuntu', sans-serif !important;
         }
         </style>
     """, unsafe_allow_html=True)
