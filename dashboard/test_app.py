@@ -27,7 +27,6 @@ from utils import (
     generate_sentiment_calendar_data,
     generate_trending_velocity,
     generate_network_graph_data,
-    generate_random_post,
     generate_ai_insights,
     get_most_recent_bluesky_posts,
     get_handle_from_did,
@@ -880,50 +879,6 @@ class TestGenerateNetworkGraphData:
         assert result["edges"] == []
 
 
-class TestGenerateRandomPost:
-    """Tests for generate_random_post function."""
-
-    def test_returns_dict(self, sample_keyword):
-        """Random post returns a dictionary."""
-        result = generate_random_post(sample_keyword)
-
-        assert isinstance(result, dict)
-
-    def test_contains_text(self, sample_keyword):
-        """Random post contains text field."""
-        result = generate_random_post(sample_keyword)
-
-        assert "text" in result
-        assert isinstance(result["text"], str)
-        assert len(result["text"]) > 0
-
-    def test_contains_author(self, sample_keyword):
-        """Random post contains author field."""
-        result = generate_random_post(sample_keyword)
-
-        assert "author" in result
-        assert isinstance(result["author"], str)
-
-    def test_contains_timestamp(self, sample_keyword):
-        """Random post contains timestamp field."""
-        result = generate_random_post(sample_keyword)
-
-        assert "timestamp" in result
-
-    def test_contains_engagement(self, sample_keyword):
-        """Random post contains engagement metrics."""
-        result = generate_random_post(sample_keyword)
-
-        assert "likes" in result
-        assert "reposts" in result
-
-    def test_text_contains_keyword(self, sample_keyword):
-        """Post text contains the keyword."""
-        result = generate_random_post(sample_keyword)
-
-        assert sample_keyword.lower() in result["text"].lower()
-
-
 class TestGenerateAIInsights:
     """Tests for generate_ai_insights function."""
 
@@ -1119,7 +1074,7 @@ class TestGetFeaturedPosts:
     def test_returns_enriched_posts(self, mock_cursor):
         """Test that function returns posts with all required fields."""
         from datetime import datetime
-        
+
         mock_posts = [
             {
                 "post_uri": "at://did:plc:user1/app.bsky.feed.post/abc",
