@@ -50,7 +50,8 @@ def get_db_connection():
             password=os.environ.get("DB_PASSWORD"),
             port=os.environ.get("DB_PORT", 5432)
         )
-        logger.info(f"Successfully connected to database: {os.environ.get('DB_NAME')}")
+        logger.info(
+            f"Successfully connected to database: {os.environ.get('DB_NAME')}")
         return conn
     except Exception as e:
         logger.error(f"Failed to connect to database: {e}")
@@ -87,13 +88,17 @@ def fetch_user_keywords(conn, user_id: int) -> list[dict]:
 
 
 def fetch_bluesky_posts_for_user_keywords(
-    conn, keyword_values: list[str], hours: int = 24
+    conn, keyword_values: list[str]
 ) -> list[dict]:
-    """Fetch recent Bluesky posts matching any of the user's keywords via matches table."""
+    """Fetch Bluesky posts matching any of the user's keywords from the previous day."""
     if not keyword_values:
         return []
 
-    cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+    # Calculate previous day boundaries
+    today = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today - timedelta(days=1)
+    yesterday_end = today
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("""
@@ -106,20 +111,25 @@ def fetch_bluesky_posts_for_user_keywords(
             INNER JOIN matches m ON bp.post_uri = m.post_uri
             WHERE m.keyword_value = ANY(%s)
               AND bp.posted_at >= %s
+              AND bp.posted_at < %s
             ORDER BY bp.posted_at DESC
             LIMIT 500;
-        """, (keyword_values, cutoff_time))
+        """, (keyword_values, yesterday_start, yesterday_end))
         return cur.fetchall()
 
 
 def fetch_google_trends_for_user_keywords(
-    conn, keyword_values: list[str], days: int = 7
+    conn, keyword_values: list[str]
 ) -> list[dict]:
-    """Fetch recent Google Trends data for the user's keywords."""
+    """Fetch Google Trends data for the user's keywords from the previous day."""
     if not keyword_values:
         return []
 
-    cutoff_time = datetime.now(timezone.utc) - timedelta(days=days)
+    # Calculate previous day boundaries
+    today = datetime.now(timezone.utc).replace(
+        hour=0, minute=0, second=0, microsecond=0)
+    yesterday_start = today - timedelta(days=1)
+    yesterday_end = today
 
     with conn.cursor(cursor_factory=RealDictCursor) as cur:
         cur.execute("""
@@ -130,8 +140,9 @@ def fetch_google_trends_for_user_keywords(
             FROM google_trends
             WHERE keyword_value = ANY(%s)
               AND trend_date >= %s
+              AND trend_date < %s
             ORDER BY trend_date DESC
-        """, (keyword_values, cutoff_time))
+        """, (keyword_values, yesterday_start, yesterday_end))
         return cur.fetchall()
 
 
@@ -224,11 +235,11 @@ Keep the summary concise (2-3 paragraphs) and actionable for someone monitoring 
 def generate_summary_with_openrouter(prompt: str) -> Optional[str]:
     """Call OpenRouter API to generate a summary using GPT-5-nano."""
     logger.info("Calling OpenRouter API to generate summary...")
-    
+
     if not OPENROUTER_API_KEY:
         logger.error("OPENROUTER_API_KEY is not set!")
         return None
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -254,12 +265,12 @@ def generate_summary_with_openrouter(prompt: str) -> Optional[str]:
             json=payload,
             timeout=30
         )
-        
+
         # Log response status and body for debugging
         logger.info(f"OpenRouter API response status: {response.status_code}")
         if response.status_code != 200:
             logger.error(f"OpenRouter API error response: {response.text}")
-        
+
         response.raise_for_status()
 
         result = response.json()
@@ -279,10 +290,8 @@ def generate_summary_with_openrouter(prompt: str) -> Optional[str]:
 
 
 def upsert_summary(conn, user_id: int, summary: str) -> None:
-    """Insert or update the summary for a user."""
+    """Insert a new summary for a user (adds to existing summaries instead of replacing)."""
     with conn.cursor() as cur:
-        # Delete existing summary for this user
-        cur.execute("DELETE FROM llm_summary WHERE user_id = %s", (user_id,))
         # Insert new summary
         cur.execute("""
             INSERT INTO llm_summary (user_id, summary)
@@ -343,7 +352,7 @@ def lambda_handler(event, context):
         conn = get_db_connection()
         users = fetch_all_users(conn)
         logger.info(f"Found {len(users)} users to process")
-    
+
     except Exception as e:
         logger.error(f"Database connection error: {e}")
         return {
@@ -372,7 +381,7 @@ def lambda_handler(event, context):
                 continue
 
             success = process_user(conn, user_id, email)
-            
+
             if success:
                 results["succeeded"] += 1
                 results["users"].append({
@@ -397,8 +406,6 @@ def lambda_handler(event, context):
             })
 
     conn.close()
-
-    
 
     logger.info(
         f"Completed: {results['succeeded']} succeeded, "
