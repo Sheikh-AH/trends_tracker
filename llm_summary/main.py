@@ -50,7 +50,8 @@ def get_db_connection():
             password=os.environ.get("DB_PASSWORD"),
             port=os.environ.get("DB_PORT", 5432)
         )
-        logger.info(f"Successfully connected to database: {os.environ.get('DB_NAME')}")
+        logger.info(
+            f"Successfully connected to database: {os.environ.get('DB_NAME')}")
         return conn
     except Exception as e:
         logger.error(f"Failed to connect to database: {e}")
@@ -224,11 +225,11 @@ Keep the summary concise (2-3 paragraphs) and actionable for someone monitoring 
 def generate_summary_with_openrouter(prompt: str) -> Optional[str]:
     """Call OpenRouter API to generate a summary using GPT-5-nano."""
     logger.info("Calling OpenRouter API to generate summary...")
-    
+
     if not OPENROUTER_API_KEY:
         logger.error("OPENROUTER_API_KEY is not set!")
         return None
-    
+
     try:
         headers = {
             "Authorization": f"Bearer {OPENROUTER_API_KEY}",
@@ -254,12 +255,12 @@ def generate_summary_with_openrouter(prompt: str) -> Optional[str]:
             json=payload,
             timeout=30
         )
-        
+
         # Log response status and body for debugging
         logger.info(f"OpenRouter API response status: {response.status_code}")
         if response.status_code != 200:
             logger.error(f"OpenRouter API error response: {response.text}")
-        
+
         response.raise_for_status()
 
         result = response.json()
@@ -279,10 +280,8 @@ def generate_summary_with_openrouter(prompt: str) -> Optional[str]:
 
 
 def upsert_summary(conn, user_id: int, summary: str) -> None:
-    """Insert or update the summary for a user."""
+    """Insert a new summary for a user (adds to existing summaries instead of replacing)."""
     with conn.cursor() as cur:
-        # Delete existing summary for this user
-        cur.execute("DELETE FROM llm_summary WHERE user_id = %s", (user_id,))
         # Insert new summary
         cur.execute("""
             INSERT INTO llm_summary (user_id, summary)
@@ -343,7 +342,7 @@ def lambda_handler(event, context):
         conn = get_db_connection()
         users = fetch_all_users(conn)
         logger.info(f"Found {len(users)} users to process")
-    
+
     except Exception as e:
         logger.error(f"Database connection error: {e}")
         return {
@@ -372,7 +371,7 @@ def lambda_handler(event, context):
                 continue
 
             success = process_user(conn, user_id, email)
-            
+
             if success:
                 results["succeeded"] += 1
                 results["users"].append({
@@ -397,8 +396,6 @@ def lambda_handler(event, context):
             })
 
     conn.close()
-
-    
 
     logger.info(
         f"Completed: {results['succeeded']} succeeded, "
