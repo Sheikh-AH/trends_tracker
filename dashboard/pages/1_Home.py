@@ -32,6 +32,7 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
+
 def load_styled_component(filepath: str) -> str:
     """Load HTML/CSS styling from a file."""
     try:
@@ -40,9 +41,6 @@ def load_styled_component(filepath: str) -> str:
             return styling
     except FileNotFoundError:
         return st.error("Error loading styled component.")
-
-
-
 
 
 def load_keywords():
@@ -174,23 +172,61 @@ def render_getting_started(has_keywords):
             Stay informed with smart alerts that notify you about significant 
             changes in trends or sentiment for your tracked keywords.
             """)
+    
+def render_semantics_card():
+    """Render the Semantics Dashboard card."""
+    st.markdown("""
+    ### Semantics Dashboard
+    Visualize trends over time with interactive charts,
+    word clouds, and sentiment analysis.
+    """)
+    if st.button("📊 Go to Semantics", key="semantics_top", use_container_width=True):
+        st.switch_page("pages/2_Semantics.py")
 
+def render_deep_dive_card():
+    """Render the Keyword Deep Dive card."""
+    st.markdown("""
+    ### Keyword Deep Dive
+    Get detailed analytics for individual keywords with
+    comprehensive performance metrics.
+    """)
+    if st.button("🔍 Deep Dive Analysis", key="deepdive_top", use_container_width=True):
+        st.switch_page("pages/3_Keyword_Deep_Dive.py")
 
-def main():
-    """Main function for the Welcome page."""
+def render_daily_summary_card():
+    """Render the Daily Summary card."""
+    st.markdown("""
+    ### Daily Summary
+    Leverage AI-powered analysis to discover daily patterns,
+    and themes for your keywords.
+    """)
+    if st.button("📅 Daily Summary", key="ai_top", use_container_width=True):
+        st.switch_page("pages/4_AI_Insights.py")
+
+def render_keyword_comparisons_card():
+    """Render the Keyword Comparisons card."""
+    st.markdown("""
+    ### Keyword Comparisons
+    Compare multiple keywords side-by-side to identify trends
+     and competitive insights.
+    """)
+    if st.button("⚡ Keyword Comparisons", key="comparisons_top", use_container_width=True):
+        st.switch_page("pages/5_Keyword_Comparisons.py")
+
+if __name__ == "__main__":
+
+    configure_page()
+    
     # Custom CSS for buttons and fonts
     styling = load_styled_component("styling/home_font_buttons.html")
     st.markdown(styling, unsafe_allow_html=True)
 
+    # Check for user keywords
     load_keywords()
-    # hide_sidebar()
     has_keywords = len(ss.get("keywords", [])) > 0
 
-    # Add vertical space
-    st.markdown("<div style='height: 100px;'></div>", unsafe_allow_html=True)
-
+    st.space("xlarge")
     add_logo_and_title()
-
     st.space("medium")
 
     col1, col2, col3 = st.columns([1, 3, 1])
@@ -202,70 +238,20 @@ def main():
 
     st.space('medium')
 
-    # Introduction section
     render_what_is_trends_tracker()
 
-    # Getting Started section
     render_getting_started(has_keywords)
 
     st.markdown("---")
 
     # Feature cards
-    # st.markdown("## Key Features")
-
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
-        st.markdown("""
-        ### Semantics Dashboard
-        Visualize trends over time with interactive charts,
-        word clouds, and sentiment analysis.
-        """)
-        if has_keywords:
-            if st.button("📊 Go to Semantics", key="semantics_bottom", use_container_width=True):
-                st.switch_page("pages/2_Semantics.py")
-        else:
-            st.button("📊 Go to Semantics", disabled=True,
-                      key="semantics_bottom_disabled", use_container_width=True)
-
+        render_semantics_card()
     with col2:
-        st.markdown("""
-        ### Keyword Deep Dive
-        Get detailed analytics for individual keywords with
-        comprehensive performance metrics.
-        """)
-        if has_keywords:
-            if st.button("🔍 Deep Dive Analysis", key="deepdive_bottom", use_container_width=True):
-                st.switch_page("pages/3_Keyword_Deep_Dive.py")
-        else:
-            st.button("🔍 Deep Dive Analysis", disabled=True,
-                      key="deepdive_bottom_disabled", use_container_width=True)
-
+        render_deep_dive_card()
     with col3:
-        st.markdown("""
-        ### Daily Summary
-        Leverage AI-powered analysis to discover daily patterns,
-        and themes for your keywords.
-        """)
-        if has_keywords:
-            if st.button("📅 Daily Summary", key="ai_bottom", use_container_width=True):
-                st.switch_page("pages/4_AI_Insights.py")
-        else:
-            st.button("📅 Daily Summary", disabled=True,
-                      key="ai_bottom_disabled", use_container_width=True)
-
+        render_daily_summary_card()
     with col4:
-        st.markdown("""
-        ### Keyword Comparisons
-        Compare multiple keywords side-by-side to identify trends
-         and competitive insights.
-        """)
-        if has_keywords:
-            if st.button("⚡ Keyword Comparisons", key="comparisons_bottom", use_container_width=True):
-                st.switch_page("pages/5_Keyword_Comparisons.py")
-        else:
-            st.button("⚡ Keyword Comparisons", disabled=True,
-                      key="comparisons_bottom_disabled", use_container_width=True)
-
-
-if __name__ == "__main__":
+        render_keyword_comparisons_card()
