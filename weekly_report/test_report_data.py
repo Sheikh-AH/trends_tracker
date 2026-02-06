@@ -7,7 +7,8 @@ from report_data import (
     get_post_count,
     get_post_count_between,
     get_sentiment_breakdown,
-    get_llm_summary,
+    get_llm_summaries,
+    generate_weekly_digest,
     calculate_trend,
     get_keyword_stats,
     get_user_report_data
@@ -118,11 +119,8 @@ class TestGetSentimentBreakdown:
     def test_returns_sentiment_percentages(self):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchall.return_value = [
-            ("positive", 62),
-            ("neutral", 28),
-            ("negative", 10)
-        ]
+        # (positive, neutral, negative, total)
+        mock_cursor.fetchone.return_value = (62, 28, 10, 100)
         mock_conn.cursor.return_value = mock_cursor
 
         result = get_sentiment_breakdown(mock_conn, "matcha", hours=168)
@@ -135,7 +133,7 @@ class TestGetSentimentBreakdown:
     def test_returns_zero_percentages_when_no_posts(self):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchall.return_value = []
+        mock_cursor.fetchone.return_value = (0, 0, 0, 0)
         mock_conn.cursor.return_value = mock_cursor
 
         result = get_sentiment_breakdown(mock_conn, "matcha", hours=168)
@@ -143,40 +141,74 @@ class TestGetSentimentBreakdown:
         assert result == {"positive": 0,
                           "neutral": 0, "negative": 0, "total": 0}
 
-    def test_handles_none_sentiment_as_neutral(self):
+    def test_calculates_percentages_correctly(self):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchall.return_value = [
-            (None, 50),
-            ("positive", 50)
-        ]
+        # 50 positive, 30 neutral, 20 negative out of 100 total
+        mock_cursor.fetchone.return_value = (50, 30, 20, 100)
         mock_conn.cursor.return_value = mock_cursor
 
         result = get_sentiment_breakdown(mock_conn, "matcha", hours=168)
 
-        assert result["neutral"] == 50
         assert result["positive"] == 50
+        assert result["neutral"] == 30
+        assert result["negative"] == 20
 
 
-class TestGetLlmSummary:
+class TestGetLlmSummaries:
 
-    def test_returns_summary(self):
+    def test_returns_summaries(self):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = ("Matcha is trending upward...",)
+        mock_cursor.fetchall.return_value = [
+            ("Day 1 summary...",),
+            ("Day 2 summary...",),
+            ("Day 3 summary...",)
+        ]
         mock_conn.cursor.return_value = mock_cursor
 
-        result = get_llm_summary(mock_conn, user_id=1)
+        result = get_llm_summaries(mock_conn, user_id=1)
 
-        assert result == "Matcha is trending upward..."
+        assert len(result) == 3
+        assert result[0] == "Day 1 summary..."
 
-    def test_returns_none_when_no_summary(self):
+    def test_returns_empty_list_when_no_summaries(self):
         mock_conn = MagicMock()
         mock_cursor = MagicMock()
-        mock_cursor.fetchone.return_value = None
+        mock_cursor.fetchall.return_value = []
         mock_conn.cursor.return_value = mock_cursor
 
-        result = get_llm_summary(mock_conn, user_id=1)
+        result = get_llm_summaries(mock_conn, user_id=1)
+
+        assert result == []
+
+
+class TestGenerateWeeklyDigest:
+
+    def test_returns_none_when_no_summaries(self):
+        result = generate_weekly_digest([])
+
+        assert result is None
+
+    @patch('report_data.requests.post')
+    def test_calls_openrouter_api(self, mock_post):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "choices": [{"message": {"content": "Weekly digest..."}}]
+        }
+        mock_response.raise_for_status = MagicMock()
+        mock_post.return_value = mock_response
+
+        result = generate_weekly_digest(["Summary 1", "Summary 2"])
+
+        assert result == "Weekly digest..."
+        mock_post.assert_called_once()
+
+    @patch('report_data.requests.post')
+    def test_returns_none_on_api_error(self, mock_post):
+        mock_post.side_effect = Exception("API Error")
+
+        result = generate_weekly_digest(["Summary 1"])
 
         assert result is None
 
@@ -275,8 +307,9 @@ class TestGetUserReportData:
 
     @patch('report_data.get_user_keywords')
     @patch('report_data.get_keyword_stats')
-    @patch('report_data.get_llm_summary')
-    def test_returns_complete_report_data(self, mock_summary, mock_stats, mock_keywords):
+    @patch('report_data.get_llm_summaries')
+    @patch('report_data.generate_weekly_digest')
+    def test_returns_complete_report_data(self, mock_digest, mock_summaries, mock_stats, mock_keywords):
         mock_conn = MagicMock()
         mock_keywords.return_value = ["matcha", "coffee"]
         mock_stats.side_effect = [
@@ -297,7 +330,8 @@ class TestGetUserReportData:
                 "trend": {"direction": "down", "percent": 5, "symbol": "↓"}
             }
         ]
-        mock_summary.return_value = "Matcha is trending..."
+        mock_summaries.return_value = ["Day 1", "Day 2", "Day 3"]
+        mock_digest.return_value = "Weekly digest summary..."
 
         result = get_user_report_data(mock_conn, user_id=1)
 
@@ -305,15 +339,17 @@ class TestGetUserReportData:
         assert len(result["keywords"]) == 2
         assert result["totals"]["posts_24h"] == 268
         assert result["totals"]["posts_7d"] == 2139
-        assert result["llm_summary"] == "Matcha is trending..."
+        assert result["llm_summary"] == "Weekly digest summary..."
 
     @patch('report_data.get_user_keywords')
     @patch('report_data.get_keyword_stats')
-    @patch('report_data.get_llm_summary')
-    def test_handles_no_keywords(self, mock_summary, mock_stats, mock_keywords):
+    @patch('report_data.get_llm_summaries')
+    @patch('report_data.generate_weekly_digest')
+    def test_handles_no_keywords(self, mock_digest, mock_summaries, mock_stats, mock_keywords):
         mock_conn = MagicMock()
         mock_keywords.return_value = []
-        mock_summary.return_value = None
+        mock_summaries.return_value = []
+        mock_digest.return_value = None
 
         result = get_user_report_data(mock_conn, user_id=1)
 
@@ -324,8 +360,9 @@ class TestGetUserReportData:
 
     @patch('report_data.get_user_keywords')
     @patch('report_data.get_keyword_stats')
-    @patch('report_data.get_llm_summary')
-    def test_handles_no_llm_summary(self, mock_summary, mock_stats, mock_keywords):
+    @patch('report_data.get_llm_summaries')
+    @patch('report_data.generate_weekly_digest')
+    def test_handles_no_llm_summary(self, mock_digest, mock_summaries, mock_stats, mock_keywords):
         mock_conn = MagicMock()
         mock_keywords.return_value = ["matcha"]
         mock_stats.return_value = {
@@ -336,7 +373,8 @@ class TestGetUserReportData:
             "sentiment": {"positive": 62, "neutral": 28, "negative": 10, "total": 100},
             "trend": {"direction": "up", "percent": 23, "symbol": "↑"}
         }
-        mock_summary.return_value = None
+        mock_summaries.return_value = []
+        mock_digest.return_value = None
 
         result = get_user_report_data(mock_conn, user_id=1)
 
@@ -344,8 +382,9 @@ class TestGetUserReportData:
 
     @patch('report_data.get_user_keywords')
     @patch('report_data.get_keyword_stats')
-    @patch('report_data.get_llm_summary')
-    def test_handles_zero_sentiment_total(self, mock_summary, mock_stats, mock_keywords):
+    @patch('report_data.get_llm_summaries')
+    @patch('report_data.generate_weekly_digest')
+    def test_handles_zero_sentiment_total(self, mock_digest, mock_summaries, mock_stats, mock_keywords):
         mock_conn = MagicMock()
         mock_keywords.return_value = ["new_keyword"]
         mock_stats.return_value = {
@@ -356,7 +395,8 @@ class TestGetUserReportData:
             "sentiment": {"positive": 0, "neutral": 0, "negative": 0, "total": 0},
             "trend": {"direction": "stable", "percent": 0, "symbol": "→"}
         }
-        mock_summary.return_value = None
+        mock_summaries.return_value = []
+        mock_digest.return_value = None
 
         result = get_user_report_data(mock_conn, user_id=1)
 
