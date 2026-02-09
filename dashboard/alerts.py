@@ -143,14 +143,12 @@ def show_alerts_dashboard(conn):
 
     st.markdown("---")
 
-if __name__ == "__main__":
-
-    st.set_page_config(page_title="Alerts & Notifications")
-
+def render_alerts_dashboard(conn):
+    """Render the alerts dashboard content."""
+    st.markdown("### 🔔 Alerts & Notifications")
+    st.markdown("Configure your alert preferences and notification settings.")
+    show_alerts_dashboard(conn)
     login_prompt()
-
-    load_dotenv()
-    conn = get_db_connection()
 
     # Initialize toggle states with database values or defaults
     if "emails_enabled" not in st.session_state:
@@ -158,9 +156,5 @@ if __name__ == "__main__":
         st.session_state.emails_enabled = emails
         st.session_state.alerts_enabled = alerts
 
-    st.title("🔔 Alerts & Notifications")
-    st.markdown("Configure your alert preferences and notification settings.")
-    show_alerts_dashboard(conn)
-
-    # Render shared sidebar
-    render_sidebar()
+if __name__ == "__main__":
+    pass

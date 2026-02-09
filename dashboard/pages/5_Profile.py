@@ -1,12 +1,11 @@
-"""
-Manage Topics - Keyword management dashboard.
-"""
+"""Manage Topics - Keyword management dashboard."""
 
 import streamlit as st
 
 # Import shared functions from utils module
 import sys
 import logging
+from dotenv import load_dotenv
 from utils import (
     get_db_connection,
     get_user_keywords,
@@ -14,6 +13,7 @@ from utils import (
     remove_user_keyword,
     render_sidebar
 )
+from alerts import render_alerts_dashboard
 from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def load_keywords():
 
 def render_add_keyword_section():
     """Render the add keyword section."""
-    st.markdown("### ➕ Add New Keyword")
+    st.markdown("##### ➕ Add New Keyword")
     col1, col2 = st.columns([3, 1])
 
     with col1:
@@ -84,7 +84,6 @@ def render_add_keyword_section():
 
 def render_keywords_display():
     """Render the current keywords display."""
-    st.markdown("### 📋 Your Keywords")
 
     keywords = st.session_state.get("keywords", [])
     if keywords:
@@ -124,10 +123,12 @@ def render_keywords_display():
 if __name__ == "__main__":
     configure_page()
     render_sidebar()
+    conn = get_db_connection()
+    load_dotenv()
 
     st.markdown("---")
 
-    st.title("🏷️ Topics Management")
+    st.markdown("### 🏷️ Topics Management")
     st.markdown("Manage your tracked keywords and topics here.")
 
     load_keywords()
@@ -138,3 +139,5 @@ if __name__ == "__main__":
 
     render_keywords_display()
     st.markdown("---")
+
+    render_alerts_dashboard(conn)
