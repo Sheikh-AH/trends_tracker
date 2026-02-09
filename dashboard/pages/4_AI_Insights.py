@@ -4,12 +4,9 @@ AI Insights - LLM-generated summaries and recommendations for keywords.
 
 import streamlit as st
 
-# Import shared functions from utils module
-import sys
 from utils import (
     get_db_connection,
     get_user_keywords,
-    generate_ai_insights,
     render_sidebar
 )
 from psycopg2.extras import RealDictCursor

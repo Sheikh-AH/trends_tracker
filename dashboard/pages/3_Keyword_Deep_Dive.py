@@ -10,14 +10,9 @@ import pandas as pd
 import streamlit as st
 
 # Import shared functions from utils module
-import sys
 from utils import (
     get_db_connection,
     get_user_keywords,
-    generate_placeholder_metrics,
-    generate_time_series_data,
-    generate_sentiment_breakdown,
-    generate_keywords_summary,
     render_sidebar
 )
 from psycopg2.extras import RealDictCursor
@@ -295,22 +290,14 @@ def main():
 
     st.markdown("---")
 
-    # Chart Row 3: Keyword Comparison
     render_comparison_chart(keywords, days)
 
     st.markdown("---")
 
-    # Summary Table
     render_summary_table(keywords, days)
-
-    # Default Sidebar
-    # Render shared sidebar
     render_sidebar()
 
 
-# ============== Entry Point ==============
-# Streamlit pages are executed as modules, so we run at module level
-configure_page()
 if __name__ == "__main__":
     configure_page()
     main()

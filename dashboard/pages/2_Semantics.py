@@ -2,10 +2,8 @@
 Home Dashboard - Main visualization page with engaging analytics.
 """
 
-import random
 import time
 from datetime import datetime, timedelta
-from io import BytesIO
 
 import altair as alt
 import matplotlib.pyplot as plt
@@ -13,8 +11,6 @@ import pandas as pd
 import streamlit as st
 from wordcloud import WordCloud
 
-# Import shared functions from utils module
-import sys
 from utils import (
     get_user_keywords,
     get_kpi_metrics_from_db,
