@@ -10,6 +10,7 @@ from psycopg2 import connect
 import sys
 from utils import get_db_connection, render_sidebar
 
+
 def login_prompt():
     """Prompt the user to log in if they are not already authenticated."""
     if not st.session_state.get("logged_in"):
@@ -25,14 +26,17 @@ def get_boto3_client():
         aws_secret_access_key=os.getenv('AWS_SECRET_KEY')
     )
 
+
 def is_email_verified(client, email: str) -> bool:
     """Check if the email is verified with AWS SES."""
     response = client.list_verified_email_addresses()
     return email in response['VerifiedEmailAddresses']
 
+
 def send_verification_email(client, email: str) -> dict:
     """Send a verification email to the specified address."""
     return client.verify_email_identity(EmailAddress=email)
+
 
 def verify_email(client, email: str) -> bool:
     """Verify the email address and send verification if not already verified."""
@@ -43,6 +47,7 @@ def verify_email(client, email: str) -> bool:
         st.info(f"Sending verification to {email}")
         send_verification_email(client, email)
         return False
+
 
 def get_user_alert_settings(conn):
     """Fetch the user's current alert settings from the database."""
@@ -58,6 +63,7 @@ def get_user_alert_settings(conn):
         else:
             return False, False
 
+
 def update_users_settings(conn, emails_enabled: bool, alerts_enabled: bool):
     """Update the user's alert settings in the database."""
     with conn.cursor() as cursor:
@@ -68,13 +74,16 @@ def update_users_settings(conn, emails_enabled: bool, alerts_enabled: bool):
         """, (emails_enabled, alerts_enabled, st.session_state.email))
         conn.commit()
 
+
 def email_toggle_on_change(conn, client):
     """Handle changes to the email toggle."""
     if st.session_state.emails_enabled:
         if not is_email_verified(client, st.session_state.email):
             st.error("Please verify your email before enabling this feature.")
             return
-    update_users_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
+    update_users_settings(
+        conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
+
 
 def alert_toggle_on_change(conn, client):
     """Handle changes to the alert toggle."""
@@ -82,22 +91,27 @@ def alert_toggle_on_change(conn, client):
         if not is_email_verified(client, st.session_state.email):
             st.error("Please verify your email before enabling this feature.")
             return
-    update_users_settings(conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
+    update_users_settings(
+        conn, st.session_state.emails_enabled, st.session_state.alerts_enabled)
 
-def gen_email_toggle(conn, client):
+
+def gen_email_toggle(conn, client, value: bool):
     """Generate email toggle"""
     return st.toggle(
         "Enable Email Reports",
+        value=value,
         key="emails_enabled",
         on_change=email_toggle_on_change,
         args=(conn, client),
         help="Receive a weekly email summary of trends and insights based on your keywords"
     )
 
-def gen_alert_toggle(conn, client):
+
+def gen_alert_toggle(conn, client, value: bool):
     """Generate alert toggle"""
     return st.toggle(
         "Enable Spike Alerts",
+        value=value,
         key="alerts_enabled",
         on_change=alert_toggle_on_change,
         args=(conn, client),
@@ -116,7 +130,8 @@ def show_alerts_dashboard(conn):
     # Check verification status upfront
     is_verified = is_email_verified(client, st.session_state.email)
     if not is_verified:
-        st.info(f"📬 Your email ({st.session_state.email}) is not yet verified. Sending verification email...")
+        st.info(
+            f"📬 Your email ({st.session_state.email}) is not yet verified. Sending verification email...")
         send_verification_email(client, st.session_state.email)
     else:
         st.success(f"✅ Email verified: {st.session_state.email}")
@@ -125,8 +140,8 @@ def show_alerts_dashboard(conn):
 
     # Create toggles - only enable if email is verified
     if is_verified:
-        gen_email_toggle(conn, client)
-        gen_alert_toggle(conn, client)
+        gen_email_toggle(conn, client, st.session_state.emails_enabled)
+        gen_alert_toggle(conn, client, st.session_state.alerts_enabled)
     else:
         st.toggle(
             "Enable Email Reports",
@@ -143,18 +158,21 @@ def show_alerts_dashboard(conn):
 
     st.markdown("---")
 
+
 def render_alerts_dashboard(conn):
     """Render the alerts dashboard content."""
-    st.markdown("### 🔔 Alerts & Notifications")
-    st.markdown("Configure your alert preferences and notification settings.")
-    show_alerts_dashboard(conn)
     login_prompt()
 
-    # Initialize toggle states with database values or defaults
-    if "emails_enabled" not in st.session_state:
-        emails, alerts = get_user_alert_settings(conn)
-        st.session_state.emails_enabled = emails
-        st.session_state.alerts_enabled = alerts
+    st.markdown("### 🔔 Alerts & Notifications")
+    st.markdown("Configure your alert preferences and notification settings.")
+
+    # Fetch and set database values
+    emails, alerts = get_user_alert_settings(conn)
+    st.session_state.emails_enabled = emails
+    st.session_state.alerts_enabled = alerts
+
+    show_alerts_dashboard(conn)
+
 
 if __name__ == "__main__":
     pass
