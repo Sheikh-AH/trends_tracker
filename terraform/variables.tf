@@ -59,3 +59,8 @@ variable "openrouter_api_key" {
   type        = string
   sensitive   = true
 }
+
+variable "ses_sender_email" {
+  description = "Email address to use as the sender for SES emails"
+  type        = string
+}

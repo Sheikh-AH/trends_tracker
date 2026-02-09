@@ -573,7 +573,7 @@ resource "aws_lambda_function" "alert_system" {
       DB_USER      = var.db_username
       DB_PASSWORD  = var.db_password
       AWS_REGION_NAME   = var.aws_region
-      SENDER_EMAIL = "sl-coaches@proton.me"
+      SENDER_EMAIL = var.ses_sender_email
     }
   }
 
@@ -860,7 +860,7 @@ resource "aws_lambda_function" "weekly_report" {
       DB_NAME            = var.db_name
       DB_USER            = var.db_username
       DB_PASSWORD        = var.db_password
-      SENDER_EMAIL       = "sl-coaches@proton.me"
+      SENDER_EMAIL       = var.ses_sender_email
       OPENROUTER_API_KEY = var.openrouter_api_key
     }
   }
