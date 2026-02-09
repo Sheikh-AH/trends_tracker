@@ -1,7 +1,31 @@
 # pylint: skip-file
 import pytest
-from unittest.mock import patch, MagicMock
-from alert_send import get_users_for_keyword, already_alerted_today, mark_as_alerted, send_email, send_alerts, alerts_sent_today
+from unittest.mock import patch, MagicMock, mock_open
+from alert_send import (
+    get_users_for_keyword,
+    already_alerted_today,
+    mark_as_alerted,
+    send_email,
+    send_alerts,
+    alerts_sent_today,
+    build_html_email,
+    load_email_template
+)
+
+
+# Sample template for testing
+MOCK_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<body>
+    {{logo_section}}
+    {{keyword}}
+    {{current_count}}
+    {{posts_html}}
+    {{search_url}}
+</body>
+</html>
+"""
 
 
 class TestGetUsersForKeyword:
@@ -87,14 +111,85 @@ class TestMarkAsAlerted:
         assert alerts_sent_today.get('1:coffee') is True
 
 
+class TestLoadEmailTemplate:
+
+    def test_loads_template_file(self):
+        with patch("builtins.open", mock_open(read_data=MOCK_TEMPLATE)):
+            result = load_email_template()
+
+        assert "{{keyword}}" in result
+        assert "{{current_count}}" in result
+
+
+class TestBuildHtmlEmail:
+
+    @patch('alert_send.load_email_template')
+    def test_replaces_placeholders(self, mock_load):
+        mock_load.return_value = MOCK_TEMPLATE
+
+        result = build_html_email("matcha", 15, [])
+
+        assert "matcha" in result
+        assert "15" in result
+        assert "{{keyword}}" not in result
+        assert "{{current_count}}" not in result
+
+    @patch('alert_send.load_email_template')
+    def test_includes_search_url(self, mock_load):
+        mock_load.return_value = MOCK_TEMPLATE
+
+        result = build_html_email("matcha", 15, [])
+
+        assert "bsky.app/search" in result
+        assert "matcha" in result
+
+    @patch('alert_send.load_email_template')
+    def test_formats_posts(self, mock_load):
+        mock_load.return_value = MOCK_TEMPLATE
+        posts = [{"text": "Test post about matcha",
+                  "author_did": "did:123", "posted_at": None}]
+
+        result = build_html_email("matcha", 15, posts)
+
+        assert "Test post about matcha" in result
+
+    @patch('alert_send.load_email_template')
+    def test_handles_empty_posts(self, mock_load):
+        mock_load.return_value = MOCK_TEMPLATE
+
+        result = build_html_email("matcha", 15, [])
+
+        assert "No recent posts available" in result
+
+    @patch('alert_send.load_email_template')
+    def test_includes_logo_when_provided(self, mock_load):
+        mock_load.return_value = MOCK_TEMPLATE
+
+        result = build_html_email(
+            "matcha", 15, [], logo_url="https://example.com/logo.png")
+
+        assert "https://example.com/logo.png" in result
+        assert "TrendFunnel" in result
+
+    @patch('alert_send.load_email_template')
+    def test_text_logo_when_no_url(self, mock_load):
+        mock_load.return_value = MOCK_TEMPLATE
+
+        result = build_html_email("matcha", 15, [])
+
+        assert "TrendFunnel" in result
+
+
 class TestSendEmail:
 
+    @patch('alert_send.build_html_email')
     @patch('alert_send.get_recent_posts_for_keyword')
     @patch('alert_send.boto3.client')
-    def test_sends_email_successfully(self, mock_boto, mock_get_posts):
+    def test_sends_email_successfully(self, mock_boto, mock_get_posts, mock_build_html):
         mock_ses = MagicMock()
         mock_boto.return_value = mock_ses
         mock_get_posts.return_value = []
+        mock_build_html.return_value = "<html>Test</html>"
 
         with patch.dict('os.environ', {'AWS_REGION': 'eu-west-2', 'SENDER_EMAIL': 'noreply@test.com'}):
             result = send_email('user@test.com', 'matcha', 15)
@@ -102,34 +197,36 @@ class TestSendEmail:
         assert result is True
         mock_ses.send_email.assert_called_once()
 
+    @patch('alert_send.build_html_email')
     @patch('alert_send.get_recent_posts_for_keyword')
     @patch('alert_send.boto3.client')
-    def test_returns_false_on_failure(self, mock_boto, mock_get_posts):
+    def test_returns_false_on_failure(self, mock_boto, mock_get_posts, mock_build_html):
         mock_ses = MagicMock()
         mock_ses.send_email.side_effect = Exception("SES Error")
         mock_boto.return_value = mock_ses
         mock_get_posts.return_value = []
+        mock_build_html.return_value = "<html>Test</html>"
 
         with patch.dict('os.environ', {'AWS_REGION': 'eu-west-2', 'SENDER_EMAIL': 'noreply@test.com'}):
             result = send_email('user@test.com', 'matcha', 15)
 
         assert result is False
 
+    @patch('alert_send.build_html_email')
     @patch('alert_send.get_recent_posts_for_keyword')
     @patch('alert_send.boto3.client')
-    def test_email_contains_keyword(self, mock_boto, mock_get_posts):
+    def test_subject_contains_keyword(self, mock_boto, mock_get_posts, mock_build_html):
         mock_ses = MagicMock()
         mock_boto.return_value = mock_ses
         mock_get_posts.return_value = []
+        mock_build_html.return_value = "<html>Test</html>"
 
         with patch.dict('os.environ', {'AWS_REGION': 'eu-west-2', 'SENDER_EMAIL': 'noreply@test.com'}):
             send_email('user@test.com', 'matcha', 15)
 
         call_args = mock_ses.send_email.call_args
-        html_body = call_args[1]['Message']['Body']['Html']['Data']
         subject = call_args[1]['Message']['Subject']['Data']
 
-        assert 'matcha' in html_body
         assert 'matcha' in subject
 
 
