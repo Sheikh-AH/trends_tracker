@@ -15,7 +15,6 @@ from utils import (
 )
 from psycopg2.extras import RealDictCursor
 
-
 def configure_page():
     """Configure page settings and check authentication."""
     st.set_page_config(
@@ -30,7 +29,6 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
-
 def load_keywords():
     """Load keywords from database if needed."""
     if not ss.get("keywords_loaded", False):
@@ -42,9 +40,9 @@ def load_keywords():
             ss.keywords = db_keywords if db_keywords else []
             ss.keywords_loaded = True
 
-
-def get_comparison_data(cursor, keywords: list, days: int) -> pd.DataFrame:
+def get_comparison_data(conn, keywords: list, days: int) -> pd.DataFrame:
     """Fetch post count and sentiment data over time for selected keywords."""
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     if not keywords:
         return pd.DataFrame()
 
@@ -54,6 +52,7 @@ def get_comparison_data(cursor, keywords: list, days: int) -> pd.DataFrame:
 
     cursor.execute(query, (keywords, start_date))
     results = cursor.fetchall()
+    cursor.close()
 
     if not results:
         return pd.DataFrame()
@@ -68,26 +67,58 @@ def get_comparison_data(cursor, keywords: list, days: int) -> pd.DataFrame:
 
     return df
 
-
-def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.LayerChart:
-    """Create a line chart comparing keywords with event markers."""
-
-    if df.empty:
-        return None
-
-    y_field = "post_count" if metric == "Post Count" else "avg_sentiment"
-    y_title = "Post Count" if metric == "Post Count" else "Average Sentiment"
-
-    # Calculate date range with padding
+def get_chart_scales(df: pd.DataFrame, y_field: str):
+    """Calculate appropriate scales for the chart axes."""
     min_date = df['date'].min()
     max_date = df['date'].max()
     date_range = (max_date - min_date).days
     padded_max_date = max_date + pd.Timedelta(days=max(1, date_range * 0.1))
 
-    max_value = df[y_field].max() + (df[y_field].max() *
-                                     0.1)  # Add 10% padding to y-axis
+    max_value = df[y_field].max()
+    padded_max_value = max_value + (max_value * 0.1) if max_value > 0 else 1
 
-    # Base line chart with padded x-axis
+    return min_date, padded_max_date, padded_max_value
+
+def add_events(events: list):
+    """Add event markers to the chart."""
+    events_df = pd.DataFrame(events)
+    events_df['date'] = pd.to_datetime(events_df['date'])
+
+    event_rules = alt.Chart(events_df).mark_rule(
+        color='red',
+        strokeWidth=3,
+        opacity=0.6
+    ).encode(
+        x='date:T',
+        tooltip=[
+            alt.Tooltip('date:T', title='Event Date', format='%Y-%m-%d'),
+            alt.Tooltip('label:N', title='Event')
+        ]
+    )
+
+    event_labels = alt.Chart(events_df).mark_text(
+        align='left',
+        baseline='bottom',
+        dx=-155,
+        dy=-5,
+        color='red',
+        angle=90,
+        fontSize=11,
+        fontWeight='bold'
+    ).encode(
+        x='date:T',
+        text='label:N',
+    )
+    return event_rules, event_labels
+
+def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.LayerChart:
+    """Create a line chart comparing keywords with event markers."""
+
+    y_field = "post_count" if metric == "Post Count" else "avg_sentiment"
+    y_title = "Post Count" if metric == "Post Count" else "Average Sentiment"
+
+    min_date, padded_max_date, max_value = get_chart_scales(df, y_field)
+
     line_chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X(
             'date:T',
@@ -102,46 +133,13 @@ def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.
             alt.Tooltip('keyword:N', title='Keyword'),
             alt.Tooltip(f'{y_field}:Q', title=y_title, format='.2f')
         ]
-    ).properties(
-        height=400
-    )
+    ).properties(height=400)
 
-    # Add event vertical lines if any
     if events:
-        events_df = pd.DataFrame(events)
-        events_df['date'] = pd.to_datetime(events_df['date'])
-
-        event_rules = alt.Chart(events_df).mark_rule(
-            color='red',
-            strokeWidth=3,
-            opacity=0.6
-        ).encode(
-            x='date:T',
-            tooltip=[
-                alt.Tooltip('date:T', title='Event Date', format='%Y-%m-%d'),
-                alt.Tooltip('label:N', title='Event')
-            ]
-        )
-
-        event_labels = alt.Chart(events_df).mark_text(
-            align='left',
-            baseline='bottom',
-            dx=-155,
-            dy=-5,
-            color='red',
-            angle=90,
-            fontSize=11,
-            fontWeight='bold'
-        ).encode(
-            x='date:T',
-            text='label:N',
-        )
-        print(1)
-
+        event_rules, event_labels = add_events(events)
         return (line_chart + event_rules + event_labels).interactive()
 
     return line_chart.interactive()
-
 
 def render_event_manager():
     """Render the event management UI."""
@@ -193,10 +191,13 @@ def render_event_manager():
 
 def get_selected_keywords():
     """Render the keyword selection multiselect and return the selected keywords."""
+    if not ss.get("keywords"):
+        st.info("No keywords tracked. Add keywords from the Profile page to compare.")
+        st.stop()
+
     if "comparison_selected_keywords" not in ss:
         ss.comparison_selected_keywords = []
 
-    # Filter out any keywords that are no longer in the user's list
     valid_saved = [
         k for k in ss.comparison_selected_keywords if k in ss.keywords]
 
@@ -208,7 +209,6 @@ def get_selected_keywords():
         help="Select keywords to compare their metrics over time"
     )
 
-    # Save selection to session state
     ss.comparison_selected_keywords = selected_keywords
 
     if len(selected_keywords) < 2:
@@ -239,6 +239,61 @@ def render_controls():
 
     return metric, days
 
+def get_summary_data(df: pd.DataFrame, keyword: str) -> dict:
+    """Calculate summary statistics for a given keyword."""
+    kw_data = df[df['keyword'] == keyword]
+
+    return {
+        'Total Posts': kw_data['post_count'].sum(),
+        'Avg Posts/Day': (kw_data['post_count'].sum() / max(1, len(kw_data))).round(2),
+        'Post Count Volatility': kw_data['post_count'].std().round(2),
+        'Avg Sentiment': kw_data['avg_sentiment'].mean().round(2),
+        'Sentiment Max': kw_data['avg_sentiment'].max().round(2),
+        'Sentiment Min': kw_data[kw_data['avg_sentiment'] != 0]['avg_sentiment'].min().round(2),
+        'Sentiment Volatility': kw_data['avg_sentiment'].std().round(2)
+    }
+
+def create_table() -> None:
+    """Create a table to display summary statistics."""
+    col_metric, *col_keywords = st.columns([2] + [1] * len(selected_keywords))
+    with col_metric:
+        st.write("**Metric**")
+    for i, kw in enumerate(selected_keywords):
+        with col_keywords[i]:
+            st.write(f"**{kw}**")
+    
+def render_summary_statistics(df: pd.DataFrame, metric: str):
+    summary_data = {}  # Store numeric values for highlighting
+
+    for kw in selected_keywords:
+        summary_data[kw] = get_summary_data(df, kw)
+
+    metrics = ['Total Posts', 'Avg Posts/Day', 'Post Count Volatility',
+                'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
+    
+    create_table()
+
+    for metric in metrics:
+        col_metric, *col_values = st.columns([2] + [1] * len(selected_keywords))
+
+        with col_metric:
+            st.write(metric)
+
+        numeric_values = [summary_data[kw][metric] for kw in selected_keywords]
+        max_value = max(numeric_values) if numeric_values else None
+
+        for i, kw in enumerate(selected_keywords):
+            with col_values[i]:
+                value = summary_data[kw][metric]
+                numeric_value = summary_data[kw][metric]
+                col_val, col_symbol = st.columns([1, 3])
+                with col_val:
+                    st.write(value)
+                with col_symbol:
+                    if numeric_value == max_value:
+                        st.markdown("⭐", text_alignment="left")
+
+
 if __name__ == "__main__":
     configure_page()
     render_sidebar()
@@ -246,110 +301,26 @@ if __name__ == "__main__":
 
     st.title("Keyword Comparisons")
 
-    # Check if user has keywords
-    if not ss.get("keywords"):
-        st.info("No keywords tracked. Add keywords from the Profile page to compare.")
-        st.stop()
-
     st.subheader("Select Keywords to Compare")
     selected_keywords = get_selected_keywords()
 
     metric, days = render_controls()
 
-    # Event management
     with st.expander("Add Event Markers", expanded=False):
         render_event_manager()
-
     st.divider()
 
     conn = get_db_connection()
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
-    df = get_comparison_data(cursor, selected_keywords, days)
-    cursor.close()
+    df = get_comparison_data(conn, selected_keywords, days)
 
-    
     chart = create_comparison_chart(
         df,
         metric,
         ss.get("comparison_events", [])
     )
-    if chart:
-        st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
 
-    # Summary statistics
     st.subheader("Summary Statistics")
+    render_summary_statistics(df, metric)
 
-    # Calculate metrics for each keyword
-    metrics_data = {}
-    metrics_numeric = {}  # Store numeric values for highlighting
-
-    for kw in selected_keywords:
-        kw_data = df[df['keyword'] == kw]
-
-        total_posts = kw_data['post_count'].sum()
-        avg_sentiment = kw_data['avg_sentiment'].mean().round(2)
-        sentiment_volatility = kw_data['avg_sentiment'].std().round(2)
-        post_volatility = kw_data['post_count'].std().round(2)
-        max_sentiment = kw_data['avg_sentiment'].max().round(2)
-        min_sentiment = kw_data[kw_data['avg_sentiment']
-                                != 0]['avg_sentiment'].min().round(2)
-        avg_posts_per_day = (
-            total_posts / max(1, len(kw_data))).round(2)
-
-        metrics_data[kw] = {
-            'Total Posts': total_posts,
-            'Avg Posts/Day': avg_posts_per_day,
-            'Post Count Volatility': post_volatility,
-            'Avg Sentiment': avg_sentiment,
-            'Sentiment Max': max_sentiment,
-            'Sentiment Min': min_sentiment,
-            'Sentiment Volatility': sentiment_volatility
-        }
-
-        metrics_numeric[kw] = {
-            'Total Posts': total_posts,
-            'Avg Posts/Day': avg_posts_per_day,
-            'Post Count Volatility': post_volatility,
-            'Avg Sentiment': avg_sentiment,
-            'Sentiment Max': max_sentiment,
-            'Sentiment Min': min_sentiment,
-            'Sentiment Volatility': sentiment_volatility
-        }
-
-    # Create comparison table
-    metric_names = ['Total Posts', 'Avg Posts/Day', 'Post Count Volatility',
-                    'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
-
-    # Header row
-    col_metric, * \
-        col_keywords = st.columns([2] + [1] * len(selected_keywords))
-
-    with col_metric:
-        st.write("**Metric**")
-    for i, kw in enumerate(selected_keywords):
-        with col_keywords[i]:
-            st.write(f"**{kw}**")
-
-    # Data rows
-    for metric_name in metric_names:
-        col_metric, * \
-            col_values = st.columns([2] + [1] * len(selected_keywords))
-
-        with col_metric:
-            st.write(metric_name)
-
-        # Find max value for this metric (for highlighting)
-        numeric_values = [metrics_numeric[kw][metric_name]
-                            for kw in selected_keywords]
-        max_value = max(numeric_values) if numeric_values else None
-
-        for i, kw in enumerate(selected_keywords):
-            with col_values[i]:
-                value = metrics_data[kw][metric_name]
-                numeric_value = metrics_numeric[kw][metric_name]
-                col_val, col_symbol = st.columns([1, 3])
-                with col_val:
-                    st.write(value)
-                with col_symbol:
-                    if numeric_value == max_value:
-                        st.markdown("⭐", text_alignment="left")
+    
