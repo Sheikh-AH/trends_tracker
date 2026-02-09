@@ -6,5 +6,6 @@ RUN pip install --no-cache-dir -r reqs_alert.txt
 COPY alert_detect.py .
 COPY alert_send.py .
 COPY alert_pipeline.py .
+COPY alert_email.html .
 
 CMD ["alert_pipeline.handler"]
