@@ -492,6 +492,20 @@ def get_sentiment_by_day(conn, keyword: str, day_limit: int = 31) -> list[dict]:
         return []
 
 
+def get_posts_by_date(conn, keyword: str, date, limit: int = 10) -> list[dict]:
+    """Get random posts for a specific date and keyword."""
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = _load_sql_query("get_posts_by_date.sql")
+        cursor.execute(query, (keyword, date, limit))
+        results = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in results] if results else []
+    except Exception as e:
+        logger.error(f"Error fetching posts by date: {e}")
+        return []
+
+
 def get_latest_post_text_corpus(
     conn,
     keyword_value: str,

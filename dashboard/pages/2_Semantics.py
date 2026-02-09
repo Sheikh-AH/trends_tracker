@@ -19,11 +19,13 @@ from utils import (
     get_user_keywords,
     get_kpi_metrics_from_db,
     get_sentiment_by_day,
+    get_posts_by_date,
     get_featured_posts,
     get_sentiment_emoji,
     get_latest_post_text_corpus,
     extract_keywords_yake,
     diversify_keywords,
+    uri_to_url,
     render_sidebar
 )
 from psycopg2.extras import RealDictCursor
@@ -194,57 +196,189 @@ def render_word_cloud(keyword: str):
 
 
 def render_sentiment_calendar(keyword: str, days: int = 30):
-    """Render sentiment calendar heatmap with red-orange-yellow-green gradient."""
+    """Render sentiment calendar heatmap as a proper monthly calendar grid."""
     st.markdown("### 📅 Sentiment Calendar")
 
     conn = st.session_state.db_conn
-    sentiment_data = get_sentiment_by_day(conn, keyword, day_limit=days)
-    
-    if not sentiment_data:
-        st.info("No sentiment data available for this period.")
-        return
-    
-    # Convert to DataFrame
-    df = pd.DataFrame(sentiment_data)
-    df['date'] = pd.to_datetime(df['date'])
-    
-    # Clamp sentiment to [-0.5, 0.5] range for color mapping
-    df['sentiment_clamped'] = df['avg_sentiment'].clip(-0.5, 0.5)
-    
-    # Add calendar fields
-    df['day_name'] = df['date'].dt.strftime('%a')
-    df['week_of_year'] = df['date'].dt.isocalendar().week
-    df['day_of_month'] = df['date'].dt.day
-    df['month'] = df['date'].dt.strftime('%b')
 
-    # Create heatmap with red-orange-yellow-green gradient
+    # Always fetch current month's data
+    today = datetime.now().date()
+    first_of_month = today.replace(day=1)
+
+    # Get last day of month
+    if today.month == 12:
+        last_of_month = today.replace(year=today.year + 1, month=1, day=1) - timedelta(days=1)
+    else:
+        last_of_month = today.replace(month=today.month + 1, day=1) - timedelta(days=1)
+
+    # Fetch sentiment data for the month
+    days_in_month = (last_of_month - first_of_month).days + 1
+    sentiment_data = get_sentiment_by_day(conn, keyword, day_limit=days_in_month + (today - first_of_month).days)
+
+    # Create complete date range for the full month
+    all_dates = pd.date_range(start=first_of_month, end=last_of_month, freq='D')
+    full_df = pd.DataFrame({'date': all_dates})
+
+    # Merge with sentiment data (left join to keep all days)
+    if sentiment_data:
+        sentiment_df = pd.DataFrame(sentiment_data)
+        sentiment_df['date'] = pd.to_datetime(sentiment_df['date'])
+        df = full_df.merge(sentiment_df, on='date', how='left')
+    else:
+        df = full_df
+        df['avg_sentiment'] = float('nan')
+        df['post_count'] = 0
+
+    # Fill NaN for display
+    df['post_count'] = df['post_count'].fillna(0).astype(int)
+    df['has_data'] = df['avg_sentiment'].notna()
+    df['sentiment_clamped'] = df['avg_sentiment'].clip(-0.5, 0.5)
+
+    # Calendar fields - proper grid layout
+    df['day_of_week'] = df['date'].dt.dayofweek  # 0=Monday, 6=Sunday
+    df['day_name'] = df['date'].dt.strftime('%a')
+    df['week_of_month'] = ((df['date'].dt.day - 1) // 7) + 1
+    df['day_of_month'] = df['date'].dt.day
+
+    # Adjust week_of_month to account for starting day
+    first_day_weekday = first_of_month.weekday()
+    df['week_row'] = ((df['date'].dt.day - 1 + first_day_weekday) // 7)
+
+    # Create the calendar heatmap
     heatmap = alt.Chart(df).mark_rect(
-        cornerRadius=4,
+        cornerRadius=3,
         stroke='#e0e0e0',
         strokeWidth=1
     ).encode(
-        x=alt.X('week_of_year:O', 
-                title='Week', 
-                axis=alt.Axis(labelAngle=0, labels=False, ticks=False)),
-        y=alt.Y('day_name:O',
+        x=alt.X('day_of_week:O',
                 title=None,
-                sort=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']),
-        color=alt.Color('sentiment_clamped:Q',
-                       scale=alt.Scale(
-                           domain=[-0.5, -0.25, 0, 0.25, 0.5],
-                           range=['#d32f2f', '#ff9800', '#ffeb3b', '#8bc34a', '#4caf50']
-                       ),
-                       legend=alt.Legend(title='Sentiment')),
+                axis=alt.Axis(
+                    labels=True,
+                    labelExpr="['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][datum.value]",
+                    labelAngle=0
+                )),
+        y=alt.Y('week_row:O',
+                title=None,
+                axis=alt.Axis(labels=False, ticks=False)),
+        color=alt.condition(
+            'datum.has_data == true',
+            alt.Color('sentiment_clamped:Q',
+                     scale=alt.Scale(
+                         domain=[-0.5, -0.25, 0, 0.25, 0.5],
+                         range=['#d32f2f', '#ff9800', '#ffeb3b', '#8bc34a', '#4caf50']
+                     ),
+                     legend=alt.Legend(title='Sentiment')),
+            alt.value('#f5f5f5')
+        ),
         tooltip=[
             alt.Tooltip('date:T', title='Date', format='%b %d, %Y'),
             alt.Tooltip('avg_sentiment:Q', title='Avg Sentiment', format='.3f'),
             alt.Tooltip('post_count:Q', title='Posts')
         ]
     ).properties(
-        height=180
+        height=300,
+        title=f"{today.strftime('%B %Y')}"
     )
 
-    st.altair_chart(heatmap, use_container_width=True)
+    # Add day labels on each cell
+    text = alt.Chart(df).mark_text(
+        align='center',
+        baseline='middle',
+        fontSize=14,
+        fontWeight='bold'
+    ).encode(
+        x=alt.X('day_of_week:O'),
+        y=alt.Y('week_row:O'),
+        text='day_of_month:Q',
+        color=alt.condition(
+            'datum.has_data == true',
+            alt.value('#333333'),
+            alt.value('#999999')
+        )
+    )
+
+    st.altair_chart(heatmap + text, use_container_width=True)
+
+
+@st.cache_data(ttl=1800)  # 30 minutes
+def get_cached_posts_by_date(_conn, keyword: str, date_str: str, limit: int = 10) -> list:
+    """Cached wrapper for fetching posts by date."""
+    from datetime import datetime
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
+    return get_posts_by_date(_conn, keyword, date_obj, limit)
+
+
+def render_day_posts(keyword: str):
+    """Render posts for a selected date."""
+    st.markdown("### 📋 Posts by Date")
+
+    conn = st.session_state.db_conn
+    today = datetime.now().date()
+    first_of_month = today.replace(day=1)
+
+    # Date picker constrained to current month
+    selected_date = st.date_input(
+        "Select a date",
+        value=today,
+        min_value=first_of_month,
+        max_value=today,
+        key="post_seeker_date"
+    )
+
+    if selected_date:
+        date_str = selected_date.strftime("%Y-%m-%d")
+        posts = get_cached_posts_by_date(conn, keyword, date_str, limit=10)
+
+        if posts:
+            st.markdown(f"**Showing {len(posts)} random posts from {selected_date.strftime('%B %d, %Y')}:**")
+
+            for post in posts:
+                sentiment_raw = post.get('sentiment_score', 0)
+                try:
+                    sentiment = float(sentiment_raw) if sentiment_raw is not None else 0.0
+                except (ValueError, TypeError):
+                    sentiment = 0.0
+                emoji = get_sentiment_emoji(sentiment)
+                text = post.get('text', '')
+                author_did = post.get('author_did', '')
+                post_uri = post.get('post_uri', '')
+                posted_at = post.get('posted_at')
+
+                # Format timestamp
+                if posted_at:
+                    if hasattr(posted_at, 'strftime'):
+                        time_str = posted_at.strftime('%I:%M %p')
+                    else:
+                        time_str = str(posted_at)
+                else:
+                    time_str = ''
+
+                # Get post URL
+                post_url = uri_to_url(post_uri) if post_uri else ''
+
+                # Truncate author DID for display
+                author_display = f"@{author_did[:20]}..." if len(author_did) > 20 else f"@{author_did}"
+
+                # Render post card
+                with st.container():
+                    st.markdown(f"""
+                    <div style="
+                        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+                        padding: 15px;
+                        border-radius: 10px;
+                        margin-bottom: 10px;
+                        border-left: 4px solid #0D47A1;
+                    ">
+                        <p style="margin-bottom: 8px; font-size: 14px;">{text}</p>
+                        <div style="font-size: 12px; color: #666;">
+                            {author_display} • {time_str} • {emoji} {sentiment:.2f}
+                            {f' • <a href="{post_url}" target="_blank">View Post</a>' if post_url else ''}
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+        else:
+            st.info(f"No posts found for {selected_date.strftime('%B %d, %Y')}")
+
 
 def render_kpi_metrics(metrics: dict):
     """Render KPI metrics row."""
@@ -358,6 +492,11 @@ def main():
 
     # Sentiment Calendar
     render_sentiment_calendar(selected_keyword, days)
+
+    st.markdown("---")
+
+    # Post Seeker
+    render_day_posts(selected_keyword)
 
     # Render shared sidebar
     render_sidebar()
