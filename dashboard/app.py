@@ -165,8 +165,7 @@ def create_nav() -> st.Navigation:
             st.Page("pages/3_Daily_Summary.py", title="Daily Summary"),
             st.Page("pages/3_Keyword_Deep_Dive.py", title="Keyword Deep Dive"),
             st.Page("pages/4_AI_Insights.py", title="AI Insights"),
-            st.Page("pages/5_Manage_Topics.py", title="Manage Topics"),
-            st.Page("pages/6_Alerts.py", title="Alerts"),
+            st.Page("pages/5_Profile.py", title="Profile"),
         ]
     )
 
