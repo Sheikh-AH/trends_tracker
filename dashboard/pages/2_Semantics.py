@@ -29,9 +29,14 @@ from utils import (
     render_sidebar,
     convert_sentiment_score,
     format_timestamp,
-    format_author_display
+    format_author_display,
+    load_html_template
 )
 from psycopg2.extras import RealDictCursor
+
+# HTML template paths
+FEATURED_POST_TEMPLATE = "styling/featured_post_card.html"
+POST_CARD_TEMPLATE = "styling/post_card.html"
 
 
 # ============== Page Configuration ==============
@@ -98,29 +103,15 @@ def render_featured_posts(selected_keyword: str):
     else:
         timestamp_str = ""
 
-    st.markdown(f"""
-    <div style="
-        background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
-        padding: 30px;
-        border-radius: 15px;
-        color: white;
-    ">
-        <p style="font-size: 1.1em; line-height: 1.6; margin-bottom: 20px;">
-            {post_link}
-        </p>
-        <div style="display: flex; justify-content: space-between; font-size: 0.95em; opacity: 0.95;">
-            <span>{author_link}</span>
-        </div>
-        <div style="display: flex; gap: 20px; margin-top: 15px; font-size: 0.9em; opacity: 0.9; justify-content: space-between; align-items: center;">
-            <div style="display: flex; gap: 20px;">
-                <span>❤️ {post.get('likes', 0):,}</span>
-                <span>🔄 {post.get('reposts', 0):,}</span>
-                <span>💬 {post.get('comments', 0):,}</span>
-            </div>
-            <span>{timestamp_str}</span>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    html = load_html_template(FEATURED_POST_TEMPLATE).format(
+        post_link=post_link,
+        author_link=author_link,
+        likes=f"{post.get('likes', 0):,}",
+        reposts=f"{post.get('reposts', 0):,}",
+        comments=f"{post.get('comments', 0):,}",
+        timestamp_str=timestamp_str
+    )
+    st.markdown(html, unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=3600)
@@ -314,22 +305,14 @@ def get_cached_posts_by_date(_conn, keyword: str, date_str: str, limit: int = 10
 def _render_post_card(text: str, author_display: str, time_str: str, emoji: str, sentiment: float, post_url: str):
     """Render a single post card."""
     view_post_link = f' • <a href="{post_url}" target="_blank">View Post</a>' if post_url else ''
-    
-    html = f"""
-    <div style="
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-        padding: 15px;
-        border-radius: 10px;
-        margin-bottom: 10px;
-        border-left: 4px solid #0D47A1;
-    ">
-        <p style="margin-bottom: 8px; font-size: 14px;">{text}</p>
-        <div style="font-size: 12px; color: #666;">
-            {author_display} • {time_str} • {emoji} {sentiment:.2f}{view_post_link}
-        </div>
-    </div>
-    """
-    
+    html = load_html_template(POST_CARD_TEMPLATE).format(
+        text=text,
+        author_display=author_display,
+        time_str=time_str,
+        emoji=emoji,
+        sentiment=f"{sentiment:.2f}",
+        view_post_link=view_post_link
+    )
     with st.container():
         st.markdown(html, unsafe_allow_html=True)
 
