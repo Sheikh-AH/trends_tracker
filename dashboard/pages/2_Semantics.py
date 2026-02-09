@@ -18,12 +18,12 @@ import sys
 from utils import (
     get_db_connection,
     get_user_keywords,
-    generate_placeholder_metrics,
+    get_kpi_metrics_from_db,
     generate_word_cloud_data,
     generate_sentiment_calendar_data,
     generate_trending_velocity,
     generate_network_graph_data,
-    generate_random_post,
+    get_featured_posts,
     render_sidebar
 )
 from psycopg2.extras import RealDictCursor
@@ -46,26 +46,66 @@ def configure_page():
         st.stop()
 
 
+# ============== Cached Featured Posts ==============
+@st.cache_data(ttl=1800)  # 30 minutes = 1800 seconds
+def get_cached_featured_posts(_conn, keyword: str, limit: int = 10) -> list:
+    """Fetch featured posts with 30-minute cache TTL.
+    
+    Args:
+        _conn: Database connection (underscore prefix tells Streamlit not to hash it)
+        keyword: The keyword to filter posts by
+        limit: Number of posts to retrieve (default: 10)
+    
+    Returns:
+        List of featured post dictionaries
+    """
+    try:
+        cursor = _conn.cursor(cursor_factory=RealDictCursor)
+        posts = get_featured_posts(cursor, keyword=keyword, limit=limit)
+        cursor.close()
+        return posts
+    except Exception:
+        return []
+
+
 # ============== Visualization Functions ==============
 @st.fragment(run_every=10)
 def render_typing_animation(selected_keyword: str):
-    """Render a featured post with typing animation effect."""
+    """Render a featured post with typing animation effect.
+
+    Uses real posts from the database if available.
+    """
     st.markdown("### ⌨️ Featured Post")
 
-    # Generate random post for the keyword
-    post = generate_random_post(selected_keyword)
+    # Get cached featured posts (refreshes every 30 minutes)
+    conn = st.session_state.db_conn
+    featured_posts = get_cached_featured_posts(conn, selected_keyword, limit=10)
+
+    if not featured_posts:
+        st.info(f"No posts related to '{selected_keyword}' found yet.")
+        return
+
+    # Cycle through featured posts based on current time
+    post_index = int(time.time() // 10) % len(featured_posts)
+    post = featured_posts[post_index]
 
     # Display the post with markdown
-    st.markdown(f"*{post['text']}*")
+    st.markdown(f"*{post['post_text']}*")
 
     # Display post metadata
-    col1, col2, col3 = st.columns([3, 1, 1])
+    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
     with col1:
-        st.caption(f"**{post['author']}** • {post['timestamp'].strftime('%b %d, %H:%M')}")
+        timestamp = post['timestamp']
+        if timestamp:
+            st.caption(f"**{post['author']}** • {timestamp.strftime('%b %d, %H:%M')}")
+        else:
+            st.caption(f"**{post['author']}**")
     with col2:
         st.caption(f"❤️ {post['likes']}")
     with col3:
         st.caption(f"🔄 {post['reposts']}")
+    with col4:
+        st.caption(f"💬 {post['comments']}")
 
 
 def render_word_cloud(word_data: dict, keyword: str):
@@ -273,32 +313,32 @@ def render_kpi_metrics(metrics: dict):
         st.metric(
             label="📢 Mentions",
             value=f"{metrics['mentions']:,}",
-            delta=f"{random.randint(-10, 20)}%"
+            delta=f"{metrics.get('mentions_delta', 0)}%"
         )
     with kpi_col2:
         st.metric(
             label="📝 Posts",
             value=f"{metrics['posts']:,}",
-            delta=f"{random.randint(-10, 20)}%"
+            delta=f"{metrics.get('posts_delta', 0)}%"
         )
     with kpi_col3:
         st.metric(
             label="🔄 Reposts",
             value=f"{metrics['reposts']:,}",
-            delta=f"{random.randint(-10, 20)}%"
+            delta=f"{metrics.get('reposts_delta', 0)}%"
         )
     with kpi_col4:
         st.metric(
             label="💬 Comments",
             value=f"{metrics['comments']:,}",
-            delta=f"{random.randint(-10, 20)}%"
+            delta=f"{metrics.get('comments_delta', 0)}%"
         )
     with kpi_col5:
         sentiment_color = "normal" if metrics['avg_sentiment'] >= 0 else "inverse"
         st.metric(
             label="😊 Avg Sentiment",
             value=f"{metrics['avg_sentiment']:.2f}",
-            delta=f"{random.uniform(-0.1, 0.1):.2f}",
+            delta=f"{metrics.get('sentiment_delta', 0):.2f}",
             delta_color=sentiment_color
         )
 
@@ -309,9 +349,11 @@ def main():
     """Main function for the Home page."""
     st.title("🏠 Trends Tracker Home")
 
+    # Get connection from session state
+    conn = st.session_state.db_conn
+
     # Load keywords if needed
     if not st.session_state.get("keywords_loaded", False):
-        conn = get_db_connection()
         if conn and st.session_state.get("user_id"):
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             db_keywords = get_user_keywords(cursor, st.session_state.user_id)
@@ -332,14 +374,25 @@ def main():
             st.stop()
 
     with col2:
-        days_options = {"Last 7 days": 7, "Last 14 days": 14, "Last 30 days": 30, "Last 90 days": 90}
+        days_options = {
+            "Last 1 day": 1,
+            "Last 2 days": 2,
+            "Last 3 days": 3,
+            "Last 4 days": 4,
+            "Last 5 days": 5,
+            "Last 6 days": 6,
+            "Last 7 days": 7,
+            "Last 14 days": 14,
+            "Last 30 days": 30,
+            "Last 90 days": 90
+        }
         selected_period = st.selectbox("Time Period", options=list(days_options.keys()))
         days = days_options[selected_period]
 
     st.markdown("---")
 
     # KPI Metrics Row
-    metrics = generate_placeholder_metrics(selected_keyword, days)
+    metrics = get_kpi_metrics_from_db(conn, selected_keyword, days)
     render_kpi_metrics(metrics)
 
     st.markdown("---")

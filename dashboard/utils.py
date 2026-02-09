@@ -6,8 +6,10 @@ Shared functions for database, authentication, keyword management, and data gene
 import hashlib
 import hmac
 import logging
+import os
 import re
 import secrets
+import streamlit as st
 from datetime import datetime, timedelta
 from os import environ as ENV
 from typing import Optional
@@ -16,6 +18,7 @@ import random
 import pandas as pd
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import requests
 import streamlit as st
 from dotenv import load_dotenv
 
@@ -153,9 +156,11 @@ def create_user(cursor, email: str, password_hash: str) -> bool:
     except psycopg2.IntegrityError:
         # Email already exists
         cursor.connection.rollback()
+        st.error("Email already exists. Please use a different email.")
         return False
     except psycopg2.Error as e:
         logger.error(f"Database error creating user: {e}")
+        st.error("Database error occurred. Please try again later.")
         cursor.connection.rollback()
         return False
 
@@ -198,19 +203,115 @@ def remove_user_keyword(cursor, user_id: int, keyword: str) -> bool:
     return True
 
 
+# ============== Database Query Functions ==============
+def _load_sql_query(filename: str) -> str:
+    """Load SQL query from queries folder."""
+    query_path = os.path.join(os.path.dirname(__file__), "queries", filename)
+    with open(query_path, "r") as f:
+        return f.read()
+
+
+def calc_delta(current: float, baseline: float) -> float:
+    """
+    Calculate percentage change from baseline.
+    If baseline is 0 (no prior data), returns 0.0
+    """
+    if baseline == 0:
+        return 0.0
+    return round(((current - baseline) / baseline) * 100, 1)
+
+
+def get_kpi_metrics_from_db(conn: psycopg2.extensions.connection, keyword: str, days: int) -> dict:
+    """
+    Fetch KPI metrics from database for a given keyword and time period.
+    Calculates deltas by comparing current period to baseline (N days ago).
+    If no baseline data exists, delta is set to 0.
+    """
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    now = datetime.now()
+    current_start = now - timedelta(days=days)
+    baseline_start = current_start - timedelta(days=days)
+    keyword_lower = keyword.lower()
+
+    try:
+        # Load and execute mention count query
+        mention_query = _load_sql_query("get_mention_count.sql")
+        cursor.execute(mention_query, (
+            current_start,                  # current period start (now - days)
+            baseline_start,                 # baseline period start (now - days*2)
+            current_start,                  # baseline period end (now - days)
+            keyword_lower,                  # keyword filter
+            baseline_start                  # overall filter (now - days*2)
+        ))
+        mention_result = cursor.fetchone()
+        if mention_result:
+            current_mentions = mention_result.get("current_mentions") or 0
+            baseline_mentions = mention_result.get("baseline_mentions") or 0
+        else:
+            current_mentions = 0
+            baseline_mentions = 0
+
+        # Load and execute KPI metrics query
+        kpi_query = _load_sql_query("get_kpi_metrics.sql")
+        cursor.execute(kpi_query, (
+            current_start,                  # current_posts
+            baseline_start,                 # baseline_posts start
+            current_start,                  # baseline_posts end
+            current_start,                  # current_reposts
+            baseline_start,                 # baseline_reposts start
+            current_start,                  # baseline_reposts end
+            current_start,                  # current_comments
+            baseline_start,                 # baseline_comments start
+            current_start,                  # baseline_comments end
+            current_start,                  # current_sentiment
+            baseline_start,                 # baseline_sentiment start
+            current_start,                  # baseline_sentiment end
+            keyword_lower,                  # keyword filter
+            baseline_start                  # overall filter (now - days*2)
+        ))
+
+        result = cursor.fetchone()
+        if result:
+            current_posts = result.get("current_posts") or 0
+            baseline_posts = result.get("baseline_posts") or 0
+            current_reposts = result.get("current_reposts") or 0
+            baseline_reposts = result.get("baseline_reposts") or 0
+            current_comments = result.get("current_comments") or 0
+            baseline_comments = result.get("baseline_comments") or 0
+            current_sentiment = round(result.get("current_sentiment") or 0, 2)
+            baseline_sentiment = round(result.get("baseline_sentiment") or 0, 2)
+        else:
+            current_posts = 0
+            baseline_posts = 0
+            current_reposts = 0
+            baseline_reposts = 0
+            current_comments = 0
+            baseline_comments = 0
+            current_sentiment = 0.0
+            baseline_sentiment = 0.0
+
+        return {
+            "mentions": current_mentions,
+            "posts": current_posts,
+            "reposts": current_reposts,
+            "comments": current_comments,
+            "avg_sentiment": current_sentiment,
+            "mentions_delta": calc_delta(current_mentions, baseline_mentions),
+            "posts_delta": calc_delta(current_posts, baseline_posts),
+            "reposts_delta": calc_delta(current_reposts, baseline_reposts),
+            "comments_delta": calc_delta(current_comments, baseline_comments),
+            "sentiment_delta": current_sentiment - baseline_sentiment
+        }
+
+    except Exception as e:
+        logger.error(f"Error fetching KPI metrics: {e}")
+        print(f"ERROR in get_kpi_metrics_from_db: {e}")
+
+    finally:
+        cursor.close()
+
+
 # ============== Placeholder Data Generators ==============
-def generate_placeholder_metrics(keyword: str, days: int) -> dict:
-    """Generate placeholder KPI metrics for a keyword."""
-    random.seed(hash(keyword) + days)
-    return {
-        "mentions": random.randint(500, 5000),
-        "posts": random.randint(200, 2000),
-        "reposts": random.randint(100, 1500),
-        "comments": random.randint(150, 1800),
-        "avg_sentiment": round(random.uniform(-0.3, 0.7), 2)
-    }
-
-
 def generate_time_series_data(keyword: str, days: int) -> pd.DataFrame:
     """Generate placeholder time series data for activity metrics."""
     random.seed(hash(keyword))
@@ -376,31 +477,106 @@ def generate_network_graph_data(keywords: list) -> dict:
     return {"nodes": nodes, "edges": edges}
 
 
-def generate_random_post(keyword: str) -> dict:
-    """Generate a random post for typing animation display."""
-    random.seed(hash(keyword) + int(datetime.now().timestamp() // 60))  # Changes every minute
+# ============== Featured Posts Functions ==============
+def get_most_recent_bluesky_posts(cursor, keyword: str, limit: int = 10) -> list:
+    """Retrieve the most recent posts from bluesky_posts table matching a keyword."""
+    try:
+        query = """
+            SELECT bp.post_uri, bp.posted_at, bp.author_did, bp.text, bp.sentiment_score,
+                   bp.ingested_at, bp.reply_uri, bp.repost_uri
+            FROM bluesky_posts bp
+            JOIN matches m ON bp.post_uri = m.post_uri
+            WHERE LOWER(m.keyword_value) = LOWER(%s)
+            ORDER BY bp.posted_at DESC
+            LIMIT %s
+        """
+        cursor.execute(query, (keyword, limit))
+        results = cursor.fetchall()
+        return [dict(row) for row in results] if results else []
+    except Exception as e:
+        logger.error(f"Error fetching recent posts: {e}")
+        return []
 
-    post_templates = [
-        f"Just discovered the best {keyword} spot in town! Highly recommend 🙌",
-        f"Anyone else obsessed with {keyword} lately? Can't get enough!",
-        f"Hot take: {keyword} is overrated. Change my mind 🤔",
-        f"My morning routine isn't complete without {keyword} ☀️",
-        f"Tried a new {keyword} recipe today and it was amazing!",
-        f"The {keyword} trend is everywhere and I'm here for it 💯",
-        f"Unpopular opinion: {keyword} hits different at night",
-        f"Finally found a place that does {keyword} right! 🎯",
-    ]
 
-    authors = ["@trendwatcher", "@foodie_life", "@daily_vibes", "@lifestyle_guru", "@taste_explorer"]
+def get_handle_from_did(did: str) -> Optional[str]:
+    """Retrieve a Bluesky handle from a DID using the Bluesky API."""
+    if not did or not isinstance(did, str):
+        return None
 
-    return {
-        "text": random.choice(post_templates),
-        "author": random.choice(authors),
-        "timestamp": datetime.now() - timedelta(hours=random.randint(1, 48)),
-        "likes": random.randint(50, 500),
-        "reposts": random.randint(10, 100)
-    }
+    try:
+        url = f"https://public.api.bsky.app/xrpc/app.bsky.actor.getProfile?actor={did}"
+        response = requests.get(url, timeout=5)
 
+        if response.status_code == 200:
+            data = response.json()
+            handle = data.get("handle")
+            return f"@{handle}" if handle else None
+        return None
+    except requests.RequestException as e:
+        logger.error(f"Error fetching handle for DID {did}: {e}")
+        return None
+
+
+def get_post_engagement(post_uri: str) -> dict:
+    """Fetch engagement metrics (likes, reposts, comments) for a post."""
+    if not post_uri or not isinstance(post_uri, str):
+        return {"likes": 0, "reposts": 0, "comments": 0}
+
+    try:
+        # Parse post_uri to extract author DID and rkey
+        # Format: at://did:plc:xxx/app.bsky.feed.post/rkey
+        parts = post_uri.split("/")
+        if len(parts) < 5:
+            return {"likes": 0, "reposts": 0, "comments": 0}
+
+        # Use getPostThread to get engagement metrics
+        url = f"https://public.api.bsky.app/xrpc/app.bsky.feed.getPostThread?uri={post_uri}&depth=0"
+        response = requests.get(url, timeout=5)
+
+        if response.status_code == 200:
+            data = response.json()
+            thread = data.get("thread", {})
+            post = thread.get("post", {})
+
+            return {
+                "likes": post.get("likeCount", 0),
+                "reposts": post.get("repostCount", 0),
+                "comments": post.get("replyCount", 0)
+            }
+        return {"likes": 0, "reposts": 0, "comments": 0}
+    except requests.RequestException as e:
+        logger.error(f"Error fetching engagement for post {post_uri}: {e}")
+        return {"likes": 0, "reposts": 0, "comments": 0}
+
+
+def get_featured_posts(cursor, keyword: str, limit: int = 10) -> list:
+    """Get featured posts matching a keyword with full metadata."""
+    posts = get_most_recent_bluesky_posts(cursor, keyword, limit)
+
+    featured = []
+    for post in posts:
+        author_did = post.get("author_did", "")
+        post_uri = post.get("post_uri", "")
+
+        # Get author handle
+        handle = get_handle_from_did(author_did)
+        if not handle:
+            handle = f"@{author_did[:20]}..." if author_did else "@unknown"
+
+        # Get engagement metrics
+        engagement = get_post_engagement(post_uri)
+
+        featured.append({
+            "post_text": post.get("text", ""),
+            "author": handle,
+            "timestamp": post.get("posted_at", datetime.now()),
+            "likes": engagement.get("likes", 0),
+            "reposts": engagement.get("reposts", 0),
+            "comments": engagement.get("comments", 0),
+            "post_uri": post_uri
+        })
+
+    return featured
 
 def generate_ai_insights(keyword: str, days: int) -> dict:
     """Generate AI-powered insights for a keyword."""
