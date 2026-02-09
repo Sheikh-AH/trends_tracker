@@ -61,6 +61,11 @@ def get_comparison_data(cursor, keywords: list, days: int) -> pd.DataFrame:
     df = pd.DataFrame(results)
     df['date'] = pd.to_datetime(df['date'])
     df['avg_sentiment'] = df['avg_sentiment'].astype(float).round(2)
+
+    if df.empty:
+        st.info(f"No data available for the selected keywords.")
+        st.stop()
+
     return df
 
 
@@ -212,22 +217,8 @@ def get_selected_keywords():
 
     return selected_keywords
 
-if __name__ == "__main__":
-    configure_page()
-    render_sidebar()
-    load_keywords()
-
-    st.title("Keyword Comparisons")
-
-    # Check if user has keywords
-    if not ss.get("keywords"):
-        st.info("No keywords tracked. Add keywords from the Profile page to compare.")
-        st.stop()
-
-    st.subheader("Select Keywords to Compare")
-    selected_keywords = get_selected_keywords()
-
-    # Controls row
+def render_controls():
+    """Render the metric and time period selection controls."""
     col1, col2 = st.columns([1, 1])
 
     with col1:
@@ -246,105 +237,119 @@ if __name__ == "__main__":
             format_func=lambda x: f"Last {x} days"
         )
 
+    return metric, days
+
+if __name__ == "__main__":
+    configure_page()
+    render_sidebar()
+    load_keywords()
+
+    st.title("Keyword Comparisons")
+
+    # Check if user has keywords
+    if not ss.get("keywords"):
+        st.info("No keywords tracked. Add keywords from the Profile page to compare.")
+        st.stop()
+
+    st.subheader("Select Keywords to Compare")
+    selected_keywords = get_selected_keywords()
+
+    metric, days = render_controls()
+
     # Event management
     with st.expander("Add Event Markers", expanded=False):
         render_event_manager()
 
-    # Fetch and display data
     st.divider()
 
     conn = get_db_connection()
-
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     df = get_comparison_data(cursor, selected_keywords, days)
     cursor.close()
 
-    if df.empty:
-        st.info(
-            f"No data available for the selected keywords in the last {days} days.")
-    else:
-        chart = create_comparison_chart(
-            df,
-            metric,
-            ss.get("comparison_events", [])
-        )
-        if chart:
-            st.altair_chart(chart, use_container_width=True)
+    
+    chart = create_comparison_chart(
+        df,
+        metric,
+        ss.get("comparison_events", [])
+    )
+    if chart:
+        st.altair_chart(chart, use_container_width=True)
 
-        # Summary statistics
-        st.subheader("Summary Statistics")
+    # Summary statistics
+    st.subheader("Summary Statistics")
 
-        # Calculate metrics for each keyword
-        metrics_data = {}
-        metrics_numeric = {}  # Store numeric values for highlighting
+    # Calculate metrics for each keyword
+    metrics_data = {}
+    metrics_numeric = {}  # Store numeric values for highlighting
 
-        for kw in selected_keywords:
-            kw_data = df[df['keyword'] == kw]
+    for kw in selected_keywords:
+        kw_data = df[df['keyword'] == kw]
 
-            total_posts = kw_data['post_count'].sum()
-            avg_sentiment = kw_data['avg_sentiment'].mean().round(2)
-            sentiment_volatility = kw_data['avg_sentiment'].std().round(2)
-            post_volatility = kw_data['post_count'].std().round(2)
-            max_sentiment = kw_data['avg_sentiment'].max().round(2)
-            min_sentiment = kw_data[kw_data['avg_sentiment']
-                                    != 0]['avg_sentiment'].min().round(2)
-            avg_posts_per_day = (
-                total_posts / max(1, len(kw_data))).round(2)
+        total_posts = kw_data['post_count'].sum()
+        avg_sentiment = kw_data['avg_sentiment'].mean().round(2)
+        sentiment_volatility = kw_data['avg_sentiment'].std().round(2)
+        post_volatility = kw_data['post_count'].std().round(2)
+        max_sentiment = kw_data['avg_sentiment'].max().round(2)
+        min_sentiment = kw_data[kw_data['avg_sentiment']
+                                != 0]['avg_sentiment'].min().round(2)
+        avg_posts_per_day = (
+            total_posts / max(1, len(kw_data))).round(2)
 
-            metrics_data[kw] = {
-                'Total Posts': total_posts,
-                'Avg Posts/Day': avg_posts_per_day,
-                'Post Count Volatility': post_volatility,
-                'Avg Sentiment': avg_sentiment,
-                'Sentiment Max': max_sentiment,
-                'Sentiment Min': min_sentiment,
-                'Sentiment Volatility': sentiment_volatility
-            }
+        metrics_data[kw] = {
+            'Total Posts': total_posts,
+            'Avg Posts/Day': avg_posts_per_day,
+            'Post Count Volatility': post_volatility,
+            'Avg Sentiment': avg_sentiment,
+            'Sentiment Max': max_sentiment,
+            'Sentiment Min': min_sentiment,
+            'Sentiment Volatility': sentiment_volatility
+        }
 
-            metrics_numeric[kw] = {
-                'Total Posts': total_posts,
-                'Avg Posts/Day': avg_posts_per_day,
-                'Post Count Volatility': post_volatility,
-                'Avg Sentiment': avg_sentiment,
-                'Sentiment Max': max_sentiment,
-                'Sentiment Min': min_sentiment,
-                'Sentiment Volatility': sentiment_volatility
-            }
+        metrics_numeric[kw] = {
+            'Total Posts': total_posts,
+            'Avg Posts/Day': avg_posts_per_day,
+            'Post Count Volatility': post_volatility,
+            'Avg Sentiment': avg_sentiment,
+            'Sentiment Max': max_sentiment,
+            'Sentiment Min': min_sentiment,
+            'Sentiment Volatility': sentiment_volatility
+        }
 
-        # Create comparison table
-        metric_names = ['Total Posts', 'Avg Posts/Day', 'Post Count Volatility',
-                        'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
+    # Create comparison table
+    metric_names = ['Total Posts', 'Avg Posts/Day', 'Post Count Volatility',
+                    'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
 
-        # Header row
+    # Header row
+    col_metric, * \
+        col_keywords = st.columns([2] + [1] * len(selected_keywords))
+
+    with col_metric:
+        st.write("**Metric**")
+    for i, kw in enumerate(selected_keywords):
+        with col_keywords[i]:
+            st.write(f"**{kw}**")
+
+    # Data rows
+    for metric_name in metric_names:
         col_metric, * \
-            col_keywords = st.columns([2] + [1] * len(selected_keywords))
+            col_values = st.columns([2] + [1] * len(selected_keywords))
 
         with col_metric:
-            st.write("**Metric**")
+            st.write(metric_name)
+
+        # Find max value for this metric (for highlighting)
+        numeric_values = [metrics_numeric[kw][metric_name]
+                            for kw in selected_keywords]
+        max_value = max(numeric_values) if numeric_values else None
+
         for i, kw in enumerate(selected_keywords):
-            with col_keywords[i]:
-                st.write(f"**{kw}**")
-
-        # Data rows
-        for metric_name in metric_names:
-            col_metric, * \
-                col_values = st.columns([2] + [1] * len(selected_keywords))
-
-            with col_metric:
-                st.write(metric_name)
-
-            # Find max value for this metric (for highlighting)
-            numeric_values = [metrics_numeric[kw][metric_name]
-                                for kw in selected_keywords]
-            max_value = max(numeric_values) if numeric_values else None
-
-            for i, kw in enumerate(selected_keywords):
-                with col_values[i]:
-                    value = metrics_data[kw][metric_name]
-                    numeric_value = metrics_numeric[kw][metric_name]
-                    col_val, col_symbol = st.columns([1, 3])
-                    with col_val:
-                        st.write(value)
-                    with col_symbol:
-                        if numeric_value == max_value:
-                            st.markdown("⭐", text_alignment="left")
+            with col_values[i]:
+                value = metrics_data[kw][metric_name]
+                numeric_value = metrics_numeric[kw][metric_name]
+                col_val, col_symbol = st.columns([1, 3])
+                with col_val:
+                    st.write(value)
+                with col_symbol:
+                    if numeric_value == max_value:
+                        st.markdown("⭐", text_alignment="left")
