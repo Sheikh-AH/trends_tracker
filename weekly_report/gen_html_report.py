@@ -106,9 +106,9 @@ def build_weekly_report_email(report_data: dict, user_email: str, logo_url: str 
     totals = report_data["totals"]
 
     if logo_url:
-        logo_section = f'<img src="{logo_url}" alt="Trends Funnel" style="height: 48px; width: auto;">'
+        logo_section = f'<img src="{logo_url}" alt="TrendFunnel" style="height: 48px; width: auto;"><span style="font-size: 24px; font-weight: 700; color: #0D47A1; margin-left: 12px; font-family: Ubuntu, -apple-system, BlinkMacSystemFont, sans-serif; vertical-align: middle;">TrendFunnel</span>'
     else:
-        logo_section = '<span style="font-size: 24px; font-weight: 700; color: #0D47A1;">Trends Funnel</span>'
+        logo_section = '<span style="font-size: 24px; font-weight: 700; color: #0D47A1; font-family: Ubuntu, -apple-system, BlinkMacSystemFont, sans-serif;">TrendFunnel</span>'
 
     html = f"""
     <!DOCTYPE html>
