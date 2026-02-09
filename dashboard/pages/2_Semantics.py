@@ -1,26 +1,17 @@
-"""
-Home Dashboard - Main visualization page with engaging analytics.
-"""
+"""Home Dashboard - Main visualization page with engaging analytics."""
 
-import random
-import time
 from datetime import datetime, timedelta
-from io import BytesIO
-
 import altair as alt
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 from wordcloud import WordCloud
 
-# Import shared functions from utils module
-import sys
 from utils import (
     get_user_keywords,
     get_kpi_metrics_from_db,
     get_sentiment_by_day,
     get_posts_by_date,
-    get_featured_posts,
     get_sentiment_emoji,
     get_latest_post_text_corpus,
     extract_keywords_yake,
@@ -35,11 +26,8 @@ from utils import (
 from psycopg2.extras import RealDictCursor
 
 # HTML template paths
-FEATURED_POST_TEMPLATE = "styling/featured_post_card.html"
 POST_CARD_TEMPLATE = "styling/post_card.html"
 
-
-# ============== Page Configuration ==============
 
 def configure_page():
     """Configure page settings and check authentication."""
@@ -54,64 +42,6 @@ def configure_page():
         st.warning("Please login to access this page.")
         st.switch_page("app.py")
         st.stop()
-
-
-# ============== Cached Featured Posts ==============
-@st.cache_data(ttl=1800)  # 30 minutes = 1800 seconds
-def get_cached_featured_posts(_conn, keyword: str, limit: int = 10) -> list:
-    """Fetch featured posts with 30-minute cache TTL."""
-    try:
-        cursor = _conn.cursor(cursor_factory=RealDictCursor)
-        posts = get_featured_posts(cursor, keyword=keyword, limit=limit)
-        cursor.close()
-        return posts
-    except Exception:
-        return []
-
-
-# ============== Visualization Functions ==============
-@st.fragment(run_every=10)
-def render_featured_posts(selected_keyword: str):
-    """Render a featured post on a styled gradient background.
-
-    Uses real posts from the database if available.
-    """
-    st.markdown("### ⌨️ Featured Post")
-
-    # Get cached featured posts (refreshes every 30 minutes)
-    conn = st.session_state.db_conn
-    featured_posts = get_cached_featured_posts(conn, selected_keyword, limit=10)
-
-    if not featured_posts:
-        st.info(f"No posts related to '{selected_keyword}' found yet.")
-        return
-
-    # Cycle through featured posts based on current time
-    post_index = int(time.time() // 10) % len(featured_posts)
-    post = featured_posts[post_index]
-
-    # Display post on gradient background
-    post_link = f'<a href="{post["post_url"]}" target="_blank" style="color: white; text-decoration: none; cursor: pointer;">{post["post_text"]}</a>' if post.get("post_url") else post["post_text"]
-
-    # Create author link with author_url
-    author_link = f'<a href="{post["author_url"]}" target="_blank" style="color: white; text-decoration: none; cursor: pointer;"><strong>{post["author"]}</strong></a>' if post.get("author_url") else f"<strong>{post['author']}</strong>"
-
-    # Format timestamp
-    timestamp = post.get("timestamp", "")
-    if timestamp:
-        timestamp_str = timestamp.strftime("%b %d, %H:%M") if hasattr(timestamp, 'strftime') else str(timestamp)[:10]
-    else:
-        timestamp_str = ""
-
-    html = load_html_template(FEATURED_POST_TEMPLATE).format(
-        post_link=post_link,
-        author_link=author_link,
-        likes=f"{post.get('likes', 0):,}",
-        reposts=f"{post.get('reposts', 0):,}",
-        comments=f"{post.get('comments', 0):,}",
-        timestamp_str=timestamp_str
-    )
-    st.markdown(html, unsafe_allow_html=True)
 
 
 @st.cache_data(ttl=3600)
@@ -404,7 +334,6 @@ def render_kpi_metrics(metrics: dict):
             delta_color=sentiment_color
         )
 
-# ============== Main Function ==============
 
 def main():
     """Main function for the Home page."""
@@ -463,11 +392,6 @@ def main():
     # KPI Metrics Row
     metrics = get_kpi_metrics_from_db(conn, selected_keyword, days)
     render_kpi_metrics(metrics)
-
-    st.markdown("---")
-
-    # Featured Post with Typing Animation
-    render_featured_posts(selected_keyword)
 
     st.markdown("---")
 
