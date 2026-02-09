@@ -4,13 +4,13 @@ AI Insights - LLM-generated summaries and recommendations for keywords.
 
 import streamlit as st
 
-# Import shared functions from main app
+# Import shared functions from utils module
 import sys
-sys.path.insert(0, '..')
-from app import (
+from utils import (
     get_db_connection,
     get_user_keywords,
-    generate_ai_insights
+    generate_ai_insights,
+    render_sidebar
 )
 from psycopg2.extras import RealDictCursor
 
@@ -36,13 +36,13 @@ def configure_page():
 
 def load_keywords():
     """Load keywords from database if needed."""
-    if "keywords_loaded" not in st.session_state:
+    if not st.session_state.get("keywords_loaded", False):
         conn = get_db_connection()
         if conn and st.session_state.get("user_id"):
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             db_keywords = get_user_keywords(cursor, st.session_state.user_id)
             cursor.close()
-            st.session_state.keywords = db_keywords if db_keywords else ["matcha", "boba", "coffee"]
+            st.session_state.keywords = db_keywords if db_keywords else []
             st.session_state.keywords_loaded = True
 
 
@@ -176,7 +176,7 @@ def main():
     col1, col2, _ = st.columns([2, 2, 4])
 
     with col1:
-        keywords = st.session_state.get("keywords", ["matcha", "boba", "coffee"])
+        keywords = st.session_state.get("keywords", [])
         if keywords:
             selected_keyword = st.selectbox("Select Keyword", options=keywords, index=0)
         else:
@@ -213,23 +213,12 @@ def main():
     render_recommendations(insights['recommendations'])
 
     # Default Sidebar
-    with st.sidebar:
-        st.markdown(f"### 👋 Hello, {st.session_state.get('username', 'User')}!")
-        st.markdown("---")
-        st.markdown("### 📈 Quick Stats")
-        st.metric("Keywords Tracked", len(st.session_state.get("keywords", [])))
-        st.metric("Alerts Enabled", "Yes" if st.session_state.get("alerts_enabled", False) else "No")
-        st.markdown("---")
-        if st.button("🚪 Logout", use_container_width=True):
-            st.session_state.logged_in = False
-            st.session_state.username = ""
-            st.session_state.user_id = None
-            st.switch_page("app.py")
-        st.markdown("---")
-        st.caption("Trends Tracker v1.0")
+    # Render shared sidebar
+    render_sidebar()
 
 
 # ============== Entry Point ==============
 # Streamlit pages are executed as modules, so we run at module level
-configure_page()
-main()
+if __name__ == "__main__":
+    configure_page()
+    main()
