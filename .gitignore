@@ -21,3 +21,4 @@ data_exploration/
 
 diagrams
 imagesbluesky_pipeline/extract/
+dashboard/test_yake.py
