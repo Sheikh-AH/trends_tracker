@@ -10,7 +10,7 @@ from utils import (
     add_user_keyword,
     remove_user_keyword,
     render_sidebar,
-    load_styled_component
+    load_html_template
 )
 from alerts import render_alerts_dashboard
 from psycopg2.extras import RealDictCursor
@@ -99,7 +99,7 @@ def render_keywords_display():
     cols = st.columns(4)
     for i, keyword in enumerate(keywords):
         with cols[i % 4]:
-            styling = load_styled_component("styling/keywords_gradient.html")
+            styling = load_html_template("styling/keywords_gradient.html")
             st.markdown(styling.format(keyword=keyword),
                         unsafe_allow_html=True)
 
