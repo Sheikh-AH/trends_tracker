@@ -467,3 +467,14 @@ def render_sidebar():
             st.switch_page("app.py")
         st.markdown("---")
         st.caption("Trends Tracker v1.0")
+
+# ============== Utility Functions ==============
+
+def load_styled_component(filepath: str) -> str:
+    """Load HTML/CSS styling from a file."""
+    try:
+        with open(filepath, 'r') as f:
+            styling = f.read()
+            return styling
+    except FileNotFoundError:
+        return st.error("Error loading styled component.")

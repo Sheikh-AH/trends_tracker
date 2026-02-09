@@ -5,6 +5,7 @@ from utils import (
     get_user_keywords,
     add_user_keyword,
     remove_user_keyword,
+    load_styled_component
 )
 from psycopg2.extras import RealDictCursor
 import sys
@@ -32,17 +33,6 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
-
-def load_styled_component(filepath: str) -> str:
-    """Load HTML/CSS styling from a file."""
-    try:
-        with open(filepath, 'r') as f:
-            styling = f.read()
-            return styling
-    except FileNotFoundError:
-        return st.error("Error loading styled component.")
-
-
 def load_keywords():
     """Load user keywords from database."""
     if not ss.get("keywords_loaded", False):
@@ -53,7 +43,6 @@ def load_keywords():
             cursor.close()
             ss.keywords = db_keywords if db_keywords else []
             ss.keywords_loaded = True
-
 
 def add_logo_and_title():
     """Add logo and title to the page."""
@@ -70,7 +59,6 @@ def add_logo_and_title():
             st.markdown(
                 load_styled_component("styling/home_tagline.html"),
                 unsafe_allow_html=True)
-
 
 def render_add_keyword_section():
     """Render the add keyword section."""
@@ -124,13 +112,11 @@ def render_keywords_display():
     cols = st.columns(4)
     for i, keyword in enumerate(keywords):
         with cols[i % 4]:
-            styling = load_styled_component("styling/home_keywords.html")
+            styling = load_styled_component("styling/keywords_gradient.html")
             st.markdown(styling.format(keyword=keyword),unsafe_allow_html=True)
 
             if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
                 remove_keyword(keyword)
-                
-
 
 def render_what_is_trends_tracker():
     """Render the 'What is Trends Tracker?' section."""
@@ -143,7 +129,6 @@ def render_what_is_trends_tracker():
         - **AI-Powered Insights**: Receive intelligent recommendations and trend analysis
         - **Smart Alerts**: Stay notified about important changes and trending patterns
         """)
-
 
 def render_getting_started(has_keywords):
     with st.expander("Getting Started"):

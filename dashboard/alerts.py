@@ -119,7 +119,7 @@ def gen_alert_toggle(conn, client, value: bool):
     )
 
 
-def show_alerts_dashboard(conn):
+def show_alerts_dashboard(conn, emails_value: bool, alerts_value: bool):
     """Display the alerts/notifications management dashboard."""
 
     st.markdown("---")
@@ -140,8 +140,8 @@ def show_alerts_dashboard(conn):
 
     # Create toggles - only enable if email is verified
     if is_verified:
-        gen_email_toggle(conn, client, st.session_state.emails_enabled)
-        gen_alert_toggle(conn, client, st.session_state.alerts_enabled)
+        gen_email_toggle(conn, client, emails_value)
+        gen_alert_toggle(conn, client, alerts_value)
     else:
         st.toggle(
             "Enable Email Reports",
@@ -166,12 +166,9 @@ def render_alerts_dashboard(conn):
     st.markdown("### 🔔 Alerts & Notifications")
     st.markdown("Configure your alert preferences and notification settings.")
 
-    # Fetch and set database values
+    # Fetch database values and pass them to show_alerts_dashboard
     emails, alerts = get_user_alert_settings(conn)
-    st.session_state.emails_enabled = emails
-    st.session_state.alerts_enabled = alerts
-
-    show_alerts_dashboard(conn)
+    show_alerts_dashboard(conn, emails, alerts)
 
 
 if __name__ == "__main__":
