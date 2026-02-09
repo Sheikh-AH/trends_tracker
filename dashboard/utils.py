@@ -478,24 +478,97 @@ def generate_network_graph_data(keywords: list) -> dict:
 
 
 # ============== Featured Posts Functions ==============
+def get_sentiment_by_day(conn, keyword: str, day_limit: int = 31) -> list[dict]:
+    """Get average sentiment per day for a keyword over the specified period."""
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = _load_sql_query("get_sentiment_by_day.sql")
+        cursor.execute(query, (keyword, day_limit))
+        results = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in results] if results else []
+    except Exception as e:
+        logger.error(f"Error fetching sentiment by day: {e}")
+        return []
+
+
+def get_posts_by_date(conn, keyword: str, date, limit: int = 10) -> list[dict]:
+    """Get random posts for a specific date and keyword."""
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = _load_sql_query("get_posts_by_date.sql")
+        cursor.execute(query, (keyword, date, limit))
+        results = cursor.fetchall()
+        cursor.close()
+        return [dict(row) for row in results] if results else []
+    except Exception as e:
+        logger.error(f"Error fetching posts by date: {e}")
+        return []
+
+
+def get_latest_post_text_corpus(
+    conn,
+    keyword_value: str,
+    day_limit: int = 7,
+    post_count_limit: int = 10000
+) -> str:
+    """Extract post texts from the last N days for a keyword as a single corpus."""
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = _load_sql_query("get_latest_post_text_corpus.sql")
+        cursor.execute(query, (keyword_value, day_limit, post_count_limit))
+        results = cursor.fetchall()
+        cursor.close()
+
+        if not results:
+            return ""
+
+        # Concatenate all post texts into a single corpus
+        corpus = "\n".join(row["text"] for row in results if row.get("text"))
+        return corpus
+    except Exception as e:
+        logger.error(f"Error fetching post text corpus: {e}")
+        return ""
+
+
 def get_most_recent_bluesky_posts(cursor, keyword: str, limit: int = 10) -> list:
     """Retrieve the most recent posts from bluesky_posts table matching a keyword."""
     try:
-        query = """
-            SELECT bp.post_uri, bp.posted_at, bp.author_did, bp.text, bp.sentiment_score,
-                   bp.ingested_at, bp.reply_uri, bp.repost_uri
-            FROM bluesky_posts bp
-            JOIN matches m ON bp.post_uri = m.post_uri
-            WHERE LOWER(m.keyword_value) = LOWER(%s)
-            ORDER BY bp.posted_at DESC
-            LIMIT %s
-        """
+        query = _load_sql_query("get_most_recent_bluesky_posts.sql")
         cursor.execute(query, (keyword, limit))
         results = cursor.fetchall()
         return [dict(row) for row in results] if results else []
     except Exception as e:
         logger.error(f"Error fetching recent posts: {e}")
         return []
+
+
+def uri_to_url(post_uri: str) -> str:
+    """Convert a Bluesky post URI to a shareable HTTPS URL."""
+    if not post_uri or not isinstance(post_uri, str):
+        return ""
+
+    try:
+        # Format: at://did:plc:xxx/app.bsky.feed.post/rkey
+        if not post_uri.startswith("at://"):
+            return ""
+
+        # Remove "at://" prefix and split
+        uri_without_prefix = post_uri[5:]
+        parts = uri_without_prefix.split("/")
+
+        if len(parts) < 2:
+            return ""
+
+        # Extract DID (first part) and rkey (last part)
+        did = parts[0]
+        rkey = parts[-1]
+
+        return f"https://bsky.app/profile/{did}/post/{rkey}"
+
+    except Exception as e:
+        logger.error(f"Error converting URI to URL: {e}")
+        return ""
 
 
 def get_handle_from_did(did: str) -> Optional[str]:
@@ -549,7 +622,7 @@ def get_post_engagement(post_uri: str) -> dict:
         return {"likes": 0, "reposts": 0, "comments": 0}
 
 
-def get_featured_posts(cursor, keyword: str, limit: int = 10) -> list:
+def get_featured_posts(cursor, keyword: str, limit: int = 10) -> list[dict]:
     """Get featured posts matching a keyword with full metadata."""
     posts = get_most_recent_bluesky_posts(cursor, keyword, limit)
 
@@ -566,6 +639,12 @@ def get_featured_posts(cursor, keyword: str, limit: int = 10) -> list:
         # Get engagement metrics
         engagement = get_post_engagement(post_uri)
 
+        # Convert URI to URL
+        post_url = uri_to_url(post_uri)
+
+        # Derive author URL from author DID
+        author_url = f"https://bsky.app/profile/{author_did}" if author_did else ""
+
         featured.append({
             "post_text": post.get("text", ""),
             "author": handle,
@@ -573,7 +652,9 @@ def get_featured_posts(cursor, keyword: str, limit: int = 10) -> list:
             "likes": engagement.get("likes", 0),
             "reposts": engagement.get("reposts", 0),
             "comments": engagement.get("comments", 0),
-            "post_uri": post_uri
+            "post_uri": post_uri,
+            "post_url": post_url,
+            "author_url": author_url
         })
 
     return featured
@@ -641,13 +722,134 @@ def render_sidebar():
         st.markdown("---")
         st.caption("Trends Tracker v1.0")
 
-# ============== Utility Functions ==============
 
-def load_styled_component(filepath: str) -> str:
-    """Load HTML/CSS styling from a file."""
+# ============== Sentiment Functions ==============
+def get_sentiment_emoji(sentiment_score: float) -> str:
+    """Get emoji based on sentiment score with gradient smileys."""
+    if sentiment_score >= 0.4:
+        return "😄"  # Grinning
+    elif sentiment_score >= 0.25:
+        return "😊"  # Smiling
+    elif sentiment_score >= 0.1:
+        return "🙂"  # Slightly smiling
+    elif sentiment_score >= -0.1:
+        return "😐"  # Neutral
+    elif sentiment_score >= -0.25:
+        return "😕"  # Slightly frowning
+    elif sentiment_score >= -0.4:
+        return "😔"  # Frowning
+    else:
+        return "😠"  # Angry
+
+
+# ============== Keyword Extraction Functions ==============
+def extract_keywords_yake(
+    text_corpus: str,
+    language: str = "en",
+    max_ngram_size: int = 2,
+    deduplication_threshold: float = 0.5,
+    num_keywords: int = 50
+) -> list[dict]:
+    """Extract keywords from text corpus using YAKE."""
+    import yake
+
+    if not text_corpus or not text_corpus.strip():
+        return []
+
+    kw_extractor = yake.KeywordExtractor(
+        lan=language,
+        n=max_ngram_size,
+        dedupLim=deduplication_threshold,
+        top=num_keywords,
+        features=None
+    )
+
+    keywords = kw_extractor.extract_keywords(text_corpus)
+
+    return [
+        {"keyword": kw, "score": score}
+        for kw, score in keywords
+    ]
+
+
+def diversify_keywords(
+    keywords: list[dict],
+    search_term: str,
+    max_results: int = 30
+) -> list[dict]:
+    """Post-process keywords to increase diversity by filtering redundant terms."""
+    if not keywords:
+        return []
+
+    # Normalize search term words
+    search_words = set(search_term.lower().split())
+
+    diversified = []
+    seen_word_sets = []
+
+    for kw in keywords:
+        kw_lower = kw["keyword"].lower()
+        kw_words = set(kw_lower.split())
+
+        # Skip if keyword contains search term words
+        if search_words & kw_words:
+            continue
+
+        # Skip if >50% overlap with any already-selected keyword
+        is_redundant = False
+        for seen_words in seen_word_sets:
+            overlap = len(kw_words & seen_words)
+            min_len = min(len(kw_words), len(seen_words))
+            if min_len > 0 and overlap / min_len > 0.5:
+                is_redundant = True
+                break
+
+        if not is_redundant:
+            diversified.append(kw)
+            seen_word_sets.append(kw_words)
+
+        if len(diversified) >= max_results:
+            break
+
+    return diversified
+
+
+# ============== Data Formatting Functions ==============
+def convert_sentiment_score(sentiment_raw) -> float:
+    """Convert sentiment score to float, handling various input types."""
     try:
-        with open(filepath, 'r') as f:
-            styling = f.read()
-            return styling
-    except FileNotFoundError:
-        return st.error("Error loading styled component.")
+        return float(sentiment_raw) if sentiment_raw is not None else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def format_timestamp(posted_at) -> str:
+    """Format timestamp to HH:MM AM/PM or return empty string if invalid."""
+    if not posted_at:
+        return ''
+    if hasattr(posted_at, 'strftime'):
+        return posted_at.strftime('%I:%M %p')
+    return str(posted_at)
+
+
+def format_author_display(author_did: str, max_length: int = 20) -> str:
+    """Format author DID with @ prefix and truncate if longer than max_length."""
+    if len(author_did) > max_length:
+        return f"@{author_did[:max_length]}..."
+    return f"@{author_did}"
+
+
+# ============== HTML Template Functions ==============
+_HTML_TEMPLATE_CACHE = {}
+
+
+def load_html_template(filepath: str) -> str:
+    """Load HTML template from file, with caching."""
+    if filepath not in _HTML_TEMPLATE_CACHE:
+        try:
+            with open(filepath, 'r') as f:
+                _HTML_TEMPLATE_CACHE[filepath] = f.read()
+        except FileNotFoundError:
+            logger.error(f"HTML template not found: {filepath}")
+            return ""
+    return _HTML_TEMPLATE_CACHE[filepath]

@@ -5,7 +5,11 @@ from utils import (
     get_user_keywords,
     add_user_keyword,
     remove_user_keyword,
+<<<<<<< 70-semantics-implementation
+    load_html_template
+=======
     load_styled_component
+>>>>>>> main
 )
 from psycopg2.extras import RealDictCursor
 import sys
@@ -33,6 +37,10 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
+<<<<<<< 70-semantics-implementation
+
+=======
+>>>>>>> main
 def load_keywords():
     """Load user keywords from database."""
     if not ss.get("keywords_loaded", False):
@@ -54,10 +62,10 @@ def add_logo_and_title():
             st.image("images/logo_blue.svg", width=100)
         with col_text:
             st.markdown(
-                load_styled_component("styling/home_title.html"),
+                load_html_template("styling/home_title.html"),
                 unsafe_allow_html=True)
             st.markdown(
-                load_styled_component("styling/home_tagline.html"),
+                load_html_template("styling/home_tagline.html"),
                 unsafe_allow_html=True)
 
 def render_add_keyword_section():
@@ -112,7 +120,11 @@ def render_keywords_display():
     cols = st.columns(4)
     for i, keyword in enumerate(keywords):
         with cols[i % 4]:
+<<<<<<< 70-semantics-implementation
+            styling = load_html_template("styling/home_keywords.html")
+=======
             styling = load_styled_component("styling/keywords_gradient.html")
+>>>>>>> main
             st.markdown(styling.format(keyword=keyword),unsafe_allow_html=True)
 
             if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
@@ -200,7 +212,7 @@ if __name__ == "__main__":
     configure_page()
     
     # Custom CSS for buttons and fonts
-    styling = load_styled_component("styling/home_font_buttons.html")
+    styling = load_html_template("styling/home_font_buttons.html")
     st.markdown(styling, unsafe_allow_html=True)
 
     # Check for user keywords
