@@ -512,18 +512,7 @@ def get_latest_post_text_corpus(
     day_limit: int = 7,
     post_count_limit: int = 10000
 ) -> str:
-    """
-    Extract post texts from the last N days for a keyword as a single corpus.
-
-    Args:
-        conn: Database connection object
-        keyword_value: Keyword to filter posts by
-        day_limit: Number of days to look back (default 7)
-        post_count_limit: Maximum number of posts to retrieve (default 10000)
-
-    Returns:
-        Single string containing all post texts concatenated with newlines
-    """
+    """Extract post texts from the last N days for a keyword as a single corpus."""
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
         query = _load_sql_query("get_latest_post_text_corpus.sql")
