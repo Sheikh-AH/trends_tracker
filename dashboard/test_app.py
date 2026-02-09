@@ -11,6 +11,7 @@ import hashlib
 import hmac
 import psycopg2
 import pandas as pd
+import requests
 
 from utils import (
     get_user_by_username,
@@ -26,8 +27,11 @@ from utils import (
     generate_sentiment_calendar_data,
     generate_trending_velocity,
     generate_network_graph_data,
-    generate_random_post,
-    generate_ai_insights
+    generate_ai_insights,
+    get_most_recent_bluesky_posts,
+    get_handle_from_did,
+    get_post_engagement,
+    get_featured_posts
 )
 
 
@@ -875,50 +879,6 @@ class TestGenerateNetworkGraphData:
         assert result["edges"] == []
 
 
-class TestGenerateRandomPost:
-    """Tests for generate_random_post function."""
-
-    def test_returns_dict(self, sample_keyword):
-        """Random post returns a dictionary."""
-        result = generate_random_post(sample_keyword)
-
-        assert isinstance(result, dict)
-
-    def test_contains_text(self, sample_keyword):
-        """Random post contains text field."""
-        result = generate_random_post(sample_keyword)
-
-        assert "text" in result
-        assert isinstance(result["text"], str)
-        assert len(result["text"]) > 0
-
-    def test_contains_author(self, sample_keyword):
-        """Random post contains author field."""
-        result = generate_random_post(sample_keyword)
-
-        assert "author" in result
-        assert isinstance(result["author"], str)
-
-    def test_contains_timestamp(self, sample_keyword):
-        """Random post contains timestamp field."""
-        result = generate_random_post(sample_keyword)
-
-        assert "timestamp" in result
-
-    def test_contains_engagement(self, sample_keyword):
-        """Random post contains engagement metrics."""
-        result = generate_random_post(sample_keyword)
-
-        assert "likes" in result
-        assert "reposts" in result
-
-    def test_text_contains_keyword(self, sample_keyword):
-        """Post text contains the keyword."""
-        result = generate_random_post(sample_keyword)
-
-        assert sample_keyword.lower() in result["text"].lower()
-
-
 class TestGenerateAIInsights:
     """Tests for generate_ai_insights function."""
 
@@ -966,6 +926,218 @@ class TestGenerateAIInsights:
         assert sample_keyword.lower() in result["summary"].lower()
 
 
+# ============== Tests for get_most_recent_bluesky_posts ==============
+
+class TestGetMostRecentBlueskyPosts:
+    """Tests for get_most_recent_bluesky_posts function."""
+
+    def test_returns_list_of_posts(self, mock_cursor):
+        """Test that function returns a list of post dictionaries."""
+        mock_posts = [
+            {"post_uri": "at://did:plc:1/post/abc", "text": "Test post 1", "author_did": "did:plc:1"},
+            {"post_uri": "at://did:plc:2/post/def", "text": "Test post 2", "author_did": "did:plc:2"}
+        ]
+        mock_cursor.fetchall.return_value = mock_posts
+
+        result = get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=10)
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["text"] == "Test post 1"
+
+    def test_returns_empty_list_when_no_posts(self, mock_cursor):
+        """Test that function returns empty list when no posts found."""
+        mock_cursor.fetchall.return_value = []
+
+        result = get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=10)
+
+        assert result == []
+
+    def test_respects_limit_parameter(self, mock_cursor):
+        """Test that the limit and keyword parameters are passed correctly."""
+        mock_cursor.fetchall.return_value = []
+
+        get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=5)
+
+        # Verify the keyword and limit were passed in the query
+        call_args = mock_cursor.execute.call_args
+        assert call_args[0][1] == ("python", 5)
+
+    def test_handles_database_error(self, mock_cursor):
+        """Test that function handles database errors gracefully."""
+        mock_cursor.execute.side_effect = Exception("Database error")
+
+        result = get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=10)
+
+        assert result == []
+
+
+# ============== Tests for get_handle_from_did ==============
+
+class TestGetHandleFromDid:
+    """Tests for get_handle_from_did function."""
+
+    def test_returns_handle_on_success(self):
+        """Test that function returns handle when API call succeeds."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"handle": "testuser.bsky.social"}
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = get_handle_from_did("did:plc:abc123")
+
+        assert result == "@testuser.bsky.social"
+
+    def test_returns_none_on_api_error(self):
+        """Test that function returns None when API call fails."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = get_handle_from_did("did:plc:invalid")
+
+        assert result is None
+
+    def test_returns_none_for_empty_did(self):
+        """Test that function returns None for empty DID."""
+        result = get_handle_from_did("")
+        assert result is None
+
+        result = get_handle_from_did(None)
+        assert result is None
+
+    def test_handles_request_exception(self):
+        """Test that function handles request exceptions gracefully."""
+        import requests
+        with patch("utils.requests.get", side_effect=requests.RequestException("Network error")):
+            result = get_handle_from_did("did:plc:abc123")
+
+        assert result is None
+
+
+# ============== Tests for get_post_engagement ==============
+
+class TestGetPostEngagement:
+    """Tests for get_post_engagement function."""
+
+    def test_returns_engagement_metrics(self):
+        """Test that function returns engagement metrics on success."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {
+            "thread": {
+                "post": {
+                    "likeCount": 100,
+                    "repostCount": 50,
+                    "replyCount": 25
+                }
+            }
+        }
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
+
+        assert result == {"likes": 100, "reposts": 50, "comments": 25}
+
+    def test_returns_zeros_on_api_error(self):
+        """Test that function returns zeros when API call fails."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
+
+        assert result == {"likes": 0, "reposts": 0, "comments": 0}
+
+    def test_returns_zeros_for_invalid_uri(self):
+        """Test that function returns zeros for invalid URI."""
+        result = get_post_engagement("")
+        assert result == {"likes": 0, "reposts": 0, "comments": 0}
+
+        result = get_post_engagement("invalid-uri")
+        assert result == {"likes": 0, "reposts": 0, "comments": 0}
+
+    def test_handles_request_exception(self):
+        """Test that function handles request exceptions gracefully."""
+        import requests
+        with patch("utils.requests.get", side_effect=requests.RequestException("Network error")):
+            result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
+
+        assert result == {"likes": 0, "reposts": 0, "comments": 0}
+
+
+# ============== Tests for get_featured_posts ==============
+
+class TestGetFeaturedPosts:
+    """Tests for get_featured_posts function."""
+
+    def test_returns_enriched_posts(self, mock_cursor):
+        """Test that function returns posts with all required fields."""
+        from datetime import datetime
+
+        mock_posts = [
+            {
+                "post_uri": "at://did:plc:user1/app.bsky.feed.post/abc",
+                "text": "Test post content",
+                "author_did": "did:plc:user1",
+                "posted_at": datetime.now()
+            }
+        ]
+        mock_cursor.fetchall.return_value = mock_posts
+
+        mock_handle_response = Mock()
+        mock_handle_response.status_code = 200
+        mock_handle_response.json.return_value = {"handle": "testuser.bsky.social"}
+
+        mock_engagement_response = Mock()
+        mock_engagement_response.status_code = 200
+        mock_engagement_response.json.return_value = {
+            "thread": {"post": {"likeCount": 10, "repostCount": 5, "replyCount": 3}}
+        }
+
+        with patch("utils.requests.get", side_effect=[mock_handle_response, mock_engagement_response]):
+            result = get_featured_posts(mock_cursor, keyword="python", limit=1)
+
+        assert len(result) == 1
+        post = result[0]
+        assert "post_text" in post
+        assert "author" in post
+        assert "timestamp" in post
+        assert "likes" in post
+        assert "reposts" in post
+        assert "comments" in post
+        assert "post_uri" in post
+
+    def test_returns_empty_list_when_no_posts(self, mock_cursor):
+        """Test that function returns empty list when no posts found."""
+        mock_cursor.fetchall.return_value = []
+
+        result = get_featured_posts(mock_cursor, keyword="python", limit=10)
+
+        assert result == []
+
+    def test_uses_fallback_handle_when_api_fails(self, mock_cursor):
+        """Test that function uses fallback handle when API fails."""
+        mock_posts = [
+            {
+                "post_uri": "at://did:plc:user1/app.bsky.feed.post/abc",
+                "text": "Test post",
+                "author_did": "did:plc:longdidvalue12345",
+                "posted_at": None
+            }
+        ]
+        mock_cursor.fetchall.return_value = mock_posts
+
+        mock_response = Mock()
+        mock_response.status_code = 404
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = get_featured_posts(mock_cursor, keyword="python", limit=1)
+
+        # Should use truncated DID as fallback
+        assert result[0]["author"].startswith("@did:plc:")
+
+
 # ============== Test Coverage Summary ==============
 # All tests now import from utils.py instead of app.py
 # This ensures proper separation of concerns:
@@ -980,3 +1152,4 @@ class TestGenerateAIInsights:
 #   ✓ Data generators (generate_placeholder_metrics, generate_time_series_data, etc.)
 #   ✓ Visualization generators (generate_word_cloud_data, generate_network_graph_data, etc.)
 #   ✓ AI insights generation (generate_ai_insights)
+#   ✓ Featured posts (get_most_recent_bluesky_posts, get_handle_from_did, get_post_engagement, get_featured_posts)

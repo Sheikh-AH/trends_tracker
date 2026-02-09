@@ -564,10 +564,6 @@ resource "aws_lambda_function" "alert_system" {
   timeout       = 300
   memory_size   = 512
 
-  vpc_config {
-    subnet_ids         = var.public_subnet_ids
-    security_group_ids = [aws_security_group.alert_lambda_sg.id]
-  }
 
   environment {
     variables = {
@@ -577,7 +573,7 @@ resource "aws_lambda_function" "alert_system" {
       DB_USER      = var.db_username
       DB_PASSWORD  = var.db_password
       AWS_REGION_NAME   = var.aws_region
-      SENDER_EMAIL = "sl-coaches@proton.me"
+      SENDER_EMAIL = var.ses_sender_email
     }
   }
 
@@ -833,4 +829,70 @@ resource "aws_scheduler_schedule" "llm_summary_schedule" {
     arn      = aws_lambda_function.llm_summary.arn
     role_arn = aws_iam_role.llm_summary_scheduler_role.arn
   }
+}
+
+resource "aws_ecr_repository" "weekly_report" {
+  name                 = "c21-trends-weekly-report"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Project = "trends-funnel"
+  }
+}
+
+# Lambda function for weekly report
+resource "aws_lambda_function" "weekly_report" {
+  function_name = "c21-trends-weekly-report"
+  role = aws_iam_role.alert_lambda_role.arn
+  package_type  = "Image"
+  image_uri     = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c21-trends-weekly-report:latest"
+  timeout       = 300
+  memory_size   = 512
+
+  environment {
+    variables = {
+      DB_HOST     = aws_db_instance.trends_db.address
+      DB_PORT     = "5432"
+      DB_NAME            = var.db_name
+      DB_USER            = var.db_username
+      DB_PASSWORD        = var.db_password
+      SENDER_EMAIL       = var.ses_sender_email
+      OPENROUTER_API_KEY = var.openrouter_api_key
+    }
+  }
+
+  tags = {
+    Project = "trends-funnel"
+  }
+}
+
+# EventBridge rule - 9am every Monday (UTC)
+resource "aws_cloudwatch_event_rule" "weekly_report_schedule" {
+  name                = "c21-trends-weekly-report-schedule"
+  description         = "Trigger weekly report every Monday at 9am UTC"
+  schedule_expression = "cron(0 9 ? * MON *)"
+
+  tags = {
+    Project = "trends-funnel"
+  }
+}
+
+# EventBridge target
+resource "aws_cloudwatch_event_target" "weekly_report_target" {
+  rule      = aws_cloudwatch_event_rule.weekly_report_schedule.name
+  target_id = "weekly-report-lambda"
+  arn       = aws_lambda_function.weekly_report.arn
+}
+
+# Permission for EventBridge to invoke Lambda
+resource "aws_lambda_permission" "allow_eventbridge_weekly_report" {
+  statement_id  = "AllowEventBridgeWeeklyReport"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.weekly_report.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.weekly_report_schedule.arn
 }

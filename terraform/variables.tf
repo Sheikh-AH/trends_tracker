@@ -53,8 +53,14 @@ variable "public_subnet_ids" {
     "subnet-00c5753756bd9f245"
   ]
 }
+
 variable "openrouter_api_key" {
   description = "API key for OpenRouter"
   type        = string
   sensitive   = true
+}
+
+variable "ses_sender_email" {
+  description = "Email address to use as the sender for SES emails"
+  type        = string
 }
