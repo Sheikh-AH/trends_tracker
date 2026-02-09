@@ -32,7 +32,8 @@ from utils import (
     get_handle_from_did,
     get_post_engagement,
     uri_to_url,
-    get_featured_posts
+    get_featured_posts,
+    get_posts_by_date
 )
 
 
@@ -973,6 +974,111 @@ class TestGetMostRecentBlueskyPosts:
         assert result == []
 
 
+# ============== Tests for get_posts_by_date ==============
+
+class TestGetPostsByDate:
+    """Tests for get_posts_by_date function."""
+
+    @pytest.fixture
+    def mock_conn(self):
+        """Fixture providing a mock database connection."""
+        conn = Mock()
+        mock_cursor = Mock()
+        conn.cursor.return_value = mock_cursor
+        return conn
+
+    @pytest.fixture
+    def sample_date(self):
+        """Fixture providing a sample date for testing."""
+        from datetime import date
+        return date(2026, 2, 9)
+
+    def test_returns_list_of_posts(self, mock_conn, sample_date):
+        """Test that function returns a list of post dictionaries."""
+        mock_posts = [
+            {
+                "post_uri": "at://did:plc:1/app.bsky.feed.post/abc",
+                "text": "Test post 1",
+                "author_did": "did:plc:1",
+                "posted_at": "2026-02-09T10:30:00",
+                "sentiment_score": 0.25
+            },
+            {
+                "post_uri": "at://did:plc:2/app.bsky.feed.post/def",
+                "text": "Test post 2",
+                "author_did": "did:plc:2",
+                "posted_at": "2026-02-09T11:45:00",
+                "sentiment_score": -0.15
+            }
+        ]
+        mock_conn.cursor.return_value.fetchall.return_value = mock_posts
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["text"] == "Test post 1"
+        assert result[1]["sentiment_score"] == -0.15
+
+    def test_returns_empty_list_when_no_posts(self, mock_conn, sample_date):
+        """Test that function returns empty list when no posts found."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert result == []
+
+    def test_returns_empty_list_when_fetchall_returns_none(self, mock_conn, sample_date):
+        """Test that function returns empty list when fetchall returns None."""
+        mock_conn.cursor.return_value.fetchall.return_value = None
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert result == []
+
+    def test_respects_limit_parameter(self, mock_conn, sample_date):
+        """Test that the limit parameter is passed correctly."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            get_posts_by_date(mock_conn, keyword="matcha", date=sample_date, limit=5)
+
+        # Verify the keyword, date, and limit were passed in the query
+        call_args = mock_conn.cursor.return_value.execute.call_args
+        assert call_args[0][1] == ("matcha", sample_date, 5)
+
+    def test_handles_database_error(self, mock_conn, sample_date):
+        """Test that function handles database errors gracefully."""
+        mock_conn.cursor.return_value.execute.side_effect = Exception("Database error")
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert result == []
+
+    def test_closes_cursor_after_success(self, mock_conn, sample_date):
+        """Test that cursor is closed after successful execution."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            get_posts_by_date(mock_conn, keyword="python", date=sample_date)
+
+        mock_conn.cursor.return_value.close.assert_called_once()
+
+    def test_default_limit_is_ten(self, mock_conn, sample_date):
+        """Test that default limit is 10 when not specified."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            get_posts_by_date(mock_conn, keyword="python", date=sample_date)
+
+        call_args = mock_conn.cursor.return_value.execute.call_args
+        assert call_args[0][1][2] == 10  # Third parameter is limit
+
+
 # ============== Tests for get_handle_from_did ==============
 
 class TestGetHandleFromDid:
@@ -1022,15 +1128,10 @@ class TestUriToUrl:
     """Tests for uri_to_url function."""
 
     def test_converts_valid_uri_to_url(self):
-        """Test that valid URI is converted to proper HTTPS URL."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"handle": "testuser.bsky.social"}
+        """Test that valid URI is converted to proper HTTPS URL using DID."""
+        result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
 
-        with patch("utils.requests.get", return_value=mock_response):
-            result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
-
-        assert result == "https://bsky.app/profile/testuser.bsky.social/post/rkey789"
+        assert result == "https://bsky.app/profile/did:plc:abc123/post/rkey789"
 
     def test_returns_empty_string_for_invalid_uri_format(self):
         """Test that invalid URI format returns empty string."""
@@ -1047,34 +1148,27 @@ class TestUriToUrl:
         result = uri_to_url(None)
         assert result == ""
 
-    def test_returns_empty_string_when_handle_lookup_fails(self):
-        """Test that function returns empty string when handle cannot be retrieved."""
-        mock_response = Mock()
-        mock_response.status_code = 404
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = uri_to_url("at://did:plc:invalid/app.bsky.feed.post/rkey789")
-
+    def test_returns_empty_string_for_uri_without_at_prefix(self):
+        """Test that URI without at:// prefix returns empty string."""
+        result = uri_to_url("did:plc:abc123/app.bsky.feed.post/rkey789")
         assert result == ""
 
-    def test_handles_request_exception(self):
-        """Test that function handles request exceptions gracefully."""
-        import requests
-        with patch("utils.requests.get", side_effect=requests.RequestException("Network error")):
-            result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
-
+    def test_returns_empty_string_for_malformed_uri(self):
+        """Test that malformed URI with insufficient parts returns empty string."""
+        result = uri_to_url("at://did:plc:abc123")
         assert result == ""
 
     def test_extracts_rkey_correctly(self):
         """Test that rkey is correctly extracted from URI."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"handle": "user.bsky.social"}
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = uri_to_url("at://did:plc:test123/app.bsky.feed.post/abc456xyz")
+        result = uri_to_url("at://did:plc:test123/app.bsky.feed.post/abc456xyz")
 
         assert "/post/abc456xyz" in result
+
+    def test_extracts_did_correctly(self):
+        """Test that DID is correctly extracted from URI."""
+        result = uri_to_url("at://did:plc:longdidvalue12345/app.bsky.feed.post/rkey")
+
+        assert "/profile/did:plc:longdidvalue12345/" in result
 
 
 # ============== Tests for get_post_engagement ==============
