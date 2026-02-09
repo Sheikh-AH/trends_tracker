@@ -5,9 +5,13 @@ python-dotenv
 pytest
 streamlit
 
+boto3
+botocore[crt]
+
 # Visualization libraries
 wordcloud
 matplotlib
 
 # Network graph visualization
 st-link-analysis
+requests
