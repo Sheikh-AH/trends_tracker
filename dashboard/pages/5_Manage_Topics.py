@@ -18,9 +18,6 @@ from psycopg2.extras import RealDictCursor
 
 logger = logging.getLogger(__name__)
 
-
-# ============== Page Configuration ==============
-
 def configure_page():
     """Configure page settings and check authentication."""
     st.set_page_config(
@@ -35,8 +32,6 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
-
-# ============== Helper Functions ==============
 
 def load_keywords():
     """Load keywords from database on first visit."""
@@ -126,62 +121,20 @@ def render_keywords_display():
         st.info("No keywords added yet. Add some above to start tracking!")
 
 
-def render_tips_section():
-    """Render the tips section."""
-    st.markdown("### 💡 Tips for Effective Tracking")
+if __name__ == "__main__":
+    configure_page()
+    render_sidebar()
 
-    tips_col1, tips_col2 = st.columns(2)
+    st.markdown("---")
 
-    with tips_col1:
-        st.markdown("""
-        **Choosing Keywords:**
-        - Use specific terms (e.g., "matcha latte" vs "tea")
-        - Include brand names and hashtags
-        - Consider misspellings and variations
-        - Add competitor brand names
-        """)
-
-    with tips_col2:
-        st.markdown("""
-        **Best Practices:**
-        - Start with 3-5 keywords
-        - Review and refine regularly
-        - Remove low-performing keywords
-        - Add trending terms as they emerge
-        """)
-
-
-# ============== Main Function ==============
-
-def main():
-    """Main function for the Manage Topics page."""
     st.title("🏷️ Topics Management")
     st.markdown("Manage your tracked keywords and topics here.")
 
-    st.markdown("---")
-
-    # Load keywords
     load_keywords()
+    st.markdown("---")
 
-    # Add keyword section
     render_add_keyword_section()
-
     st.markdown("---")
 
-    # Current keywords display
     render_keywords_display()
-
     st.markdown("---")
-
-    # Tips section
-    render_tips_section()
-
-    # Render shared sidebar
-    render_sidebar()
-
-
-# ============== Entry Point ==============
-# Streamlit pages are executed as modules, so we run at module level
-if __name__ == "__main__":
-    configure_page()
-    main()
