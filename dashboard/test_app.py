@@ -31,6 +31,7 @@ from utils import (
     get_most_recent_bluesky_posts,
     get_handle_from_did,
     get_post_engagement,
+    uri_to_url,
     get_featured_posts
 )
 
@@ -1013,6 +1014,67 @@ class TestGetHandleFromDid:
             result = get_handle_from_did("did:plc:abc123")
 
         assert result is None
+
+
+# ============== Tests for uri_to_url ==============
+
+class TestUriToUrl:
+    """Tests for uri_to_url function."""
+
+    def test_converts_valid_uri_to_url(self):
+        """Test that valid URI is converted to proper HTTPS URL."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"handle": "testuser.bsky.social"}
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
+
+        assert result == "https://bsky.app/profile/testuser.bsky.social/post/rkey789"
+
+    def test_returns_empty_string_for_invalid_uri_format(self):
+        """Test that invalid URI format returns empty string."""
+        result = uri_to_url("invalid_uri_format")
+        assert result == ""
+
+    def test_returns_empty_string_for_empty_uri(self):
+        """Test that empty URI returns empty string."""
+        result = uri_to_url("")
+        assert result == ""
+
+    def test_returns_empty_string_for_none_uri(self):
+        """Test that None URI returns empty string."""
+        result = uri_to_url(None)
+        assert result == ""
+
+    def test_returns_empty_string_when_handle_lookup_fails(self):
+        """Test that function returns empty string when handle cannot be retrieved."""
+        mock_response = Mock()
+        mock_response.status_code = 404
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = uri_to_url("at://did:plc:invalid/app.bsky.feed.post/rkey789")
+
+        assert result == ""
+
+    def test_handles_request_exception(self):
+        """Test that function handles request exceptions gracefully."""
+        import requests
+        with patch("utils.requests.get", side_effect=requests.RequestException("Network error")):
+            result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
+
+        assert result == ""
+
+    def test_extracts_rkey_correctly(self):
+        """Test that rkey is correctly extracted from URI."""
+        mock_response = Mock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"handle": "user.bsky.social"}
+
+        with patch("utils.requests.get", return_value=mock_response):
+            result = uri_to_url("at://did:plc:test123/app.bsky.feed.post/abc456xyz")
+
+        assert "/post/abc456xyz" in result
 
 
 # ============== Tests for get_post_engagement ==============

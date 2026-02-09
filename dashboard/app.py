@@ -23,9 +23,10 @@ logger = logging.getLogger(__name__)
 def configure_page() -> None:
     """Set up the Streamlit page configuration."""
     st.set_page_config(
-        page_title="Trends Tracker",
+        page_title="Trendfunnel",
         layout="wide",
-        initial_sidebar_state="collapsed"
+        initial_sidebar_state="collapsed",
+        page_icon="art/logo_blue.svg"
     )
 
 def initialize_session_state() -> None:
@@ -139,7 +140,14 @@ def show_login_page() -> None:
     col1, col2, col3 = st.columns([1, 1, 1])
 
     with col2:
-        st.title("Trends Tracker")
+        # Logo and title
+        col_img, col_text = st.columns([0.2, 1], gap="small")
+        with col_img:
+            st.image("art/logo_blue.svg", width=100)
+        with col_text:
+            st.title("Trendfunnel")
+            st.caption("Turning fuzz into biz")
+
         tab1, tab2 = st.tabs(["Login", "Sign Up"])
         with tab1:
             render_login_tab()

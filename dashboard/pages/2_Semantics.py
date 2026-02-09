@@ -16,14 +16,14 @@ from wordcloud import WordCloud
 # Import shared functions from utils module
 import sys
 from utils import (
-    get_db_connection,
     get_user_keywords,
     get_kpi_metrics_from_db,
-    generate_word_cloud_data,
-    generate_sentiment_calendar_data,
-    generate_trending_velocity,
-    generate_network_graph_data,
+    get_sentiment_by_day,
     get_featured_posts,
+    get_sentiment_emoji,
+    get_latest_post_text_corpus,
+    extract_keywords_yake,
+    diversify_keywords,
     render_sidebar
 )
 from psycopg2.extras import RealDictCursor
@@ -34,8 +34,8 @@ from psycopg2.extras import RealDictCursor
 def configure_page():
     """Configure page settings and check authentication."""
     st.set_page_config(
-        page_title="Home - Trends Tracker",
-        page_icon="🏠",
+        page_title="Semantics",
+        page_icon="art/logo_blue.svg",
         layout="wide"
     )
 
@@ -49,16 +49,7 @@ def configure_page():
 # ============== Cached Featured Posts ==============
 @st.cache_data(ttl=1800)  # 30 minutes = 1800 seconds
 def get_cached_featured_posts(_conn, keyword: str, limit: int = 10) -> list:
-    """Fetch featured posts with 30-minute cache TTL.
-    
-    Args:
-        _conn: Database connection (underscore prefix tells Streamlit not to hash it)
-        keyword: The keyword to filter posts by
-        limit: Number of posts to retrieve (default: 10)
-    
-    Returns:
-        List of featured post dictionaries
-    """
+    """Fetch featured posts with 30-minute cache TTL."""
     try:
         cursor = _conn.cursor(cursor_factory=RealDictCursor)
         posts = get_featured_posts(cursor, keyword=keyword, limit=limit)
@@ -70,8 +61,8 @@ def get_cached_featured_posts(_conn, keyword: str, limit: int = 10) -> list:
 
 # ============== Visualization Functions ==============
 @st.fragment(run_every=10)
-def render_typing_animation(selected_keyword: str):
-    """Render a featured post with typing animation effect.
+def render_featured_posts(selected_keyword: str):
+    """Render a featured post on a styled gradient background.
 
     Uses real posts from the database if available.
     """
@@ -89,221 +80,171 @@ def render_typing_animation(selected_keyword: str):
     post_index = int(time.time() // 10) % len(featured_posts)
     post = featured_posts[post_index]
 
-    # Display the post with markdown
-    st.markdown(f"*{post['post_text']}*")
+    # Display post on gradient background
+    post_link = f'<a href="{post["post_url"]}" target="_blank" style="color: white; text-decoration: none; cursor: pointer;">{post["post_text"]}</a>' if post.get("post_url") else post["post_text"]
 
-    # Display post metadata
-    col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
-    with col1:
-        timestamp = post['timestamp']
-        if timestamp:
-            st.caption(f"**{post['author']}** • {timestamp.strftime('%b %d, %H:%M')}")
-        else:
-            st.caption(f"**{post['author']}**")
-    with col2:
-        st.caption(f"❤️ {post['likes']}")
-    with col3:
-        st.caption(f"🔄 {post['reposts']}")
-    with col4:
-        st.caption(f"💬 {post['comments']}")
+    # Create author link with author_url
+    author_link = f'<a href="{post["author_url"]}" target="_blank" style="color: white; text-decoration: none; cursor: pointer;"><strong>{post["author"]}</strong></a>' if post.get("author_url") else f"<strong>{post['author']}</strong>"
+
+    # Format timestamp
+    timestamp = post.get("timestamp", "")
+    if timestamp:
+        timestamp_str = timestamp.strftime("%b %d, %H:%M") if hasattr(timestamp, 'strftime') else str(timestamp)[:10]
+    else:
+        timestamp_str = ""
+
+    st.markdown(f"""
+    <div style="
+        background: linear-gradient(135deg, #0d47a1 0%, #1565c0 100%);
+        padding: 30px;
+        border-radius: 15px;
+        color: white;
+    ">
+        <p style="font-size: 1.1em; line-height: 1.6; margin-bottom: 20px;">
+            {post_link}
+        </p>
+        <div style="display: flex; justify-content: space-between; font-size: 0.95em; opacity: 0.95;">
+            <span>{author_link}</span>
+        </div>
+        <div style="display: flex; gap: 20px; margin-top: 15px; font-size: 0.9em; opacity: 0.9; justify-content: space-between; align-items: center;">
+            <div style="display: flex; gap: 20px;">
+                <span>❤️ {post.get('likes', 0):,}</span>
+                <span>🔄 {post.get('reposts', 0):,}</span>
+                <span>💬 {post.get('comments', 0):,}</span>
+            </div>
+            <span>{timestamp_str}</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def render_word_cloud(word_data: dict, keyword: str):
-    """Render word cloud visualization."""
+@st.cache_data(ttl=3600)
+def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict:
+    """Extract and process keywords for word cloud visualization."""
+    # Get post text corpus
+    corpus = get_latest_post_text_corpus(_conn, keyword, day_limit=day_limit, post_count_limit=10000)
+
+    if not corpus:
+        return {}
+
+    # Extract keywords using YAKE
+    raw_keywords = extract_keywords_yake(corpus, num_keywords=100)
+
+    # Diversify to remove redundant terms
+    diversified = diversify_keywords(raw_keywords, keyword, max_results=50)
+
+    # Convert to word cloud format (word: frequency)
+    # YAKE score is inverse (lower = more relevant), so we invert it
+    if not diversified:
+        return {}
+
+    word_freq = {}
+    for kw in diversified:
+        # Invert score: lower YAKE score = higher frequency for word cloud
+        # Add small epsilon to avoid division by zero
+        inverted_score = 1 / (kw["score"] + 1e-10)
+        word_freq[kw["keyword"]] = inverted_score
+
+    return word_freq
+
+
+def render_word_cloud(keyword: str):
+    """Render word cloud visualization using extracted keywords."""
     st.markdown("### ☁️ Associated Keywords")
 
+    conn = st.session_state.db_conn
+    word_data = get_keyword_word_cloud_data(conn, keyword)
+
     if not word_data:
-        st.info("No word data available.")
+        st.info(f"No associated keywords found for '{keyword}'.")
         return
 
-    # Generate word cloud
+    # Company color palette (dark blues that stand out on white)
+    company_colors = ["#0D3C81", "#0D47A1", "#1565C0", "#1976D2"]
+
+    def color_func(word, font_size, position, orientation, random_state=None, **kwargs):
+        import random
+        return random.choice(company_colors)
+
+    # Generate word cloud with improved styling
     wc = WordCloud(
-        width=800,
-        height=400,
+        width=1200,
+        height=500,
         background_color='white',
-        colormap='viridis',
-        max_words=50,
-        relative_scaling=0.5
+        max_words=40,
+        relative_scaling=0.3,
+        font_path='/System/Library/Fonts/Supplemental/Arial.ttf',
+        prefer_horizontal=0.7,
+        min_font_size=12,
+        max_font_size=120,
+        margin=5,
+        collocations=False,
+        color_func=color_func
     ).generate_from_frequencies(word_data)
 
     # Convert to image
-    fig, ax = plt.subplots(figsize=(10, 5))
+    fig, ax = plt.subplots(figsize=(12, 5), facecolor='white')
     ax.imshow(wc, interpolation='bilinear')
     ax.axis('off')
-    ax.set_title(f'Words associated with "{keyword}"', fontsize=14, pad=10)
+    ax.set_facecolor('white')
+    fig.tight_layout(pad=0)
 
-    st.pyplot(fig)
+    st.pyplot(fig, transparent=True)
     plt.close()
 
 
-def render_sentiment_calendar(calendar_data: pd.DataFrame, keyword: str):
-    """Render sentiment calendar heatmap."""
+def render_sentiment_calendar(keyword: str, days: int = 30):
+    """Render sentiment calendar heatmap with red-orange-yellow-green gradient."""
     st.markdown("### 📅 Sentiment Calendar")
 
-    if calendar_data.empty:
-        st.info("No calendar data available.")
+    conn = st.session_state.db_conn
+    sentiment_data = get_sentiment_by_day(conn, keyword, day_limit=days)
+    
+    if not sentiment_data:
+        st.info("No sentiment data available for this period.")
         return
+    
+    # Convert to DataFrame
+    df = pd.DataFrame(sentiment_data)
+    df['date'] = pd.to_datetime(df['date'])
+    
+    # Clamp sentiment to [-0.5, 0.5] range for color mapping
+    df['sentiment_clamped'] = df['avg_sentiment'].clip(-0.5, 0.5)
+    
+    # Add calendar fields
+    df['day_name'] = df['date'].dt.strftime('%a')
+    df['week_of_year'] = df['date'].dt.isocalendar().week
+    df['day_of_month'] = df['date'].dt.day
+    df['month'] = df['date'].dt.strftime('%b')
 
-    # Create GitHub-style calendar heatmap using Altair
-    calendar_data['day_name'] = calendar_data['date'].dt.strftime('%a')
-    calendar_data['week_of_year'] = calendar_data['date'].dt.isocalendar().week
-
-    heatmap = alt.Chart(calendar_data).mark_rect(
-        cornerRadius=3,
-        stroke='white',
-        strokeWidth=2
+    # Create heatmap with red-orange-yellow-green gradient
+    heatmap = alt.Chart(df).mark_rect(
+        cornerRadius=4,
+        stroke='#e0e0e0',
+        strokeWidth=1
     ).encode(
-        x=alt.X('week_of_year:O', title='Week', axis=alt.Axis(labelAngle=0)),
+        x=alt.X('week_of_year:O', 
+                title='Week', 
+                axis=alt.Axis(labelAngle=0, labels=False, ticks=False)),
         y=alt.Y('day_name:O',
-                title='Day',
+                title=None,
                 sort=['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']),
-        color=alt.Color('sentiment:Q',
-                       scale=alt.Scale(scheme='redyellowgreen', domain=[-1, 1]),
-                       title='Sentiment'),
+        color=alt.Color('sentiment_clamped:Q',
+                       scale=alt.Scale(
+                           domain=[-0.5, -0.25, 0, 0.25, 0.5],
+                           range=['#d32f2f', '#ff9800', '#ffeb3b', '#8bc34a', '#4caf50']
+                       ),
+                       legend=alt.Legend(title='Sentiment')),
         tooltip=[
-            alt.Tooltip('date:T', title='Date'),
-            alt.Tooltip('sentiment:Q', title='Sentiment', format='.2f'),
-            alt.Tooltip('day_name:N', title='Day')
+            alt.Tooltip('date:T', title='Date', format='%b %d, %Y'),
+            alt.Tooltip('avg_sentiment:Q', title='Avg Sentiment', format='.3f'),
+            alt.Tooltip('post_count:Q', title='Posts')
         ]
     ).properties(
-        height=200,
-        title=f'Daily Sentiment for "{keyword}"'
+        height=180
     )
 
     st.altair_chart(heatmap, use_container_width=True)
-
-
-def render_trending_speedometer(velocity_data: dict, keyword: str):
-    """Render trending velocity speedometer."""
-    st.markdown("### 🚀 Trending Velocity")
-
-    velocity = velocity_data["velocity"]
-    direction = velocity_data["direction"]
-    percent_change = velocity_data["percent_change"]
-
-    # Color based on direction
-    if direction == "accelerating":
-        color = "#00CC96"
-        icon = "🔥"
-    elif direction == "decelerating":
-        color = "#EF553B"
-        icon = "📉"
-    else:
-        color = "#636EFA"
-        icon = "➡️"
-
-    # Create gauge chart using Altair
-    # Arc for background
-    background = alt.Chart(pd.DataFrame({'value': [100]})).mark_arc(
-        innerRadius=80,
-        outerRadius=120,
-        theta=3.14159,
-        theta2=0,
-        color='#e0e0e0'
-    )
-
-    # Arc for value
-    value_angle = 3.14159 * (1 - velocity / 100)
-
-    gauge_data = pd.DataFrame({
-        'value': [velocity],
-        'start': [3.14159],
-        'end': [value_angle]
-    })
-
-    # Display as metric with custom styling
-    col1, col2, col3 = st.columns([1, 2, 1])
-
-    with col2:
-        st.markdown(f"""
-        <div style="
-            text-align: center;
-            padding: 30px;
-            background: linear-gradient(180deg, {color}22 0%, white 100%);
-            border-radius: 20px;
-            border: 3px solid {color};
-        ">
-            <div style="font-size: 4em; margin-bottom: 10px;">{icon}</div>
-            <div style="font-size: 3em; font-weight: bold; color: {color};">{velocity}%</div>
-            <div style="font-size: 1.2em; text-transform: uppercase; letter-spacing: 2px; color: #666;">
-                {direction}
-            </div>
-            <div style="font-size: 1em; margin-top: 10px; color: #888;">
-                {'+' if percent_change > 0 else ''}{percent_change}% vs last period
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-
-def render_network_graph(graph_data: dict):
-    """Render keyword network graph using st-link-analysis with enhanced styling."""
-    st.markdown("### 🔗 Keyword Network")
-
-    if not graph_data["nodes"]:
-        st.info("Add keywords to see network connections.")
-        return
-
-    try:
-        from st_link_analysis import st_link_analysis, NodeStyle, EdgeStyle
-
-        # Color palettes for variety
-        node_colors = ["#667eea", "#764ba2", "#f093fb", "#4facfe", "#00f2fe", "#43e97b", "#fa709a", "#fee140"]
-        edge_colors = ["#667eea", "#764ba2", "#f093fb", "#4facfe", "#00f2fe", "#43e97b", "#fa709a", "#fee140"]
-
-        # Prepare nodes and edges for st_link_analysis
-        elements = {"nodes": [], "edges": []}
-
-        for idx, node in enumerate(graph_data["nodes"]):
-            elements["nodes"].append({
-                "data": {
-                    "id": node["id"],
-                    "label": node["label"],
-                    "size": node.get("size", 30),
-                    "color": node_colors[idx % len(node_colors)]
-                }
-            })
-
-        for idx, edge in enumerate(graph_data["edges"]):
-            elements["edges"].append({
-                "data": {
-                    "id": f"{edge['source']}-{edge['target']}",
-                    "source": edge["source"],
-                    "target": edge["target"],
-                    "weight": edge["weight"],
-                    "label": str(edge["weight"]),
-                    "color": edge_colors[idx % len(edge_colors)]
-                }
-            })
-
-        # Define node styles with data-driven colors
-        node_styles = [
-            NodeStyle("default", "data(color)", "label", "circle")
-        ]
-
-        # Define edge styles with data-driven colors and labels
-        edge_styles = [
-            EdgeStyle("default", "data(color)", caption="label", directed=False)
-        ]
-
-        # Render the graph
-        st_link_analysis(
-            elements,
-            layout="cose",
-            node_styles=node_styles,
-            edge_styles=edge_styles,
-            height=400
-        )
-
-    except ImportError:
-        # Fallback visualization if st-link-analysis not installed
-        st.warning("Network graph library not installed. Install with: `pip install st-link-analysis`")
-
-        # Show as simple table instead
-        if graph_data["edges"]:
-            edges_df = pd.DataFrame(graph_data["edges"])
-            edges_df.columns = ["From", "To", "Connection Count"]
-            st.dataframe(edges_df, use_container_width=True, hide_index=True)
-
 
 def render_kpi_metrics(metrics: dict):
     """Render KPI metrics row."""
@@ -335,19 +276,27 @@ def render_kpi_metrics(metrics: dict):
         )
     with kpi_col5:
         sentiment_color = "normal" if metrics['avg_sentiment'] >= 0 else "inverse"
+        sentiment_emoji = get_sentiment_emoji(metrics['avg_sentiment'])
         st.metric(
-            label="😊 Avg Sentiment",
+            label=f"{sentiment_emoji} Avg Sentiment",
             value=f"{metrics['avg_sentiment']:.2f}",
             delta=f"{metrics.get('sentiment_delta', 0):.2f}",
             delta_color=sentiment_color
         )
 
-
 # ============== Main Function ==============
 
 def main():
     """Main function for the Home page."""
-    st.title("🏠 Trends Tracker Home")
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+    with col2:
+        # Logo and title
+        col_img, col_text = st.columns([0.2, 1], gap="small")
+        with col_img:
+            st.image("art/logo_blue.svg", width=100)
+        with col_text:
+            st.title("Trendfunnel - Semantics")
 
     # Get connection from session state
     conn = st.session_state.db_conn
@@ -398,34 +347,18 @@ def main():
     st.markdown("---")
 
     # Featured Post with Typing Animation
-    render_typing_animation(selected_keyword)
+    render_featured_posts(selected_keyword)
 
     st.markdown("---")
 
-    # Word Cloud and Trending Speedometer
-    chart_col1, chart_col2 = st.columns(2)
-
-    with chart_col1:
-        word_data = generate_word_cloud_data(selected_keyword, days)
-        render_word_cloud(word_data, selected_keyword)
-
-    with chart_col2:
-        velocity_data = generate_trending_velocity(selected_keyword, days)
-        render_trending_speedometer(velocity_data, selected_keyword)
+    # Word Cloud
+    render_word_cloud(selected_keyword)
 
     st.markdown("---")
 
     # Sentiment Calendar
-    calendar_data = generate_sentiment_calendar_data(selected_keyword, days)
-    render_sentiment_calendar(calendar_data, selected_keyword)
+    render_sentiment_calendar(selected_keyword, days)
 
-    st.markdown("---")
-
-    # Keyword Network Graph
-    graph_data = generate_network_graph_data(keywords)
-    render_network_graph(graph_data)
-
-    # Default Sidebar
     # Render shared sidebar
     render_sidebar()
 
