@@ -31,7 +31,12 @@ from utils import (
     get_most_recent_bluesky_posts,
     get_handle_from_did,
     get_post_engagement,
-    get_featured_posts
+    uri_to_url,
+    get_featured_posts,
+    get_posts_by_date,
+    convert_sentiment_score,
+    format_timestamp,
+    format_author_display
 )
 
 
@@ -972,6 +977,111 @@ class TestGetMostRecentBlueskyPosts:
         assert result == []
 
 
+# ============== Tests for get_posts_by_date ==============
+
+class TestGetPostsByDate:
+    """Tests for get_posts_by_date function."""
+
+    @pytest.fixture
+    def mock_conn(self):
+        """Fixture providing a mock database connection."""
+        conn = Mock()
+        mock_cursor = Mock()
+        conn.cursor.return_value = mock_cursor
+        return conn
+
+    @pytest.fixture
+    def sample_date(self):
+        """Fixture providing a sample date for testing."""
+        from datetime import date
+        return date(2026, 2, 9)
+
+    def test_returns_list_of_posts(self, mock_conn, sample_date):
+        """Test that function returns a list of post dictionaries."""
+        mock_posts = [
+            {
+                "post_uri": "at://did:plc:1/app.bsky.feed.post/abc",
+                "text": "Test post 1",
+                "author_did": "did:plc:1",
+                "posted_at": "2026-02-09T10:30:00",
+                "sentiment_score": 0.25
+            },
+            {
+                "post_uri": "at://did:plc:2/app.bsky.feed.post/def",
+                "text": "Test post 2",
+                "author_did": "did:plc:2",
+                "posted_at": "2026-02-09T11:45:00",
+                "sentiment_score": -0.15
+            }
+        ]
+        mock_conn.cursor.return_value.fetchall.return_value = mock_posts
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert isinstance(result, list)
+        assert len(result) == 2
+        assert result[0]["text"] == "Test post 1"
+        assert result[1]["sentiment_score"] == -0.15
+
+    def test_returns_empty_list_when_no_posts(self, mock_conn, sample_date):
+        """Test that function returns empty list when no posts found."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert result == []
+
+    def test_returns_empty_list_when_fetchall_returns_none(self, mock_conn, sample_date):
+        """Test that function returns empty list when fetchall returns None."""
+        mock_conn.cursor.return_value.fetchall.return_value = None
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert result == []
+
+    def test_respects_limit_parameter(self, mock_conn, sample_date):
+        """Test that the limit parameter is passed correctly."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            get_posts_by_date(mock_conn, keyword="matcha", date=sample_date, limit=5)
+
+        # Verify the keyword, date, and limit were passed in the query
+        call_args = mock_conn.cursor.return_value.execute.call_args
+        assert call_args[0][1] == ("matcha", sample_date, 5)
+
+    def test_handles_database_error(self, mock_conn, sample_date):
+        """Test that function handles database errors gracefully."""
+        mock_conn.cursor.return_value.execute.side_effect = Exception("Database error")
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+
+        assert result == []
+
+    def test_closes_cursor_after_success(self, mock_conn, sample_date):
+        """Test that cursor is closed after successful execution."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            get_posts_by_date(mock_conn, keyword="python", date=sample_date)
+
+        mock_conn.cursor.return_value.close.assert_called_once()
+
+    def test_default_limit_is_ten(self, mock_conn, sample_date):
+        """Test that default limit is 10 when not specified."""
+        mock_conn.cursor.return_value.fetchall.return_value = []
+
+        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+            get_posts_by_date(mock_conn, keyword="python", date=sample_date)
+
+        call_args = mock_conn.cursor.return_value.execute.call_args
+        assert call_args[0][1][2] == 10  # Third parameter is limit
+
+
 # ============== Tests for get_handle_from_did ==============
 
 class TestGetHandleFromDid:
@@ -1013,6 +1123,55 @@ class TestGetHandleFromDid:
             result = get_handle_from_did("did:plc:abc123")
 
         assert result is None
+
+
+# ============== Tests for uri_to_url ==============
+
+class TestUriToUrl:
+    """Tests for uri_to_url function."""
+
+    def test_converts_valid_uri_to_url(self):
+        """Test that valid URI is converted to proper HTTPS URL using DID."""
+        result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
+
+        assert result == "https://bsky.app/profile/did:plc:abc123/post/rkey789"
+
+    def test_returns_empty_string_for_invalid_uri_format(self):
+        """Test that invalid URI format returns empty string."""
+        result = uri_to_url("invalid_uri_format")
+        assert result == ""
+
+    def test_returns_empty_string_for_empty_uri(self):
+        """Test that empty URI returns empty string."""
+        result = uri_to_url("")
+        assert result == ""
+
+    def test_returns_empty_string_for_none_uri(self):
+        """Test that None URI returns empty string."""
+        result = uri_to_url(None)
+        assert result == ""
+
+    def test_returns_empty_string_for_uri_without_at_prefix(self):
+        """Test that URI without at:// prefix returns empty string."""
+        result = uri_to_url("did:plc:abc123/app.bsky.feed.post/rkey789")
+        assert result == ""
+
+    def test_returns_empty_string_for_malformed_uri(self):
+        """Test that malformed URI with insufficient parts returns empty string."""
+        result = uri_to_url("at://did:plc:abc123")
+        assert result == ""
+
+    def test_extracts_rkey_correctly(self):
+        """Test that rkey is correctly extracted from URI."""
+        result = uri_to_url("at://did:plc:test123/app.bsky.feed.post/abc456xyz")
+
+        assert "/post/abc456xyz" in result
+
+    def test_extracts_did_correctly(self):
+        """Test that DID is correctly extracted from URI."""
+        result = uri_to_url("at://did:plc:longdidvalue12345/app.bsky.feed.post/rkey")
+
+        assert "/profile/did:plc:longdidvalue12345/" in result
 
 
 # ============== Tests for get_post_engagement ==============
@@ -1064,6 +1223,138 @@ class TestGetPostEngagement:
             result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
 
         assert result == {"likes": 0, "reposts": 0, "comments": 0}
+
+
+# ============== Tests for convert_sentiment_score ==============
+
+class TestConvertSentimentScore:
+    """Tests for convert_sentiment_score function."""
+
+    def test_converts_float_string_to_float(self):
+        """Test conversion of float string to float."""
+        result = convert_sentiment_score("0.75")
+        assert result == 0.75
+        assert isinstance(result, float)
+
+    def test_converts_float_to_float(self):
+        """Test that float input returns float output."""
+        result = convert_sentiment_score(0.5)
+        assert result == 0.5
+        assert isinstance(result, float)
+
+    def test_converts_int_to_float(self):
+        """Test conversion of integer to float."""
+        result = convert_sentiment_score(1)
+        assert result == 1.0
+        assert isinstance(result, float)
+
+    def test_handles_none(self):
+        """Test that None returns 0.0."""
+        result = convert_sentiment_score(None)
+        assert result == 0.0
+
+    def test_handles_invalid_string(self):
+        """Test that invalid string returns 0.0."""
+        result = convert_sentiment_score("not_a_number")
+        assert result == 0.0
+
+    def test_handles_empty_string(self):
+        """Test that empty string returns 0.0."""
+        result = convert_sentiment_score("")
+        assert result == 0.0
+
+    def test_handles_negative_float_string(self):
+        """Test conversion of negative float string."""
+        result = convert_sentiment_score("-0.25")
+        assert result == -0.25
+
+    def test_handles_zero_string(self):
+        """Test conversion of zero string."""
+        result = convert_sentiment_score("0")
+        assert result == 0.0
+
+
+# ============== Tests for format_timestamp ==============
+
+class TestFormatTimestamp:
+    """Tests for format_timestamp function."""
+
+    def test_formats_datetime_object(self):
+        """Test formatting of datetime object."""
+        from datetime import datetime
+        dt = datetime(2026, 2, 9, 14, 30, 0)
+        result = format_timestamp(dt)
+        assert result == "02:30 PM"
+
+    def test_formats_datetime_morning(self):
+        """Test formatting of morning datetime."""
+        from datetime import datetime
+        dt = datetime(2026, 2, 9, 8, 15, 0)
+        result = format_timestamp(dt)
+        assert result == "08:15 AM"
+
+    def test_returns_empty_string_for_none(self):
+        """Test that None returns empty string."""
+        result = format_timestamp(None)
+        assert result == ""
+
+    def test_returns_empty_string_for_empty_string(self):
+        """Test that empty string returns empty string."""
+        result = format_timestamp("")
+        assert result == ""
+
+    def test_converts_string_to_string(self):
+        """Test that string input is converted to string."""
+        result = format_timestamp("2026-02-09T14:30:00")
+        assert isinstance(result, str)
+        assert "2026-02-09T14:30:00" in result
+
+    def test_returns_empty_string_for_false(self):
+        """Test that False returns empty string."""
+        result = format_timestamp(False)
+        assert result == ""
+
+
+# ============== Tests for format_author_display ==============
+
+class TestFormatAuthorDisplay:
+    """Tests for format_author_display function."""
+
+    def test_formats_short_did(self):
+        """Test formatting of short DID (no truncation)."""
+        result = format_author_display("did:plc:short123")
+        assert result == "@did:plc:short123"
+
+    def test_formats_long_did_with_truncation(self):
+        """Test formatting of long DID with truncation."""
+        long_did = "did:plc:verylongdidvaluethatneedstobetruncated"
+        result = format_author_display(long_did)
+        assert result == f"@{long_did[:20]}..."
+        assert len(result) == 24  # 1 (@) + 20 (chars) + 3 (...)
+
+    def test_custom_max_length(self):
+        """Test with custom max_length parameter."""
+        long_did = "did:plc:verylongdidvaluethatneedstobetruncated"
+        result = format_author_display(long_did, max_length=10)
+        assert result == f"@{long_did[:10]}..."
+
+    def test_exact_max_length(self):
+        """Test DID exactly at max_length (no truncation needed)."""
+        did = "did:plc:1234567890"  # exactly 18 chars
+        result = format_author_display(did, max_length=20)
+        assert result == f"@{did}"
+        assert "..." not in result
+
+    def test_one_char_over_max_length(self):
+        """Test DID one character over max_length (triggers truncation)."""
+        did = "did:plc:12345678901"  # 19 chars
+        result = format_author_display(did, max_length=18)
+        assert result == f"@{did[:18]}..."
+
+    def test_empty_did(self):
+        """Test with empty DID string."""
+        result = format_author_display("")
+        assert result == "@"
 
 
 # ============== Tests for get_featured_posts ==============
