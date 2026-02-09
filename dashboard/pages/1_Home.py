@@ -5,11 +5,7 @@ from utils import (
     get_user_keywords,
     add_user_keyword,
     remove_user_keyword,
-<<<<<<< 70-semantics-implementation
     load_html_template
-=======
-    load_styled_component
->>>>>>> main
 )
 from psycopg2.extras import RealDictCursor
 import sys
@@ -37,10 +33,6 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
-<<<<<<< 70-semantics-implementation
-
-=======
->>>>>>> main
 def load_keywords():
     """Load user keywords from database."""
     if not ss.get("keywords_loaded", False):
@@ -116,16 +108,12 @@ def render_keywords_display():
     keywords = ss.get("keywords", [])
     if not keywords:
         st.info("No keywords added yet. Add some above to start tracking!")
-    
+
     cols = st.columns(4)
     for i, keyword in enumerate(keywords):
         with cols[i % 4]:
-<<<<<<< 70-semantics-implementation
-            styling = load_html_template("styling/home_keywords.html")
-=======
-            styling = load_styled_component("styling/keywords_gradient.html")
->>>>>>> main
-            st.markdown(styling.format(keyword=keyword),unsafe_allow_html=True)
+            styling = load_html_template("styling/keywords_gradient.html")
+            st.markdown(styling.format(keyword=keyword), unsafe_allow_html=True)
 
             if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
                 remove_keyword(keyword)
@@ -163,10 +151,10 @@ def render_getting_started(has_keywords):
         with col3:
             st.markdown("### Step 3: Set Up Alerts")
             st.markdown("""
-            Stay informed with smart alerts that notify you about significant 
+            Stay informed with smart alerts that notify you about significant
             changes in trends or sentiment for your tracked keywords.
             """)
-    
+
 def render_semantics_card():
     """Render the Semantics Dashboard card."""
     st.markdown("""
@@ -210,7 +198,7 @@ def render_keyword_comparisons_card():
 if __name__ == "__main__":
 
     configure_page()
-    
+
     # Custom CSS for buttons and fonts
     styling = load_html_template("styling/home_font_buttons.html")
     st.markdown(styling, unsafe_allow_html=True)
