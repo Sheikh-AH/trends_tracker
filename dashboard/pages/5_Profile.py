@@ -49,63 +49,62 @@ def load_keywords():
 
 def render_add_keyword_section():
     """Render the add keyword section."""
-    st.markdown("##### ➕ Add New Keyword")
     col1, col2 = st.columns([3, 1])
 
     with col1:
         new_keyword = st.text_input(
             "Enter keyword",
-            placeholder="e.g., matcha, tea, boba...",
+            placeholder="e.g. matcha, tea, boba...",
             label_visibility="collapsed"
         )
+        new_keyword = new_keyword.strip().lower()
 
     with col2:
-        if st.button("Add Keyword", use_container_width=True, type="primary"):
-            if new_keyword and new_keyword.strip():
-                keyword_clean = new_keyword.strip().lower()
-                if keyword_clean not in ss.keywords:
-                    # Add to database
-                    conn = get_db_connection()
-                    if conn and ss.get("user_id"):
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        add_user_keyword(cursor, ss.user_id, keyword_clean)
-                        conn.commit()
-                        cursor.close()
-                        ss.keywords.append(keyword_clean)
-                        st.success(f"Added '{keyword_clean}' to your keywords!")
-                        st.rerun()
-                else:
-                    st.warning(f"'{keyword_clean}' is already in your list.")
+        if st.button("Add Keyword", use_container_width=True, type="primary") and new_keyword:
+            if new_keyword not in ss.keywords:
+                conn = get_db_connection()
+                cursor = conn.cursor(cursor_factory=RealDictCursor)
+                add_user_keyword(
+                    cursor, ss.user_id, new_keyword)
+                conn.commit()
+                cursor.close()
+                ss.keywords.append(new_keyword)
+                st.success(
+                    f"Added '{new_keyword}' to your keywords!")
+                st.rerun()
             else:
-                st.warning("Please enter a valid keyword.")
+                st.warning(f"'{new_keyword}' is already in your list.")
 
+
+def remove_keyword(keyword):
+    """Remove keyword from user's list."""
+    conn = get_db_connection()
+    if conn and ss.get("user_id"):
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        remove_user_keyword(
+            cursor, ss.user_id, keyword)
+        conn.commit()
+        cursor.close()
+        ss.keywords.remove(keyword)
+        st.success(f"Removed '{keyword}'")
+        st.rerun()
 
 def render_keywords_display():
     """Render the current keywords display."""
 
     keywords = ss.get("keywords", [])
-    if keywords:
-        # Display in a grid
-        cols = st.columns(4)
-        for i, keyword in enumerate(keywords):
-            with cols[i % 4]:
-                styling = load_styled_component("styling/keywords_gradient.html")
-                st.markdown(styling.format(keyword=keyword),
+    if not keywords:
+        st.info("No keywords added yet. Add some above to start tracking!")
+
+    cols = st.columns(4)
+    for i, keyword in enumerate(keywords):
+        with cols[i % 4]:
+            styling = load_styled_component("styling/keywords_gradient.html")
+            st.markdown(styling.format(keyword=keyword),
                         unsafe_allow_html=True)
 
-                if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
-                    # Remove from database
-                    conn = get_db_connection()
-                    if conn and ss.get("user_id"):
-                        cursor = conn.cursor(cursor_factory=RealDictCursor)
-                        remove_user_keyword(cursor, ss.user_id, keyword)
-                        conn.commit()
-                        cursor.close()
-                        ss.keywords.remove(keyword)
-                        st.success(f"Removed '{keyword}'")
-                        st.rerun()
-    else:
-        st.info("No keywords added yet. Add some above to start tracking!")
+            if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
+                remove_keyword(keyword)
 
 
 if __name__ == "__main__":
