@@ -824,3 +824,28 @@ def diversify_keywords(
 
     return diversified
 
+
+# ============== Data Formatting Functions ==============
+def convert_sentiment_score(sentiment_raw) -> float:
+    """Convert sentiment score to float, handling various input types."""
+    try:
+        return float(sentiment_raw) if sentiment_raw is not None else 0.0
+    except (ValueError, TypeError):
+        return 0.0
+
+
+def format_timestamp(posted_at) -> str:
+    """Format timestamp to HH:MM AM/PM or return empty string if invalid."""
+    if not posted_at:
+        return ''
+    if hasattr(posted_at, 'strftime'):
+        return posted_at.strftime('%I:%M %p')
+    return str(posted_at)
+
+
+def format_author_display(author_did: str, max_length: int = 20) -> str:
+    """Format author DID with @ prefix and truncate if longer than max_length."""
+    if len(author_did) > max_length:
+        return f"@{author_did[:max_length]}..."
+    return f"@{author_did}"
+

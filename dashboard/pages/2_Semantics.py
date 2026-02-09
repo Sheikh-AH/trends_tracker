@@ -26,7 +26,10 @@ from utils import (
     extract_keywords_yake,
     diversify_keywords,
     uri_to_url,
-    render_sidebar
+    render_sidebar,
+    convert_sentiment_score,
+    format_timestamp,
+    format_author_display
 )
 from psycopg2.extras import RealDictCursor
 
@@ -308,6 +311,29 @@ def get_cached_posts_by_date(_conn, keyword: str, date_str: str, limit: int = 10
     return get_posts_by_date(_conn, keyword, date_obj, limit)
 
 
+def _render_post_card(text: str, author_display: str, time_str: str, emoji: str, sentiment: float, post_url: str):
+    """Render a single post card."""
+    view_post_link = f' • <a href="{post_url}" target="_blank">View Post</a>' if post_url else ''
+    
+    html = f"""
+    <div style="
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        padding: 15px;
+        border-radius: 10px;
+        margin-bottom: 10px;
+        border-left: 4px solid #0D47A1;
+    ">
+        <p style="margin-bottom: 8px; font-size: 14px;">{text}</p>
+        <div style="font-size: 12px; color: #666;">
+            {author_display} • {time_str} • {emoji} {sentiment:.2f}{view_post_link}
+        </div>
+    </div>
+    """
+    
+    with st.container():
+        st.markdown(html, unsafe_allow_html=True)
+
+
 def render_day_posts(keyword: str):
     """Render posts for a selected date."""
     st.markdown("### 📋 Posts by Date")
@@ -325,59 +351,36 @@ def render_day_posts(keyword: str):
         key="post_seeker_date"
     )
 
-    if selected_date:
-        date_str = selected_date.strftime("%Y-%m-%d")
-        posts = get_cached_posts_by_date(conn, keyword, date_str, limit=10)
+    if not selected_date:
+        return
 
-        if posts:
-            st.markdown(f"**Showing {len(posts)} random posts from {selected_date.strftime('%B %d, %Y')}:**")
+    # Fetch posts
+    date_str = selected_date.strftime("%Y-%m-%d")
+    posts = get_cached_posts_by_date(conn, keyword, date_str, limit=10)
 
-            for post in posts:
-                sentiment_raw = post.get('sentiment_score', 0)
-                try:
-                    sentiment = float(sentiment_raw) if sentiment_raw is not None else 0.0
-                except (ValueError, TypeError):
-                    sentiment = 0.0
-                emoji = get_sentiment_emoji(sentiment)
-                text = post.get('text', '')
-                author_did = post.get('author_did', '')
-                post_uri = post.get('post_uri', '')
-                posted_at = post.get('posted_at')
+    if not posts:
+        st.info(f"No posts found for {selected_date.strftime('%B %d, %Y')}")
+        return
 
-                # Format timestamp
-                if posted_at:
-                    if hasattr(posted_at, 'strftime'):
-                        time_str = posted_at.strftime('%I:%M %p')
-                    else:
-                        time_str = str(posted_at)
-                else:
-                    time_str = ''
+    # Display posts
+    st.markdown(f"**Showing {len(posts)} random posts from {selected_date.strftime('%B %d, %Y')}:**")
 
-                # Get post URL
-                post_url = uri_to_url(post_uri) if post_uri else ''
+    for post in posts:
+        # Extract post data
+        sentiment = convert_sentiment_score(post.get('sentiment_score', 0))
+        emoji = get_sentiment_emoji(sentiment)
+        text = post.get('text', '')
+        author_did = post.get('author_did', '')
+        post_uri = post.get('post_uri', '')
+        posted_at = post.get('posted_at')
 
-                # Truncate author DID for display
-                author_display = f"@{author_did[:20]}..." if len(author_did) > 20 else f"@{author_did}"
+        # Format for display
+        time_str = format_timestamp(posted_at)
+        post_url = uri_to_url(post_uri) if post_uri else ''
+        author_display = format_author_display(author_did)
 
-                # Render post card
-                with st.container():
-                    st.markdown(f"""
-                    <div style="
-                        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-                        padding: 15px;
-                        border-radius: 10px;
-                        margin-bottom: 10px;
-                        border-left: 4px solid #0D47A1;
-                    ">
-                        <p style="margin-bottom: 8px; font-size: 14px;">{text}</p>
-                        <div style="font-size: 12px; color: #666;">
-                            {author_display} • {time_str} • {emoji} {sentiment:.2f}
-                            {f' • <a href="{post_url}" target="_blank">View Post</a>' if post_url else ''}
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-        else:
-            st.info(f"No posts found for {selected_date.strftime('%B %d, %Y')}")
+        # Render
+        _render_post_card(text, author_display, time_str, emoji, sentiment, post_url)
 
 
 def render_kpi_metrics(metrics: dict):

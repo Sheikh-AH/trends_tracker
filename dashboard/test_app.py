@@ -33,7 +33,10 @@ from utils import (
     get_post_engagement,
     uri_to_url,
     get_featured_posts,
-    get_posts_by_date
+    get_posts_by_date,
+    convert_sentiment_score,
+    format_timestamp,
+    format_author_display
 )
 
 
@@ -1220,6 +1223,138 @@ class TestGetPostEngagement:
             result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
 
         assert result == {"likes": 0, "reposts": 0, "comments": 0}
+
+
+# ============== Tests for convert_sentiment_score ==============
+
+class TestConvertSentimentScore:
+    """Tests for convert_sentiment_score function."""
+
+    def test_converts_float_string_to_float(self):
+        """Test conversion of float string to float."""
+        result = convert_sentiment_score("0.75")
+        assert result == 0.75
+        assert isinstance(result, float)
+
+    def test_converts_float_to_float(self):
+        """Test that float input returns float output."""
+        result = convert_sentiment_score(0.5)
+        assert result == 0.5
+        assert isinstance(result, float)
+
+    def test_converts_int_to_float(self):
+        """Test conversion of integer to float."""
+        result = convert_sentiment_score(1)
+        assert result == 1.0
+        assert isinstance(result, float)
+
+    def test_handles_none(self):
+        """Test that None returns 0.0."""
+        result = convert_sentiment_score(None)
+        assert result == 0.0
+
+    def test_handles_invalid_string(self):
+        """Test that invalid string returns 0.0."""
+        result = convert_sentiment_score("not_a_number")
+        assert result == 0.0
+
+    def test_handles_empty_string(self):
+        """Test that empty string returns 0.0."""
+        result = convert_sentiment_score("")
+        assert result == 0.0
+
+    def test_handles_negative_float_string(self):
+        """Test conversion of negative float string."""
+        result = convert_sentiment_score("-0.25")
+        assert result == -0.25
+
+    def test_handles_zero_string(self):
+        """Test conversion of zero string."""
+        result = convert_sentiment_score("0")
+        assert result == 0.0
+
+
+# ============== Tests for format_timestamp ==============
+
+class TestFormatTimestamp:
+    """Tests for format_timestamp function."""
+
+    def test_formats_datetime_object(self):
+        """Test formatting of datetime object."""
+        from datetime import datetime
+        dt = datetime(2026, 2, 9, 14, 30, 0)
+        result = format_timestamp(dt)
+        assert result == "02:30 PM"
+
+    def test_formats_datetime_morning(self):
+        """Test formatting of morning datetime."""
+        from datetime import datetime
+        dt = datetime(2026, 2, 9, 8, 15, 0)
+        result = format_timestamp(dt)
+        assert result == "08:15 AM"
+
+    def test_returns_empty_string_for_none(self):
+        """Test that None returns empty string."""
+        result = format_timestamp(None)
+        assert result == ""
+
+    def test_returns_empty_string_for_empty_string(self):
+        """Test that empty string returns empty string."""
+        result = format_timestamp("")
+        assert result == ""
+
+    def test_converts_string_to_string(self):
+        """Test that string input is converted to string."""
+        result = format_timestamp("2026-02-09T14:30:00")
+        assert isinstance(result, str)
+        assert "2026-02-09T14:30:00" in result
+
+    def test_returns_empty_string_for_false(self):
+        """Test that False returns empty string."""
+        result = format_timestamp(False)
+        assert result == ""
+
+
+# ============== Tests for format_author_display ==============
+
+class TestFormatAuthorDisplay:
+    """Tests for format_author_display function."""
+
+    def test_formats_short_did(self):
+        """Test formatting of short DID (no truncation)."""
+        result = format_author_display("did:plc:short123")
+        assert result == "@did:plc:short123"
+
+    def test_formats_long_did_with_truncation(self):
+        """Test formatting of long DID with truncation."""
+        long_did = "did:plc:verylongdidvaluethatneedstobetruncated"
+        result = format_author_display(long_did)
+        assert result == f"@{long_did[:20]}..."
+        assert len(result) == 25  # 1 (@) + 20 (chars) + 3 (...)
+
+    def test_custom_max_length(self):
+        """Test with custom max_length parameter."""
+        long_did = "did:plc:verylongdidvaluethatneedstobetruncated"
+        result = format_author_display(long_did, max_length=10)
+        assert result == f"@{long_did[:10]}..."
+
+    def test_exact_max_length(self):
+        """Test DID exactly at max_length (no truncation needed)."""
+        did = "did:plc:1234567890"  # exactly 18 chars
+        result = format_author_display(did, max_length=20)
+        assert result == f"@{did}"
+        assert "..." not in result
+
+    def test_one_char_over_max_length(self):
+        """Test DID one character over max_length (triggers truncation)."""
+        did = "did:plc:12345678901"  # 19 chars
+        result = format_author_display(did, max_length=18)
+        assert result == f"@{did[:18]}..."
+
+    def test_empty_did(self):
+        """Test with empty DID string."""
+        result = format_author_display("")
+        assert result == "@"
 
 
 # ============== Tests for get_featured_posts ==============
