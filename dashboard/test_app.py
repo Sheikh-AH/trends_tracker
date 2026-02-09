@@ -1330,7 +1330,7 @@ class TestFormatAuthorDisplay:
         long_did = "did:plc:verylongdidvaluethatneedstobetruncated"
         result = format_author_display(long_did)
         assert result == f"@{long_did[:20]}..."
-        assert len(result) == 25  # 1 (@) + 20 (chars) + 3 (...)
+        assert len(result) == 24  # 1 (@) + 20 (chars) + 3 (...)
 
     def test_custom_max_length(self):
         """Test with custom max_length parameter."""

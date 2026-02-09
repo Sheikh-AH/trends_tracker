@@ -838,3 +838,18 @@ def format_author_display(author_did: str, max_length: int = 20) -> str:
         return f"@{author_did[:max_length]}..."
     return f"@{author_did}"
 
+
+# ============== HTML Template Functions ==============
+_HTML_TEMPLATE_CACHE = {}
+
+
+def load_html_template(filepath: str) -> str:
+    """Load HTML template from file, with caching."""
+    if filepath not in _HTML_TEMPLATE_CACHE:
+        try:
+            with open(filepath, 'r') as f:
+                _HTML_TEMPLATE_CACHE[filepath] = f.read()
+        except FileNotFoundError:
+            logger.error(f"HTML template not found: {filepath}")
+            return ""
+    return _HTML_TEMPLATE_CACHE[filepath]
