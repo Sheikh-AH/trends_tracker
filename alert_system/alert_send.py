@@ -112,98 +112,49 @@ def truncate_text(text: str, max_length: int = 200) -> str:
     return text or ""
 
 
-def build_html_email(keyword: str, current_count: int, posts: list[dict]) -> str:
-    """Builds a styled HTML email body."""
+def load_email_template() -> str:
+    """Loads the HTML email template from file."""
+    template_path = os.path.join(os.path.dirname(__file__), "alert_email.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def build_html_email(keyword: str, current_count: int, posts: list[dict], logo_url: str = None) -> str:
+    """Builds a styled HTML email body using the template."""
     search_url = f"https://bsky.app/search?q={urllib.parse.quote(keyword)}"
 
     posts_html = ""
-    for post in posts:
-        post_text = truncate_text(post.get("text", ""))
-        time_ago = format_post_time(post.get("posted_at"))
-        # Extract handle from author_did or use a placeholder
-        author = post.get("author_did", "user")
-        if author and author.startswith("did:"):
-            author = "Bluesky User"
+    if posts:
+        for post in posts:
+            post_text = truncate_text(post.get("text", ""))
+            time_ago = format_post_time(post.get("posted_at"))
+            author = post.get("author_did", "user")
+            if author and author.startswith("did:"):
+                author = "Bluesky User"
 
-        posts_html += f"""
-        <div style="background-color: #f8f9fa; border-radius: 12px; padding: 16px; margin-bottom: 12px; border-left: 4px solid #0085ff;">
-            <p style="margin: 0 0 8px 0; color: #333; font-size: 14px; line-height: 1.5;">{post_text}</p>
-            <p style="margin: 0; color: #666; font-size: 12px;">🦋 {author} · {time_ago}</p>
-        </div>
-        """
+            posts_html += f"""
+            <div style="background-color: #f8fafc; padding: 16px; margin-bottom: 12px; border-left: 4px solid #1976D2;">
+                <p style="margin: 0 0 8px 0; color: #334155; font-size: 14px; line-height: 1.6;">{post_text}</p>
+                <p style="margin: 0; color: #64748b; font-size: 12px;">{author} · {time_ago}</p>
+            </div>
+            """
+    else:
+        posts_html = '<p style="color: #64748b; font-style: italic;">No recent posts available</p>'
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    </head>
-    <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f0f2f5;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #f0f2f5;">
-            <tr>
-                <td align="center" style="padding: 40px 20px;">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 500px; background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);">
-                        
-                        <!-- Header -->
-                        <tr>
-                            <td style="background: linear-gradient(135deg, #0085ff 0%, #00c6ff 100%); padding: 32px; text-align: center; border-radius: 16px 16px 0 0;">
-                                <div style="font-size: 48px; margin-bottom: 8px;">📈</div>
-                                <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Spike Alert!</h1>
-                            </td>
-                        </tr>
-                        
-                        <!-- Main Content -->
-                        <tr>
-                            <td style="padding: 32px;">
-                                <!-- Keyword Badge -->
-                                <div style="text-align: center; margin-bottom: 24px;">
-                                    <span style="display: inline-block; background-color: #e8f4ff; color: #0085ff; padding: 8px 20px; border-radius: 20px; font-size: 18px; font-weight: 600;">
-                                        #{keyword}
-                                    </span>
-                                </div>
-                                
-                                <!-- Stats Box -->
-                                <div style="background-color: #fff8e6; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 24px;">
-                                    <div style="font-size: 36px; font-weight: 700; color: #f59e0b;">{current_count}</div>
-                                    <div style="color: #666; font-size: 14px;">posts in the last 5 minutes</div>
-                                </div>
-                                
-                                <p style="color: #333; font-size: 15px; line-height: 1.6; text-align: center; margin-bottom: 24px;">
-                                    Your keyword <strong>"{keyword}"</strong> is trending on Bluesky right now! Here are some recent posts:
-                                </p>
-                                
-                                <!-- Recent Posts -->
-                                <div style="margin-bottom: 24px;">
-                                    {posts_html if posts_html else '<p style="color: #666; text-align: center; font-style: italic;">No recent posts available</p>'}
-                                </div>
-                                
-                                <!-- CTA Button -->
-                                <div style="text-align: center;">
-                                    <a href="{search_url}" style="display: inline-block; background: linear-gradient(135deg, #0085ff 0%, #00c6ff 100%); color: #ffffff; text-decoration: none; padding: 14px 32px; border-radius: 25px; font-size: 16px; font-weight: 600; box-shadow: 0 4px 12px rgba(0, 133, 255, 0.4);">
-                                        🔍 See all posts on Bluesky
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        
-                        <!-- Footer -->
-                        <tr>
-                            <td style="padding: 24px 32px; text-align: center; border-top: 1px solid #eee;">
-                                <p style="margin: 0; color: #999; font-size: 12px;">
-                                    You're receiving this because you enabled spike alerts for this keyword.<br>
-                                    Manage your preferences in your dashboard.
-                                </p>
-                            </td>
-                        </tr>
-                        
-                    </table>
-                </td>
-            </tr>
-        </table>
-    </body>
-    </html>
-    """
+    # Build logo section (same pattern as weekly report)
+    if logo_url:
+        logo_section = f'<img src="{logo_url}" alt="TrendFunnel" style="height: 40px; width: auto;"><span style="font-size: 20px; font-weight: 700; color: #0D47A1; margin-left: 12px; font-family: Ubuntu, -apple-system, BlinkMacSystemFont, sans-serif; vertical-align: middle;">TrendFunnel</span>'
+    else:
+        logo_section = '<span style="font-size: 20px; font-weight: 700; color: #0D47A1; font-family: Ubuntu, -apple-system, BlinkMacSystemFont, sans-serif;">TrendFunnel</span>'
+
+    template = load_email_template()
+
+    html = template.replace("{{logo_section}}", logo_section)
+    html = html.replace("{{keyword}}", keyword)
+    html = html.replace("{{current_count}}", str(current_count))
+    html = html.replace("{{posts_html}}", posts_html)
+    html = html.replace("{{search_url}}", search_url)
+
     return html
 
 
@@ -211,13 +162,15 @@ def send_email(to_email: str, keyword: str, current_count: int) -> bool:
     """Sends an email alert via AWS SES."""
     ses = boto3.client('ses', region_name=os.getenv("AWS_REGION"))
 
-    subject = f"📈 Spike Alert: #{keyword} is trending!"
+    subject = f" Spike Alert: #{keyword} is trending!"
 
     # Get recent posts for the email
     posts = get_recent_posts_for_keyword(keyword, limit=3)
 
     # Build HTML email
-    html_body = build_html_email(keyword, current_count, posts)
+    logo_url = "https://c21-trends-funnel-assets.s3.eu-west-2.amazonaws.com/logo_blue.png"
+    html_body = build_html_email(
+        keyword, current_count, posts, logo_url=logo_url)
 
     try:
         ses.send_email(

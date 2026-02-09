@@ -774,7 +774,7 @@ resource "aws_lambda_function" "llm_summary" {
   }
 }
 
-# IAM Role for LLM Summary Scheduler
+#IAM Role for LLM Summary Scheduler
 resource "aws_iam_role" "llm_summary_scheduler_role" {
   name = "c21-trends-llm-summary-scheduler-role"
 
