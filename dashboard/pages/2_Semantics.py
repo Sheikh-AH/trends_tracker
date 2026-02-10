@@ -214,17 +214,9 @@ def render_sentiment_calendar(keyword: str, days: int = 30):
         else:
             st.info("No sentiment data this month.")
 
+def load_keywords(conn) -> list:
+    """Check for user keywords and load them into session state."""
 
-# ---------- MAIN ----------
-def main():
-    col_title, col_keyword, col_period, col_remove = st.columns([
-                                                                            3, 2, 2, 2])
-    with col_title:
-        st.markdown("## ☁️ Semantic Cloud")
-
-    conn = st.session_state.db_conn
-
-    # Load keywords
     if not st.session_state.get("keywords_loaded", False):
         if conn and st.session_state.get("user_id"):
             cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -238,33 +230,38 @@ def main():
         st.warning("No keywords tracked. Add some in Manage Topics.")
         st.write(st.session_state)
         st.stop()
+    
+    return keywords
 
-    # Dropdowns
+
+if __name__ == "__main__":
+    configure_page()
+    render_sidebar()
+
+    col_title, col_keyword, col_period, col_remove = st.columns([3, 2, 2, 2])
+    with col_title:
+        st.markdown("## ☁️ Semantic Cloud")
+
+    conn = st.session_state.db_conn
+
+    keywords = load_keywords(conn)
     with col_keyword:
         selected_keyword = st.selectbox(
             "Select Keyword", options=keywords, index=0)
-    days_options = {"Last 1 day": 1, "Last 2 days": 2, "Last 3 days": 3, "Last 4 days": 4,
-                    "Last 5 days": 5, "Last 6 days": 6, "Last 7 days": 7, "Last 14 days": 14,
-                    "Last 30 days": 30, "Last 90 days": 90}
+    
+    days_options = {"Last 1 day": 1, "Last 3 days": 3, "Last 7 days": 7,
+                    "Last 14 days": 14, "Last 30 days": 30, "Last 90 days": 90}
     with col_period:
-        selected_period = st.selectbox(
-            "Time Period", options=list(days_options.keys()))
+        selected_period = st.selectbox("Time Period", 
+                                       options=list(days_options.keys()))
         days = days_options[selected_period]
 
-    # Remove words
     word_freq = get_keyword_word_cloud_data(conn, selected_keyword, days)
     with col_remove:
-        removed_words = st.multiselect(
-            "Remove words from analysis", options=sorted(word_freq.keys()))
-    filtered_word_freq = {k: v for k,
-                          v in word_freq.items() if k not in removed_words}
+        removed_words = st.multiselect("Remove words from analysis", 
+                                       options=sorted(word_freq.keys()))
+    filtered_word_freq = {k: v for k,v in word_freq.items() if k not in removed_words}
+    
     render_wordcloud(filtered_word_freq)
     render_sentiment_calendar(selected_keyword, days)
     st.markdown("---")
-    render_sidebar()
-
-
-# ============== Entry Point ==============
-if __name__ == "__main__":
-    configure_page()
-    main()
