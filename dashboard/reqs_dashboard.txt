@@ -18,3 +18,5 @@ requests
 
 # Keyword extraction
 yake
+
+streamlit_echarts
