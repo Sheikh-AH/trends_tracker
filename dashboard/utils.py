@@ -371,16 +371,10 @@ def get_latest_post_text_corpus(
 
 
 # ============== UI Functions ==============
+@st.cache_data(ttl=3600)
 def render_sidebar():
     """Render the standard sidebar across all pages."""
     with st.sidebar:
-        st.markdown(f"### 👋 Hello, {st.session_state.get('username', 'User')}!")
-        st.markdown("---")
-        st.markdown("### 📈 Quick Stats")
-        st.metric("Keywords Tracked", len(st.session_state.get("keywords", [])))
-        st.metric("Email Reports Enabled", "Yes" if st.session_state.get("emails_enabled", False) else "No")
-        st.metric("Alerts Enabled", "Yes" if st.session_state.get("alerts_enabled", False) else "No")
-        st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.username = ""
@@ -391,6 +385,7 @@ def render_sidebar():
 
 
 # ============== Sentiment Functions ==============
+@st.cache_data(ttl=3600)
 def get_sentiment_emoji(sentiment_score: float) -> str:
     """Get emoji based on sentiment score with gradient smileys."""
     if sentiment_score >= 0.4:
@@ -479,32 +474,6 @@ def diversify_keywords(
             break
 
     return diversified
-
-
-# ============== Data Formatting Functions ==============
-def convert_sentiment_score(sentiment_raw) -> float:
-    """Convert sentiment score to float, handling various input types."""
-    try:
-        return float(sentiment_raw) if sentiment_raw is not None else 0.0
-    except (ValueError, TypeError):
-        return 0.0
-
-
-def format_timestamp(posted_at) -> str:
-    """Format timestamp to HH:MM AM/PM or return empty string if invalid."""
-    if not posted_at:
-        return ''
-    if hasattr(posted_at, 'strftime'):
-        return posted_at.strftime('%I:%M %p')
-    return str(posted_at)
-
-
-def format_author_display(author_did: str, max_length: int = 20) -> str:
-    """Format author DID with @ prefix and truncate if longer than max_length."""
-    if len(author_did) > max_length:
-        return f"@{author_did[:max_length]}..."
-    return f"@{author_did}"
-
 
 # ============== HTML Template Functions ==============
 _HTML_TEMPLATE_CACHE = {}
