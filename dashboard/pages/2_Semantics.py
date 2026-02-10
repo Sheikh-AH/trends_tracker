@@ -1,4 +1,4 @@
-"""Home Dashboard - Main visualization page with engaging analytics."""
+"""Semantics page showing keyword word cloud and sentiment calendar."""
 
 from streamlit_echarts import st_echarts
 import math
@@ -52,7 +52,7 @@ def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], d
 @st.cache_data(ttl=3600)
 def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict:
     corpus = get_latest_post_text_corpus(
-        _conn, keyword, day_limit=day_limit, post_count_limit=10000)
+        _conn, keyword, day_limit=day_limit, post_count_limit=1000)
     if not corpus:
         return {}
     raw_keywords = extract_keywords_yake(corpus, num_keywords=100)

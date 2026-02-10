@@ -5,7 +5,8 @@ from utils import (
     get_user_keywords,
     add_user_keyword,
     remove_user_keyword,
-    load_html_template
+    load_html_template,
+    render_sidebar
 )
 from psycopg2.extras import RealDictCursor
 import sys
@@ -207,6 +208,7 @@ def render_keyword_comparisons_card():
 if __name__ == "__main__":
 
     configure_page()
+    render_sidebar()
 
     # Custom CSS for buttons and fonts
     styling = load_html_template("styling/home_font_buttons.html")
