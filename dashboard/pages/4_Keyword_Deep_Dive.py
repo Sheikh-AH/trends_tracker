@@ -4,7 +4,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from psycopg2.extras import RealDictCursor
-from utils import get_db_connection, get_user_keywords, _load_sql_query
+from utils import get_db_connection, get_user_keywords, _load_sql_query, render_sidebar
 
 
 def configure_page() -> None:
@@ -20,12 +20,12 @@ def configure_page() -> None:
         st.stop()
 
 
-def _should_load_keywords() -> bool:
+def should_load_keywords() -> bool:
     """Check if keywords should be loaded."""
     return not st.session_state.get("keywords_loaded", False)
 
 
-def _fetch_keywords() -> list:
+def fetch_keywords() -> list:
     """Fetch keywords for the current user."""
     conn = get_db_connection()
     if not conn or not st.session_state.get("user_id"):
@@ -38,12 +38,12 @@ def _fetch_keywords() -> list:
 
 def load_keywords() -> None:
     """Load keywords from database if needed."""
-    if _should_load_keywords():
-        st.session_state.keywords = _fetch_keywords()
+    if should_load_keywords():
+        st.session_state.keywords = fetch_keywords()
         st.session_state.keywords_loaded = True
 
 
-def _time_periods() -> dict:
+def time_periods() -> dict:
     """Return supported time periods."""
     return {
         "7 days": 7,
@@ -55,7 +55,7 @@ def _time_periods() -> dict:
     }
 
 
-def _select_keyword() -> str:
+def select_keyword() -> str:
     """Render keyword select box."""
     return st.selectbox(
         "Select Keyword",
@@ -65,9 +65,9 @@ def _select_keyword() -> str:
     )
 
 
-def _select_period() -> int:
+def select_period() -> int:
     """Render time period select box."""
-    periods = _time_periods()
+    periods = time_periods()
     selected = st.selectbox(
         "Select Time Period",
         options=list(periods.keys()),
@@ -81,9 +81,9 @@ def render_filters() -> tuple:
     """Render filter dropdowns for keyword and time period selection."""
     col1, col2 = st.columns(2)
     with col1:
-        keyword = _select_keyword()
+        keyword = select_keyword()
     with col2:
-        days = _select_period()
+        days = select_period()
     return keyword, days
 
 
@@ -151,7 +151,7 @@ def get_sentiment_distribution(keyword: str, days: int) -> pd.DataFrame:
         cursor.close()
 
 
-def _sentiment_counts(df_sentiment: pd.DataFrame) -> tuple:
+def sentiment_counts(df_sentiment: pd.DataFrame) -> tuple:
     """Return positive and negative counts."""
     pos = df_sentiment[df_sentiment["sentiment"] == "Positive"]["count"].sum()
     neg = df_sentiment[df_sentiment["sentiment"] == "Negative"]["count"].sum()
@@ -163,7 +163,7 @@ def compute_kpi_metrics(df_daily: pd.DataFrame, df_sentiment: pd.DataFrame) -> d
     if df_daily.empty or df_sentiment.empty:
         return None
     total_sentiment = df_sentiment["count"].sum()
-    positive_count, negative_count = _sentiment_counts(df_sentiment)
+    positive_count, negative_count = sentiment_counts(df_sentiment)
     return {
         "total_mentions": int(df_daily["total"].sum()),
         "posts": int(df_daily["posts"].sum()),
@@ -174,14 +174,14 @@ def compute_kpi_metrics(df_daily: pd.DataFrame, df_sentiment: pd.DataFrame) -> d
     }
 
 
-def _format_dates(df: pd.DataFrame) -> pd.DataFrame:
+def format_dates(df: pd.DataFrame) -> pd.DataFrame:
     """Ensure date column is datetime."""
     df = df.copy()
     df["date"] = pd.to_datetime(df["date"])
     return df
 
 
-def _daily_long(df_daily: pd.DataFrame) -> pd.DataFrame:
+def daily_long(df_daily: pd.DataFrame) -> pd.DataFrame:
     """Return long-form daily metrics."""
     return df_daily.melt(
         id_vars=["date"],
@@ -196,7 +196,7 @@ def render_activity_over_time(df_daily: pd.DataFrame, keyword: str):
     if df_daily.empty:
         st.warning(f"No data available for '{keyword}' in the last period")
         return None
-    df_long = _daily_long(_format_dates(df_daily))
+    df_long = daily_long(format_dates(df_daily))
     return (
         alt.Chart(df_long)
         .mark_line(point=True)
@@ -248,9 +248,9 @@ def render_sentiment_distribution(df_sentiment: pd.DataFrame, keyword: str):
     )
 
 
-def _rolling_sentiment(df_daily: pd.DataFrame, window: int) -> pd.DataFrame:
+def rolling_sentiment(df_daily: pd.DataFrame, window: int) -> pd.DataFrame:
     """Compute rolling sentiment."""
-    df = _format_dates(df_daily).sort_values("date")
+    df = format_dates(df_daily).sort_values("date")
     df["rolling_sentiment"] = df["avg_sentiment"].rolling(
         window=window, min_periods=1
     ).mean()
@@ -262,7 +262,7 @@ def render_sentiment_over_time(df_daily: pd.DataFrame, keyword: str, window: int
     if df_daily.empty:
         st.warning("No sentiment trend data available for this period.")
         return None
-    df = _rolling_sentiment(df_daily, window)
+    df = rolling_sentiment(df_daily, window)
     line_chart = (
         alt.Chart(df)
         .mark_line(point=True)
@@ -307,7 +307,7 @@ def render_kpi_metrics(metrics: dict | None, keyword: str) -> None:
     col6.metric("Negative %", f"{metrics['pct_negative'] * 100:.1f}%")
 
 
-def _volume_reference_lines(df_daily: pd.DataFrame):
+def volume_reference_lines(df_daily: pd.DataFrame):
     """Create volume and sentiment reference lines."""
     vline = alt.Chart(pd.DataFrame({"x": [df_daily["total"].mean()]})).mark_rule(
         strokeDash=[4, 4], color="gray").encode(x="x:Q")
@@ -321,7 +321,7 @@ def render_sentiment_volume_quadrant(df_daily: pd.DataFrame, keyword: str):
     if df_daily.empty:
         st.warning("No data available for sentiment-volume analysis.")
         return None
-    df_daily = _format_dates(df_daily)
+    df_daily = format_dates(df_daily)
     chart = (
         alt.Chart(df_daily)
         .mark_circle(opacity=0.8)
@@ -343,7 +343,7 @@ def render_sentiment_volume_quadrant(df_daily: pd.DataFrame, keyword: str):
         )
         .properties(width="container", height=350)
     )
-    vline, hline = _volume_reference_lines(df_daily)
+    vline, hline = volume_reference_lines(df_daily)
     return (chart + vline + hline).properties(
         title=f"Sentiment × Volume – {keyword.title()}",
         width="container",
@@ -351,21 +351,21 @@ def render_sentiment_volume_quadrant(df_daily: pd.DataFrame, keyword: str):
     )
 
 
-def _render_header() -> None:
+def render_header() -> None:
     """Render page header."""
     st.title("Keyword Deep Dive")
     st.markdown("Detailed analytics and insights for individual keywords")
     st.markdown("---")
 
 
-def _fetch_data(selected_keyword: str, days: int) -> tuple:
+def fetch_data(selected_keyword: str, days: int) -> tuple:
     """Fetch cached query data."""
     df_daily = get_daily_analytics(selected_keyword, days)
     df_sentiment = get_sentiment_distribution(selected_keyword, days)
     return df_daily, df_sentiment
 
 
-def _render_activity_and_sentiment(df_daily: pd.DataFrame, df_sentiment: pd.DataFrame, keyword: str) -> None:
+def render_activity_and_sentiment(df_daily: pd.DataFrame, df_sentiment: pd.DataFrame, keyword: str) -> None:
     """Render activity and sentiment charts."""
     col1, col2 = st.columns([2, 1])
     activity_chart = render_activity_over_time(df_daily, keyword)
@@ -376,7 +376,7 @@ def _render_activity_and_sentiment(df_daily: pd.DataFrame, df_sentiment: pd.Data
         col2.altair_chart(sentiment_chart, use_container_width=True)
 
 
-def _render_trends_and_quadrant(df_daily: pd.DataFrame, keyword: str) -> None:
+def render_trends_and_quadrant(df_daily: pd.DataFrame, keyword: str) -> None:
     """Render sentiment trend and volume quadrant charts."""
     col1, col2 = st.columns(2)
     sentiment_trend_chart = render_sentiment_over_time(df_daily, keyword)
@@ -392,16 +392,17 @@ def main() -> None:
     """Run the Streamlit app."""
     configure_page()
     load_keywords()
-    _render_header()
+    render_sidebar()
+    render_header()
     selected_keyword, days = render_filters()
     st.markdown("---")
-    df_daily, df_sentiment = _fetch_data(selected_keyword, days)
+    df_daily, df_sentiment = fetch_data(selected_keyword, days)
     metrics = compute_kpi_metrics(df_daily, df_sentiment)
     render_kpi_metrics(metrics, selected_keyword)
     st.markdown("---")
-    _render_activity_and_sentiment(df_daily, df_sentiment, selected_keyword)
+    render_activity_and_sentiment(df_daily, df_sentiment, selected_keyword)
     st.markdown("---")
-    _render_trends_and_quadrant(df_daily, selected_keyword)
+    render_trends_and_quadrant(df_daily, selected_keyword)
 
 
 if __name__ == "__main__":
