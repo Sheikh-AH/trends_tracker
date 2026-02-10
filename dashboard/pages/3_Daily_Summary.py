@@ -50,16 +50,14 @@ def stream_summary(summary):
         yield word + " "
         sleep(0.01)
 
-@st.cache_data(ttl=3600)
-def get_user_posts(_conn, user_id: int) -> list:
-    """Retrieve all keywords for a user."""
-    query = _load_sql_query("queries/user_posts.sql")
+def get_donut_data(_conn, user_id: int):
+    """Fetch data for donut charts."""
+    query = _load_sql_query("get_sentiment_by_post_type.sql")
     return read_sql(query, _conn, params=(user_id,))
 
-@st.cache_data(ttl=3600)
 def gen_keyword_graphic(_conn, user_id: int):
     """Generate donut charts for each keyword showing post type proportions and sentiment."""
-    user_posts = get_user_posts(_conn, user_id)
+    user_posts = get_donut_data(_conn, user_id)
 
     if user_posts.empty:
         st.info("No posts found for your tracked keywords in the last 24 hours.")
@@ -73,16 +71,14 @@ def gen_keyword_graphic(_conn, user_id: int):
             # Data for the donut
             proportions = [
                 row['original_post_proportion'] or 0,
-                row['repost_proportion'] or 0,
                 row['reply_proportion'] or 0
             ]
             sentiments = [
                 row['original_post_sentiment'] or 0.5,
-                row['repost_sentiment'] or 0.5,
                 row['reply_sentiment'] or 0.5
             ]
-            labels = ['Posts', 'Reposts', 'Replies']
-            colors = ['#1e3a5f', '#EF553B', '#00CC96']
+            labels = ['Posts', 'Replies']
+            colors = ['#1e3a5f', '#00CC96']
 
             widths = [0.15 + 0.45 * ((s + 1) / 2) for s in sentiments]
 
@@ -106,8 +102,6 @@ def gen_keyword_graphic(_conn, user_id: int):
                             theta2=theta2,
                             width=width,
                             facecolor=color,
-                            edgecolor='none',
-                            linewidth=0,
                             label=f'{label}: {prop*100:.1f}%'
                         )
                         ax.add_patch(wedge)

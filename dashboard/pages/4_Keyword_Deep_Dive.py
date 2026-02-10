@@ -388,8 +388,7 @@ def render_trends_and_quadrant(df_daily: pd.DataFrame, keyword: str) -> None:
         col2.altair_chart(sentiment_volume_chart, use_container_width=True)
 
 
-def main() -> None:
-    """Run the Streamlit app."""
+if __name__ == "__main__":
     configure_page()
     load_keywords()
     render_sidebar()
@@ -404,6 +403,3 @@ def main() -> None:
     st.markdown("---")
     render_trends_and_quadrant(df_daily, selected_keyword)
 
-
-if __name__ == "__main__":
-    main()
