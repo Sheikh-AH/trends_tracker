@@ -8,6 +8,7 @@ import streamlit as st
 from utils import (
     get_db_connection,
     get_user_keywords,
+    _load_sql_query
 )
 from psycopg2.extras import RealDictCursor
 
@@ -351,68 +352,11 @@ def render_sentiment_volume_quadrant(keyword: str, days: int):
         st.error("Unable to connect to database")
         return
 
-    cursor = None
     try:
         cursor = conn.cursor(cursor_factory=RealDictCursor)
-        query = """
-            SELECT
-                DATE(bp.posted_at) AS date,
-                COUNT(*) AS volume,
-                COUNT(*) FILTER (WHERE bp.reply_uri IS NOT NULL) AS replies,
-                AVG(NULLIF(bp.sentiment_score, '')::float) AS avg_sentiment
-            FROM bluesky_posts bp
-            JOIN matches m ON bp.post_uri = m.post_uri
-            WHERE LOWER(m.keyword_value) = LOWER(%s)
-              AND bp.posted_at >= NOW() - INTERVAL '1 day' * %s
-              AND bp.sentiment_score IS NOT NULL
-            GROUP BY DATE(bp.posted_at)
-            ORDER BY DATE(bp.posted_at);
-        """
+        query = _load_sql_query("get_daily_keyword_stats.sql")
         cursor.execute(query, (keyword, days))
         results = cursor.fetchall()
-
-        if not results:
-            st.warning("No data available for sentiment-volume analysis.")
-            return
-
-        df = pd.DataFrame(results)
-        df["date"] = pd.to_datetime(df["date"])
-
-        chart = (
-            alt.Chart(df)
-            .mark_circle(opacity=0.8)
-            .encode(
-                x=alt.X("volume:Q", title="Daily Volume"),
-                y=alt.Y("avg_sentiment:Q", title="Average Sentiment",
-                        scale=alt.Scale(domain=[-1, 1])),
-                size=alt.Size("replies:Q", title="Replies",
-                              scale=alt.Scale(range=[100, 1200])),
-                color=alt.Color("date:T", title="Date",
-                                scale=alt.Scale(scheme="blues")),
-                tooltip=[
-                    alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
-                    alt.Tooltip("volume:Q", title="Mentions"),
-                    alt.Tooltip("replies:Q", title="Replies"),
-                    alt.Tooltip("avg_sentiment:Q", format=".2f",
-                                title="Avg Sentiment")
-                ]
-            )
-            .properties(width="container", height=350)
-        )
-
-        vline = alt.Chart(pd.DataFrame({"x": [df["volume"].mean()]})).mark_rule(
-            strokeDash=[4, 4], color="gray").encode(x="x:Q")
-        hline = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(
-            strokeDash=[4, 4], color="gray").encode(y="y:Q")
-
-        layered_chart = (chart + vline + hline).properties(
-            title=f"Sentiment × Volume – {keyword.title()}",
-            width="container",
-            height=350
-        )
-
-        return layered_chart
-
     except Exception as e:
         conn.rollback()
         st.error(f"Error fetching sentiment-volume data: {e}")
@@ -420,12 +364,56 @@ def render_sentiment_volume_quadrant(keyword: str, days: int):
         if cursor:
             cursor.close()
 
+    if not results:
+        st.warning("No data available for sentiment-volume analysis.")
+        return
+
+    df = pd.DataFrame(results)
+    df["date"] = pd.to_datetime(df["date"])
+
+    chart = (
+        alt.Chart(df)
+        .mark_circle(opacity=0.8)
+        .encode(
+            x=alt.X("volume:Q", title="Daily Volume"),
+            y=alt.Y("avg_sentiment:Q", title="Average Sentiment",
+                    scale=alt.Scale(domain=[-1, 1])),
+            size=alt.Size("replies:Q", title="Replies",
+                            scale=alt.Scale(range=[100, 1200])),
+            color=alt.Color("date:T", title="Date",
+                            scale=alt.Scale(scheme="tableau10")),
+            tooltip=[
+                alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
+                alt.Tooltip("volume:Q", title="Mentions"),
+                alt.Tooltip("replies:Q", title="Replies"),
+                alt.Tooltip("avg_sentiment:Q", format=".2f",
+                            title="Avg Sentiment")
+            ]
+        )
+        .properties(width="container", height=350)
+    )
+
+    vline = alt.Chart(pd.DataFrame({"x": [df["volume"].mean()]})).mark_rule(
+        strokeDash=[4, 4], color="gray").encode(x="x:Q")
+    hline = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(
+        strokeDash=[4, 4], color="gray").encode(y="y:Q")
+
+    layered_chart = (chart + vline + hline).properties(
+        title=f"Sentiment × Volume – {keyword.title()}",
+        width="container",
+        height=350
+    )
+
+    return layered_chart
+
+    
+
 
 if __name__ == "__main__":
     configure_page()
     load_keywords()
 
-    st.title("🔍 Keyword Deep Dive")
+    st.title("Keyword Deep Dive")
     st.markdown("Detailed analytics and insights for individual keywords")
     st.markdown("---")
 
