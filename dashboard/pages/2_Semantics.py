@@ -44,8 +44,7 @@ def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], d
             query, (target_keyword, f"{day_limit} days", f"%{phrase}%"))
         row = cursor.fetchone()
         results[phrase] = {
-            "avg_sentiment": row["avg_sentiment"],
-            "post_count": row["post_count"],
+            "avg_sentiment": row["avg_sentiment"]
         }
     cursor.close()
     return results
@@ -67,8 +66,7 @@ def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict
     return {
         kw["keyword"]: {
             "weight": 1 / (kw["score"] + 1e-10),
-            "avg_sentiment": sentiment_by_phrase.get(kw["keyword"], {}).get("avg_sentiment"),
-            "post_count": sentiment_by_phrase.get(kw["keyword"], {}).get("post_count"),
+            "avg_sentiment": sentiment_by_phrase.get(kw["keyword"], {}).get("avg_sentiment")
         }
         for kw in diversified
     }
@@ -110,7 +108,6 @@ def render_wordcloud(word_data: dict):
                 {
                     "Word": w,
                     "Weight": round(v["weight"], 2),
-                    "Posts": v["post_count"],
                 }
                 for w, v in top_words
             ],
