@@ -34,8 +34,8 @@ def configure_page():
 
 
 @st.cache_data(ttl=600)
-def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], day_limit: int):
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+def get_avg_sentiment_by_phrase(_conn, target_keyword: str, phrases: list[str], day_limit: int):
+    cursor = _conn.cursor(cursor_factory=RealDictCursor)
     query = _load_sql_query("get_phrase_avg_sentiment.sql")
     results = {}
     for phrase in phrases:
@@ -61,7 +61,7 @@ def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict
         return {}
     phrases = [kw["keyword"] for kw in diversified]
     sentiment_by_phrase = get_avg_sentiment_by_phrase(
-        _conn, keyword, phrases[:10], day_limit)
+        _conn, keyword, phrases[:15], day_limit)
     return {
         kw["keyword"]: {
             "weight": 1 / (kw["score"] + 1e-10),
@@ -87,7 +87,6 @@ def get_top_n_words(word_data: dict, n: int = 10):
 
 # ---------- RENDER ----------
 
-@st.cache_data(ttl=3600)
 def render_wordcloud(word_data: dict):
     if not word_data:
         st.info("No data available for word cloud")
@@ -108,6 +107,7 @@ def render_wordcloud(word_data: dict):
                 {
                     "Word": w,
                     "Weight": round(v["weight"], 2),
+                    "Avg Sentiment": round(v["avg_sentiment"], 3) if v["avg_sentiment"] is not None else "N/A"
                 }
                 for w, v in top_words
             ],
@@ -130,7 +130,6 @@ def render_wordcloud(word_data: dict):
     with col_cloud:
         st_echarts(option, height="500px")
 
-@st.cache_data(ttl=3600)
 def render_sentiment_calendar(keyword: str, days: int = 30):
     """Render sentiment calendar with best/worst day metrics."""
     st.markdown("## 📅 Sentiment Calendar")

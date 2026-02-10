@@ -27,9 +27,9 @@ def configure_page():
         st.stop()
 
 @st.cache_data(ttl=3600)
-def get_summary(conn):
+def get_summary(_conn):
     """Fetch the latest summary and insights for the user."""
-    with conn.cursor() as cursor:
+    with _conn.cursor() as cursor:
         cursor.execute("""
             SELECT summary
             FROM llm_summary
@@ -51,15 +51,15 @@ def stream_summary(summary):
         sleep(0.01)
 
 @st.cache_data(ttl=3600)
-def get_user_posts(conn, user_id: int) -> list:
+def get_user_posts(_conn, user_id: int) -> list:
     """Retrieve all keywords for a user."""
     query = _load_sql_query("queries/user_posts.sql")
-    return read_sql(query, conn, params=(user_id,))
+    return read_sql(query, _conn, params=(user_id,))
 
 @st.cache_data(ttl=3600)
-def gen_keyword_graphic(conn, user_id: int):
+def gen_keyword_graphic(_conn, user_id: int):
     """Generate donut charts for each keyword showing post type proportions and sentiment."""
-    user_posts = get_user_posts(conn, user_id)
+    user_posts = get_user_posts(_conn, user_id)
 
     if user_posts.empty:
         st.info("No posts found for your tracked keywords in the last 24 hours.")
