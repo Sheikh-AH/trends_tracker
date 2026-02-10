@@ -32,10 +32,10 @@ bluesky_pipeline/
 1. **Extract**: Streams messages from Bluesky Jetstream WebSocket
    - Filters posts matching tracked keywords (refreshed every 60s)
    - Uses regex for flexible keyword matching
-2. **Transform**: 
+2. **Transform**:
    - Adds VADER sentiment scores (-1 to +1)
    - Generates unique post URIs
-3. **Load**: 
+3. **Load**:
    - Batch inserts into `bluesky_posts` table
    - Records keyword matches in `matches` table
 
