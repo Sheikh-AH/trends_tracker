@@ -7,18 +7,11 @@ from dotenv import load_dotenv
 from psycopg2 import connect
 from pandas import read_sql
 import matplotlib.pyplot as plt
-
-
-def get_db_connection():
-    """Establish a connection to the PostgreSQL database."""
-    return connect(
-        dbname=os.getenv('DB_NAME'),
-        user=os.getenv('DB_USER'),
-        password=os.getenv('DB_PASSWORD'),
-        host=os.getenv('DB_HOST'),
-        port=os.getenv('DB_PORT')
-    )
-
+from utils import (
+    get_db_connection,
+    render_sidebar,
+    _load_sql_query
+)
 
 def configure_page():
     """Configure page settings and check authentication."""
@@ -33,27 +26,7 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
-
-def gen_sidebar():
-    """Generate the sidebar with user info and quick stats."""
-    st.sidebar.markdown(
-        f"### 👋 Hello, {st.session_state.get('username', 'User')}!")
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("### 📈 Quick Stats")
-    st.sidebar.metric("Keywords Tracked", len(
-        st.session_state.get("keywords", [])))
-    st.sidebar.metric("Alerts Enabled", "Yes" if st.session_state.get(
-        "alerts_enabled", False) else "No")
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout", use_container_width=True):
-        st.session_state.logged_in = False
-        st.session_state.username = ""
-        st.session_state.user_id = None
-        st.switch_page("app.py")
-    st.sidebar.markdown("---")
-    st.sidebar.caption("Trends Tracker v1.0")
-
-
+@st.cache_data(ttl=3600)
 def get_summary(conn):
     """Fetch the latest summary and insights for the user."""
     with conn.cursor() as cursor:
@@ -77,16 +50,10 @@ def stream_summary(summary):
         yield word + " "
         sleep(0.01)
 
-
-def get_query_from_file(filename: str) -> str:
-    """Read a SQL query from a file."""
-    with open(filename, "r") as file:
-        return file.read()
-
-
+@st.cache_data(ttl=3600)
 def get_user_posts(conn, user_id: int) -> list:
     """Retrieve all keywords for a user."""
-    query = get_query_from_file("queries/user_posts.sql")
+    query = _load_sql_query("queries/user_posts.sql")
     return read_sql(query, conn, params=(user_id,))
 
 
@@ -185,14 +152,14 @@ def gen_keyword_graphic(conn, user_id: int):
 if __name__ == "__main__":
 
     load_dotenv()
-    conn = get_db_connection()
     configure_page()
+    render_sidebar()
+    conn = get_db_connection()
 
     st.title("Daily Summary & Insights")
     st.markdown("AI-powered analysis for your tracked keywords.")
     st.divider()
-    gen_sidebar()
-
+    
     summary = get_summary(conn)
     st.subheader("Latest AI Summary")
     st.write_stream(stream_summary(summary))
