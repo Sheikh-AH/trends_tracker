@@ -1,0 +1,33 @@
+Slide 1: Title slide ( 10 seconds) sheikh
+Slide 2: problem ( 30 seconds) sheikh
+Millions of people share their thoughts daily on social media regarding brands, products, trends, celebrities and politics
+This is a huge reserve of untapped data, that could be used to understand trends and gain valuable insights
+Furthermore, search trends and social conversations live in silos. Combining these could lead to connecting popular trends with consumer sentiment
+The lifecycle of trends is getting shorter and shorter. Therefore traditional methods companies are using to monitor trends can often mean trends have peaked or shifted before actions can be taken
+
+Slide 3: solution (30 seconds) Omar
+ Our solution - TrendFunnel - funnelling the social media noise to identify the trends you care about.
+What it does:
+multi source data ingestion: automatically ingests real time posts from bluesky and search data from google trends
+Tracks trends (both in volume and sentiment) related to your custom keywords specific to your brand, niche or competitor landscape
+Identifies surges in activity to alert you in real time
+What you get:
+A live dashboard for real time monitoring of your tracked keywords and their performance
+Daily and weekly AI generated reports with actionable insights
+Email notifications: so you never miss a viral moment or a PR crisis
+Slide 4: target users and commercial impact ( 60 seconds) Mashal
+Target Users include,
+brand marketing teams - understand consumer sentiment on brands and their products, get alerted of viral trends they can capitalize on for marketing purposes.
+product managers - see what products are trending in their industry and what they could add
+creators and influencers - they need to know what their audience likes, how their audience and the public feels about them, and they need to know when a trend is starting, so that they can use that to inform future posts.
+As a result the commercial model might start off with a free tier a single account with basic insights and limited keyword tracking. and then a premium version which would include the alerts, weekly reports and advanced access to the dashboard with an larger available number of keywords they can track. Then the business tier which could allow for multiple accounts, unlimited keyword tracking.
+Slide 5: demo slide (2 minutes show the dashboard) Omar and Sheikh 1 minute each
+Home page - sheikh
+Semantics - Omar
+Keyword deep dive - Omar
+AI - Sheikh
+Keyword comparisons - Sheikh
+Profile page - Omar
+Slide 6: architecture ( 30 seconds - picture of architecture diagram- run through main components) Mashal
+
+Slide 7: thank you for listening, any questions?
