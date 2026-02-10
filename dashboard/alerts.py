@@ -3,12 +3,6 @@
 import os
 import streamlit as st
 import boto3
-from dotenv import load_dotenv
-from psycopg2 import connect
-
-# Import shared functions from utils module
-import sys
-from utils import get_db_connection, render_sidebar
 
 
 def login_prompt():

@@ -5,9 +5,8 @@ from time import sleep
 import streamlit as st
 from dotenv import load_dotenv
 from psycopg2 import connect
-from pandas import DataFrame, read_sql
+from pandas import read_sql
 import matplotlib.pyplot as plt
-import numpy as np
 
 
 def get_db_connection():
@@ -99,7 +98,6 @@ def gen_keyword_graphic(conn, user_id: int):
         st.info("No posts found for your tracked keywords in the last 24 hours.")
         return
 
-    # Create fixed 5 columns for the donut charts (leaves room for future keywords)
     cols = st.columns(5)
 
     for idx, row in user_posts.iterrows():
@@ -119,12 +117,8 @@ def gen_keyword_graphic(conn, user_id: int):
             labels = ['Posts', 'Reposts', 'Replies']
             colors = ['#1e3a5f', '#EF553B', '#00CC96']
 
-            # Normalize sentiments to width (0.15 to 0.6 range for visibility)
-            # Sentiment ranges from -1 to 1, normalize to 0.15-0.6
-            # Wider range makes differences more visible
             widths = [0.15 + 0.45 * ((s + 1) / 2) for s in sentiments]
 
-            # Create the donut chart with transparent background
             fig, ax = plt.subplots(figsize=(3.5, 3.5))
             fig.patch.set_alpha(0)
             ax.set_facecolor('none')

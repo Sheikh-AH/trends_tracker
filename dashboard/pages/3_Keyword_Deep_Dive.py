@@ -1,29 +1,17 @@
-"""
-Keyword Deep Dive - Detailed analytics for individual keywords.
-"""
-
-import random
-from datetime import datetime, timedelta
+"""Keyword Deep Dive - Detailed analytics for individual keywords."""
 
 import altair as alt
 import pandas as pd
 import streamlit as st
 
 # Import shared functions from utils module
-import sys
 from utils import (
     get_db_connection,
     get_user_keywords,
-    generate_placeholder_metrics,
-    generate_time_series_data,
-    generate_sentiment_breakdown,
-    generate_keywords_summary,
-    render_sidebar
+    _load_sql_query
 )
 from psycopg2.extras import RealDictCursor
 
-
-# ============== Page Configuration ==============
 
 def configure_page():
     """Configure page settings and check authentication."""
@@ -33,14 +21,11 @@ def configure_page():
         layout="wide"
     )
 
-    # Check authentication
     if "logged_in" not in st.session_state or not st.session_state.logged_in:
         st.warning("Please login to access this page.")
         st.switch_page("app.py")
         st.stop()
 
-
-# ============== Helper Functions ==============
 
 def load_keywords():
     """Load keywords from database if needed."""
@@ -50,267 +35,411 @@ def load_keywords():
             cursor = conn.cursor(cursor_factory=RealDictCursor)
             db_keywords = get_user_keywords(cursor, st.session_state.user_id)
             cursor.close()
-            st.session_state.keywords = db_keywords if db_keywords else ["matcha", "boba", "coffee"]
+            st.session_state.keywords = db_keywords if db_keywords else [
+                "matcha", "boba", "coffee"]
             st.session_state.keywords_loaded = True
 
 
-def render_kpi_metrics(metrics: dict):
-    """Render KPI metrics row."""
-    kpi_col1, kpi_col2, kpi_col3, kpi_col4, kpi_col5 = st.columns(5)
-
-    with kpi_col1:
-        st.metric(
-            label="📢 Mentions",
-            value=f"{metrics['mentions']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col2:
-        st.metric(
-            label="📝 Posts",
-            value=f"{metrics['posts']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col3:
-        st.metric(
-            label="🔄 Reposts",
-            value=f"{metrics['reposts']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col4:
-        st.metric(
-            label="💬 Comments",
-            value=f"{metrics['comments']:,}",
-            delta=f"{random.randint(-10, 20)}%"
-        )
-    with kpi_col5:
-        sentiment_color = "normal" if metrics['avg_sentiment'] >= 0 else "inverse"
-        st.metric(
-            label="😊 Avg Sentiment",
-            value=f"{metrics['avg_sentiment']:.2f}",
-            delta=f"{random.uniform(-0.1, 0.1):.2f}",
-            delta_color=sentiment_color
-        )
-
-
-def render_activity_chart(time_data: pd.DataFrame):
-    """Render activity over time chart."""
-    st.markdown("### 📈 Activity Metrics Over Time")
-
-    time_data_melted = time_data.melt(
-        id_vars=["date"],
-        value_vars=["posts", "reposts", "comments"],
-        var_name="Metric",
-        value_name="Count"
-    )
-
-    line_chart = alt.Chart(time_data_melted).mark_line(point=True).encode(
-        x=alt.X("date:T", title="Date"),
-        y=alt.Y("Count:Q", title="Count"),
-        color=alt.Color("Metric:N", scale=alt.Scale(
-            domain=["posts", "reposts", "comments"],
-            range=["#636EFA", "#EF553B", "#00CC96"]
-        )),
-        tooltip=["date:T", "Metric:N", "Count:Q"]
-    ).properties(height=350).interactive()
-
-    st.altair_chart(line_chart, use_container_width=True)
-
-
-def render_sentiment_chart(sentiment_data: dict):
-    """Render sentiment breakdown chart."""
-    st.markdown("### 🎭 Sentiment Breakdown")
-
-    sentiment_df = pd.DataFrame({
-        "Sentiment": list(sentiment_data.keys()),
-        "Percentage": list(sentiment_data.values())
-    })
-
-    pie_chart = alt.Chart(sentiment_df).mark_arc(innerRadius=50).encode(
-        theta=alt.Theta("Percentage:Q"),
-        color=alt.Color("Sentiment:N", scale=alt.Scale(
-            domain=["Positive", "Neutral", "Negative"],
-            range=["#00CC96", "#636EFA", "#EF553B"]
-        )),
-        tooltip=["Sentiment:N", "Percentage:Q"]
-    ).properties(height=350)
-
-    st.altair_chart(pie_chart, use_container_width=True)
-
-
-def render_sentiment_trend(time_data: pd.DataFrame):
-    """Render sentiment trend over time."""
-    st.markdown("### 📊 Overall Sentiment Score Over Time")
-
-    time_data["sentiment"] = [round(random.uniform(-0.5, 0.8), 2) for _ in range(len(time_data))]
-
-    sentiment_area = alt.Chart(time_data).mark_area(
-        line={"color": "#AB63FA"},
-        color=alt.Gradient(
-            gradient="linear",
-            stops=[
-                alt.GradientStop(color="white", offset=0),
-                alt.GradientStop(color="#AB63FA", offset=1)
-            ],
-            x1=1, x2=1, y1=1, y2=0
-        )
-    ).encode(
-        x=alt.X("date:T", title="Date"),
-        y=alt.Y("sentiment:Q", title="Sentiment Score", scale=alt.Scale(domain=[-1, 1])),
-        tooltip=["date:T", "sentiment:Q"]
-    ).properties(height=300)
-
-    zero_line = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(
-        strokeDash=[5, 5], color="gray"
-    ).encode(y="y:Q")
-
-    st.altair_chart(sentiment_area + zero_line, use_container_width=True)
-
-
-def render_daily_averages(time_data: pd.DataFrame):
-    """Render daily averages bar chart."""
-    st.markdown("### 📅 Daily Average by Metric Type")
-
-    avg_data = pd.DataFrame({
-        "Metric": ["Posts", "Reposts", "Comments"],
-        "Daily Avg": [
-            round(time_data["posts"].mean(), 1),
-            round(time_data["reposts"].mean(), 1),
-            round(time_data["comments"].mean(), 1)
-        ]
-    })
-
-    bar_chart = alt.Chart(avg_data).mark_bar().encode(
-        x=alt.X("Metric:N", title="Metric"),
-        y=alt.Y("Daily Avg:Q", title="Daily Average"),
-        color=alt.Color("Metric:N", scale=alt.Scale(
-            domain=["Posts", "Reposts", "Comments"],
-            range=["#636EFA", "#EF553B", "#00CC96"]
-        ), legend=None),
-        tooltip=["Metric:N", "Daily Avg:Q"]
-    ).properties(height=300)
-
-    st.altair_chart(bar_chart, use_container_width=True)
-
-
-def render_comparison_chart(keywords: list, days: int):
-    """Render keyword comparison chart."""
-    st.markdown("### 🔍 Keyword Mentions Comparison")
-
-    if len(keywords) > 0:
-        comparison_data = pd.DataFrame({
-            "Keyword": keywords,
-            "Mentions": [generate_placeholder_metrics(kw, days)["mentions"] for kw in keywords]
-        })
-
-        comparison_chart = alt.Chart(comparison_data).mark_bar().encode(
-            x=alt.X("Keyword:N", title="Keyword"),
-            y=alt.Y("Mentions:Q", title="Mentions"),
-            color=alt.Color("Keyword:N", scale=alt.Scale(scheme="set2"), legend=None),
-            tooltip=["Keyword:N", "Mentions:Q"]
-        ).properties(height=300)
-
-        st.altair_chart(comparison_chart, use_container_width=True)
-    else:
-        st.info("Add keywords in the Manage Topics page to see comparison data.")
-
-
-def render_summary_table(keywords: list, days: int):
-    """Render keywords summary table."""
-    st.markdown("### 📋 Keywords Summary Table")
-
-    if len(keywords) > 0:
-        summary_df = generate_keywords_summary(keywords, days)
-
-        def color_sentiment(val):
-            if val > 0.2:
-                return "background-color: #d4edda"
-            elif val < -0.2:
-                return "background-color: #f8d7da"
-            return ""
-
-        styled_df = summary_df.style.map(
-            color_sentiment, subset=["Avg Sentiment"]
-        ).format({"Avg Sentiment": "{:.2f}"})
-
-        st.dataframe(styled_df, use_container_width=True, hide_index=True)
-    else:
-        st.info("Add keywords in the Manage Topics page to see summary data.")
-
-
-# ============== Main Function ==============
-
-def main():
-    """Main function for the Keyword Deep Dive page."""
-    st.title("🔍 Keyword Deep Dive")
-    st.markdown("Detailed analytics and insights for your tracked keywords.")
-
-    # Load keywords
-    load_keywords()
-
-    # Top controls row
-    col1, col2, _ = st.columns([2, 2, 4])
+def render_filters():
+    """Render filter dropdowns for keyword and time period selection."""
+    col1, col2 = st.columns(2)
 
     with col1:
-        keywords = st.session_state.get("keywords", ["matcha", "boba", "coffee"])
-        if keywords:
-            selected_keyword = st.selectbox("Select Keyword", options=keywords, index=0)
-        else:
-            st.warning("No keywords tracked. Add some in Manage Topics.")
-            st.stop()
+        selected_keyword = st.selectbox(
+            "Select Keyword",
+            options=st.session_state.get("keywords", []),
+            key="selected_keyword",
+            help="Choose a keyword to analyze"
+        )
 
     with col2:
-        days_options = {"Last 7 days": 7, "Last 14 days": 14, "Last 30 days": 30, "Last 90 days": 90}
-        selected_period = st.selectbox("Time Period", options=list(days_options.keys()))
-        days = days_options[selected_period]
+        time_periods = {
+            "7 days": 7,
+            "14 days": 14,
+            "30 days": 30,
+            "90 days": 90,
+            "6 months": 180,
+            "1 year": 365
+        }
+        selected_period = st.selectbox(
+            "Select Time Period",
+            options=list(time_periods.keys()),
+            key="selected_period",
+            help="Choose the time range for analysis"
+        )
+        days = time_periods[selected_period]
 
-    st.markdown("---")
-
-    # KPI Metrics Row
-    metrics = generate_placeholder_metrics(selected_keyword, days)
-    render_kpi_metrics(metrics)
-
-    st.markdown("---")
-
-    # Charts Row 1: Activity Over Time & Sentiment Breakdown
-    chart_col1, chart_col2 = st.columns(2)
-
-    with chart_col1:
-        time_data = generate_time_series_data(selected_keyword, days)
-        render_activity_chart(time_data)
-
-    with chart_col2:
-        sentiment_data = generate_sentiment_breakdown(selected_keyword)
-        render_sentiment_chart(sentiment_data)
-
-    st.markdown("---")
-
-    # Charts Row 2: Overall Sentiment & Daily Averages
-    chart_col3, chart_col4 = st.columns(2)
-
-    with chart_col3:
-        render_sentiment_trend(time_data)
-
-    with chart_col4:
-        render_daily_averages(time_data)
-
-    st.markdown("---")
-
-    # Chart Row 3: Keyword Comparison
-    render_comparison_chart(keywords, days)
-
-    st.markdown("---")
-
-    # Summary Table
-    render_summary_table(keywords, days)
-
-    # Default Sidebar
-    # Render shared sidebar
-    render_sidebar()
+    return selected_keyword, days
 
 
-# ============== Entry Point ==============
-# Streamlit pages are executed as modules, so we run at module level
-configure_page()
+def render_activity_over_time(keyword: str, days: int):
+    """Render a multi-line chart showing posts, replies, and total activity over time."""
+    conn = get_db_connection()
+    if not conn:
+        st.error("Unable to connect to database")
+        return
+
+    cursor = None
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = """
+            SELECT 
+                DATE(bp.posted_at) AS date,
+                COUNT(*) FILTER (WHERE bp.reply_uri IS NULL) AS posts,
+                COUNT(*) FILTER (WHERE bp.reply_uri IS NOT NULL) AS replies,
+                COUNT(*) AS total
+            FROM bluesky_posts bp
+            JOIN matches m ON bp.post_uri = m.post_uri
+            WHERE LOWER(m.keyword_value) = LOWER(%s)
+              AND bp.posted_at >= NOW() - INTERVAL '1 day' * %s
+            GROUP BY DATE(bp.posted_at)
+            ORDER BY DATE(bp.posted_at)
+        """
+        cursor.execute(query, (keyword, days))
+        results = cursor.fetchall()
+
+        if not results:
+            st.warning(
+                f"No data available for '{keyword}' in the last {days} days")
+            return
+
+        df = pd.DataFrame(results)
+        df["date"] = pd.to_datetime(df["date"])
+
+        df_long = df.melt(
+            id_vars=["date"],
+            value_vars=["posts", "replies", "total"],
+            var_name="type",
+            value_name="count"
+        )
+
+        chart = (
+            alt.Chart(df_long)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("date:T", title="Date", axis=alt.Axis(format="%b %d")),
+                y=alt.Y("count:Q", title="Count"),
+                color=alt.Color(
+                    "type:N",
+                    title="Metric",
+                    scale=alt.Scale(
+                        domain=["posts", "replies", "total"],
+                        range=["#1f77b4", "#ff7f0e", "#2ca02c"]
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
+                    alt.Tooltip("type:N", title="Type"),
+                    alt.Tooltip("count:Q", title="Count")
+                ]
+            )
+            .properties(
+                width="container",
+                height=350
+            )
+            .interactive()
+        )
+
+        return chart
+
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error fetching activity data: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+
+def render_sentiment_distribution(keyword: str, days: int):
+    """Render a donut chart showing sentiment distribution."""
+    conn = get_db_connection()
+    if not conn:
+        st.error("Unable to connect to database")
+        return
+
+    cursor = None
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = """
+            SELECT
+                CASE
+                    WHEN bp.sentiment_score::float > 0.1 THEN 'Positive'
+                    WHEN bp.sentiment_score::float < -0.1 THEN 'Negative'
+                    ELSE 'Neutral'
+                END AS sentiment,
+                COUNT(*) AS count
+            FROM bluesky_posts bp
+            JOIN matches m ON bp.post_uri = m.post_uri
+            WHERE LOWER(m.keyword_value) = LOWER(%s)
+              AND bp.posted_at >= NOW() - INTERVAL '1 day' * %s
+              AND bp.sentiment_score IS NOT NULL
+            GROUP BY sentiment;
+        """
+        cursor.execute(query, (keyword, days))
+        results = cursor.fetchall()
+
+        if not results:
+            st.warning("No sentiment data available for this period.")
+            return
+
+        df = pd.DataFrame(results)
+
+        chart = (
+            alt.Chart(df)
+            .mark_arc(innerRadius=70)
+            .encode(
+                theta=alt.Theta("count:Q"),
+                color=alt.Color(
+                    "sentiment:N",
+                    scale=alt.Scale(
+                        domain=["Positive", "Neutral", "Negative"],
+                        range=["#2ca02c", "#9e9e9e", "#d62728"]
+                    )
+                ),
+                tooltip=[
+                    alt.Tooltip("sentiment:N", title="Sentiment"),
+                    alt.Tooltip("count:Q", title="Posts")
+                ]
+            )
+            .properties(
+                width=400,
+                height=350
+            )
+        )
+
+        return chart
+
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error fetching sentiment data: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+
+def render_sentiment_over_time(keyword: str, days: int, window: int = 7):
+    """Render a rolling average sentiment score over time."""
+    conn = get_db_connection()
+    if not conn:
+        st.error("Unable to connect to database")
+        return
+
+    cursor = None
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = """
+            WITH daily_sentiment AS (
+                SELECT
+                    DATE(bp.posted_at) AS date,
+                    AVG(NULLIF(bp.sentiment_score, '')::float) AS avg_sentiment
+                FROM bluesky_posts bp
+                JOIN matches m ON bp.post_uri = m.post_uri
+                WHERE LOWER(m.keyword_value) = LOWER(%s)
+                  AND bp.posted_at >= NOW() - INTERVAL '1 day' * %s
+                  AND bp.sentiment_score IS NOT NULL
+                GROUP BY DATE(bp.posted_at)
+            )
+            SELECT
+                date,
+                AVG(avg_sentiment) OVER (
+                    ORDER BY date
+                    ROWS BETWEEN %s PRECEDING AND CURRENT ROW
+                ) AS rolling_sentiment
+            FROM daily_sentiment
+            ORDER BY date;
+        """
+        cursor.execute(query, (keyword, days, window - 1))
+        results = cursor.fetchall()
+
+        if not results:
+            st.warning("No sentiment trend data available for this period.")
+            return
+
+        df = pd.DataFrame(results)
+        df["date"] = pd.to_datetime(df["date"])
+
+        line_chart = (
+            alt.Chart(df)
+            .mark_line(point=True)
+            .encode(
+                x=alt.X("date:T", title="Date", axis=alt.Axis(format="%b %d")),
+                y=alt.Y("rolling_sentiment:Q",
+                        title=f"{window}-Day Rolling Avg Sentiment", scale=alt.Scale(domain=[-1, 1])),
+                tooltip=[
+                    alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
+                    alt.Tooltip("rolling_sentiment:Q", format=".2f",
+                                title="Rolling Avg Sentiment")
+                ]
+            )
+            .interactive()
+        )
+
+        zero_line = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(
+            strokeDash=[4, 4], color="gray").encode(y="y:Q")
+
+        layered_chart = (line_chart + zero_line).properties(
+            title=f"Sentiment Over Time ({window}-Day Rolling Avg) – {keyword.title()}",
+            width="container",
+            height=350
+        )
+
+        return layered_chart
+
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error fetching sentiment trend data: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+
+def render_kpi_metrics(keyword: str, days: int):
+    """Render KPI metrics for the selected keyword."""
+    conn = get_db_connection()
+    if not conn:
+        st.error("Unable to connect to database")
+        return
+
+    cursor = None
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = """
+            SELECT
+                COUNT(*) AS total_mentions,
+                COUNT(*) FILTER (WHERE bp.reply_uri IS NULL) AS posts,
+                COUNT(*) FILTER (WHERE bp.reply_uri IS NOT NULL) AS replies,
+                AVG(NULLIF(bp.sentiment_score, '')::float) AS avg_sentiment,
+                COUNT(*) FILTER (
+                    WHERE NULLIF(bp.sentiment_score, '')::float > 0.1
+                )::float / COUNT(*) AS pct_positive,
+                COUNT(*) FILTER (
+                    WHERE NULLIF(bp.sentiment_score, '')::float < -0.1
+                )::float / COUNT(*) AS pct_negative
+            FROM bluesky_posts bp
+            JOIN matches m ON bp.post_uri = m.post_uri
+            WHERE LOWER(m.keyword_value) = LOWER(%s)
+              AND bp.posted_at >= NOW() - INTERVAL '1 day' * %s;
+        """
+        cursor.execute(query, (keyword, days))
+        data = cursor.fetchone()
+
+        if not data or data["total_mentions"] == 0:
+            st.warning("No KPI data available.")
+            return
+
+        col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+        col1.metric("Total Mentions", f"{data['total_mentions']:,}")
+        col2.metric("Posts", f"{data['posts']:,}")
+        col3.metric("Replies", f"{data['replies']:,}")
+        col4.metric(
+            "Avg Sentiment", f"{data['avg_sentiment']:.2f}" if data["avg_sentiment"] is not None else "—")
+        col5.metric("Positive %", f"{data['pct_positive'] * 100:.1f}%")
+        col6.metric("Negative %", f"{data['pct_negative'] * 100:.1f}%")
+
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error fetching KPI metrics: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+
+def render_sentiment_volume_quadrant(keyword: str, days: int):
+    """Render sentiment vs volume quadrant chart."""
+    conn = get_db_connection()
+    if not conn:
+        st.error("Unable to connect to database")
+        return
+
+    try:
+        cursor = conn.cursor(cursor_factory=RealDictCursor)
+        query = _load_sql_query("get_daily_keyword_stats.sql")
+        cursor.execute(query, (keyword, days))
+        results = cursor.fetchall()
+    except Exception as e:
+        conn.rollback()
+        st.error(f"Error fetching sentiment-volume data: {e}")
+    finally:
+        if cursor:
+            cursor.close()
+
+    if not results:
+        st.warning("No data available for sentiment-volume analysis.")
+        return
+
+    df = pd.DataFrame(results)
+    df["date"] = pd.to_datetime(df["date"])
+
+    chart = (
+        alt.Chart(df)
+        .mark_circle(opacity=0.8)
+        .encode(
+            x=alt.X("volume:Q", title="Daily Volume"),
+            y=alt.Y("avg_sentiment:Q", title="Average Sentiment",
+                    scale=alt.Scale(domain=[-1, 1])),
+            size=alt.Size("replies:Q", title="Replies",
+                            scale=alt.Scale(range=[100, 1200])),
+            color=alt.Color("date:T", title="Date",
+                            scale=alt.Scale(scheme="tableau10")),
+            tooltip=[
+                alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
+                alt.Tooltip("volume:Q", title="Mentions"),
+                alt.Tooltip("replies:Q", title="Replies"),
+                alt.Tooltip("avg_sentiment:Q", format=".2f",
+                            title="Avg Sentiment")
+            ]
+        )
+        .properties(width="container", height=350)
+    )
+
+    vline = alt.Chart(pd.DataFrame({"x": [df["volume"].mean()]})).mark_rule(
+        strokeDash=[4, 4], color="gray").encode(x="x:Q")
+    hline = alt.Chart(pd.DataFrame({"y": [0]})).mark_rule(
+        strokeDash=[4, 4], color="gray").encode(y="y:Q")
+
+    layered_chart = (chart + vline + hline).properties(
+        title=f"Sentiment × Volume – {keyword.title()}",
+        width="container",
+        height=350
+    )
+
+    return layered_chart
+
+    
+
+
 if __name__ == "__main__":
     configure_page()
-    main()
+    load_keywords()
+
+    st.title("Keyword Deep Dive")
+    st.markdown("Detailed analytics and insights for individual keywords")
+    st.markdown("---")
+
+    selected_keyword, days = render_filters()
+    st.markdown("---")
+
+    render_kpi_metrics(selected_keyword, days)
+    st.markdown("---")
+
+    # Side by side: activity + sentiment distribution
+    col1, col2 = st.columns([2, 1])
+    activity_chart = render_activity_over_time(selected_keyword, days)
+    sentiment_chart = render_sentiment_distribution(selected_keyword, days)
+    if activity_chart:
+        col1.altair_chart(activity_chart, use_container_width=True)
+    if sentiment_chart:
+        col2.altair_chart(sentiment_chart, use_container_width=True)
+
+    st.markdown("---")
+
+    # Side by side: sentiment trend + sentiment × volume
+    col1, col2 = st.columns(2)
+    sentiment_trend_chart = render_sentiment_over_time(selected_keyword, days)
+    sentiment_volume_chart = render_sentiment_volume_quadrant(
+        selected_keyword, days)
+    if sentiment_trend_chart:
+        col1.altair_chart(sentiment_trend_chart, use_container_width=True)
+    if sentiment_volume_chart:
+        col2.altair_chart(sentiment_volume_chart, use_container_width=True)
