@@ -207,6 +207,7 @@ def remove_user_keyword(cursor, user_id: int, keyword: str) -> bool:
 
 
 # ============== Database Query Functions ==============
+@st.cache_data(ttl=3600)
 def _load_sql_query(filename: str) -> str:
     """Load SQL query from queries folder."""
     query_path = os.path.join(os.path.dirname(__file__), "queries", filename)
@@ -508,6 +509,7 @@ def format_author_display(author_did: str, max_length: int = 20) -> str:
 # ============== HTML Template Functions ==============
 _HTML_TEMPLATE_CACHE = {}
 
+@st.cache_data(ttl=3600)
 def load_html_template(filepath: str) -> str:
     """Load HTML template from file, with caching."""
     if filepath not in _HTML_TEMPLATE_CACHE:
