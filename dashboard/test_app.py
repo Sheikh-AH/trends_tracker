@@ -8,10 +8,8 @@ keyword management, and data generation functions.
 import pytest
 from unittest.mock import Mock, MagicMock, patch
 import hashlib
-import hmac
 import psycopg2
 import pandas as pd
-import requests
 
 from utils import (
     get_user_by_username,
@@ -23,14 +21,7 @@ from utils import (
     add_user_keyword,
     remove_user_keyword,
     get_user_keywords,
-    generate_word_cloud_data,
-    generate_sentiment_calendar_data,
-    generate_trending_velocity,
-    generate_network_graph_data,
-    generate_ai_insights,
     get_most_recent_bluesky_posts,
-    get_handle_from_did,
-    get_post_engagement,
     uri_to_url,
     get_featured_posts,
     get_posts_by_date,
@@ -719,217 +710,6 @@ class TestGetUserKeywords:
         assert calls[1][0][1] == (10,)
 
 
-# ============== Tests for Visualization Data Generators ==============
-
-class TestGenerateWordCloudData:
-    """Tests for generate_word_cloud_data function."""
-
-    def test_returns_dict(self, sample_keyword, sample_days):
-        """Word cloud data returns a dictionary."""
-        result = generate_word_cloud_data(sample_keyword, sample_days)
-
-        assert isinstance(result, dict)
-
-    def test_contains_words(self, sample_keyword, sample_days):
-        """Word cloud data contains word entries."""
-        result = generate_word_cloud_data(sample_keyword, sample_days)
-
-        assert len(result) > 0
-
-    def test_values_are_numeric(self, sample_keyword, sample_days):
-        """Word cloud values are numeric (frequencies)."""
-        result = generate_word_cloud_data(sample_keyword, sample_days)
-
-        for word, freq in result.items():
-            assert isinstance(word, str)
-            assert isinstance(freq, (int, float))
-            assert freq > 0
-
-    def test_different_keywords_different_data(self):
-        """Different keywords produce different word cloud data."""
-        result1 = generate_word_cloud_data("matcha", 30)
-        result2 = generate_word_cloud_data("coffee", 30)
-
-        assert result1 != result2
-
-    def test_deterministic_with_same_seed(self, sample_keyword, sample_days):
-        """Same keyword produces same data (deterministic)."""
-        result1 = generate_word_cloud_data(sample_keyword, sample_days)
-        result2 = generate_word_cloud_data(sample_keyword, sample_days)
-
-        assert result1 == result2
-
-
-class TestGenerateSentimentCalendarData:
-    """Tests for generate_sentiment_calendar_data function."""
-
-    def test_returns_dataframe(self, sample_keyword, sample_days):
-        """Sentiment calendar data returns a DataFrame."""
-        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
-
-        assert isinstance(result, pd.DataFrame)
-
-    def test_contains_required_columns(self, sample_keyword, sample_days):
-        """DataFrame contains required columns for calendar heatmap."""
-        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
-
-        assert "date" in result.columns
-        assert "sentiment" in result.columns
-        assert "day_of_week" in result.columns
-        assert "week" in result.columns
-
-    def test_correct_number_of_days(self, sample_keyword, sample_days):
-        """DataFrame has correct number of rows for days."""
-        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
-
-        assert len(result) == sample_days
-
-    def test_sentiment_in_range(self, sample_keyword, sample_days):
-        """Sentiment values are within valid range [-1, 1]."""
-        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
-
-        assert result["sentiment"].min() >= -1
-        assert result["sentiment"].max() <= 1
-
-    def test_day_of_week_valid(self, sample_keyword, sample_days):
-        """Day of week values are 0-6."""
-        result = generate_sentiment_calendar_data(sample_keyword, sample_days)
-
-        assert result["day_of_week"].min() >= 0
-        assert result["day_of_week"].max() <= 6
-
-
-class TestGenerateTrendingVelocity:
-    """Tests for generate_trending_velocity function."""
-
-    def test_returns_dict(self, sample_keyword, sample_days):
-        """Trending velocity returns a dictionary."""
-        result = generate_trending_velocity(sample_keyword, sample_days)
-
-        assert isinstance(result, dict)
-
-    def test_contains_velocity_value(self, sample_keyword, sample_days):
-        """Result contains velocity value."""
-        result = generate_trending_velocity(sample_keyword, sample_days)
-
-        assert "velocity" in result
-        assert isinstance(result["velocity"], (int, float))
-
-    def test_contains_trend_direction(self, sample_keyword, sample_days):
-        """Result contains trend direction."""
-        result = generate_trending_velocity(sample_keyword, sample_days)
-
-        assert "direction" in result
-        assert result["direction"] in ["accelerating", "decelerating", "stable"]
-
-    def test_contains_percentage_change(self, sample_keyword, sample_days):
-        """Result contains percentage change."""
-        result = generate_trending_velocity(sample_keyword, sample_days)
-
-        assert "percent_change" in result
-        assert isinstance(result["percent_change"], (int, float))
-
-    def test_velocity_range(self, sample_keyword, sample_days):
-        """Velocity is within reasonable range [0, 100]."""
-        result = generate_trending_velocity(sample_keyword, sample_days)
-
-        assert 0 <= result["velocity"] <= 100
-
-
-class TestGenerateNetworkGraphData:
-    """Tests for generate_network_graph_data function."""
-
-    def test_returns_dict_with_nodes_and_edges(self, sample_keywords):
-        """Network graph data returns dict with nodes and edges."""
-        result = generate_network_graph_data(sample_keywords)
-
-        assert isinstance(result, dict)
-        assert "nodes" in result
-        assert "edges" in result
-
-    def test_nodes_is_list(self, sample_keywords):
-        """Nodes is a list."""
-        result = generate_network_graph_data(sample_keywords)
-
-        assert isinstance(result["nodes"], list)
-
-    def test_edges_is_list(self, sample_keywords):
-        """Edges is a list."""
-        result = generate_network_graph_data(sample_keywords)
-
-        assert isinstance(result["edges"], list)
-
-    def test_nodes_contain_keyword_data(self, sample_keywords):
-        """Each node contains required keyword data."""
-        result = generate_network_graph_data(sample_keywords)
-
-        for node in result["nodes"]:
-            assert "id" in node
-            assert "label" in node
-
-    def test_edges_contain_connection_data(self, sample_keywords):
-        """Each edge contains source, target, and weight."""
-        result = generate_network_graph_data(sample_keywords)
-
-        for edge in result["edges"]:
-            assert "source" in edge
-            assert "target" in edge
-            assert "weight" in edge
-
-    def test_empty_keywords_returns_empty(self):
-        """Empty keywords list returns empty nodes and edges."""
-        result = generate_network_graph_data([])
-
-        assert result["nodes"] == []
-        assert result["edges"] == []
-
-
-class TestGenerateAIInsights:
-    """Tests for generate_ai_insights function."""
-
-    def test_returns_dict(self, sample_keyword, sample_days):
-        """AI insights returns a dictionary."""
-        result = generate_ai_insights(sample_keyword, sample_days)
-
-        assert isinstance(result, dict)
-
-    def test_contains_summary(self, sample_keyword, sample_days):
-        """AI insights contains summary field."""
-        result = generate_ai_insights(sample_keyword, sample_days)
-
-        assert "summary" in result
-        assert isinstance(result["summary"], str)
-        assert len(result["summary"]) > 0
-
-    def test_contains_themes(self, sample_keyword, sample_days):
-        """AI insights contains themes list."""
-        result = generate_ai_insights(sample_keyword, sample_days)
-
-        assert "themes" in result
-        assert isinstance(result["themes"], list)
-
-    def test_contains_sentiment_drivers(self, sample_keyword, sample_days):
-        """AI insights contains sentiment drivers."""
-        result = generate_ai_insights(sample_keyword, sample_days)
-
-        assert "sentiment_drivers" in result
-        assert isinstance(result["sentiment_drivers"], dict)
-        assert "positive" in result["sentiment_drivers"]
-        assert "negative" in result["sentiment_drivers"]
-
-    def test_contains_recommendations(self, sample_keyword, sample_days):
-        """AI insights contains recommendations."""
-        result = generate_ai_insights(sample_keyword, sample_days)
-
-        assert "recommendations" in result
-        assert isinstance(result["recommendations"], list)
-
-    def test_summary_mentions_keyword(self, sample_keyword, sample_days):
-        """Summary mentions the keyword."""
-        result = generate_ai_insights(sample_keyword, sample_days)
-
-        assert sample_keyword.lower() in result["summary"].lower()
-
 
 # ============== Tests for get_most_recent_bluesky_posts ==============
 
@@ -1082,48 +862,6 @@ class TestGetPostsByDate:
         assert call_args[0][1][2] == 10  # Third parameter is limit
 
 
-# ============== Tests for get_handle_from_did ==============
-
-class TestGetHandleFromDid:
-    """Tests for get_handle_from_did function."""
-
-    def test_returns_handle_on_success(self):
-        """Test that function returns handle when API call succeeds."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {"handle": "testuser.bsky.social"}
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = get_handle_from_did("did:plc:abc123")
-
-        assert result == "@testuser.bsky.social"
-
-    def test_returns_none_on_api_error(self):
-        """Test that function returns None when API call fails."""
-        mock_response = Mock()
-        mock_response.status_code = 404
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = get_handle_from_did("did:plc:invalid")
-
-        assert result is None
-
-    def test_returns_none_for_empty_did(self):
-        """Test that function returns None for empty DID."""
-        result = get_handle_from_did("")
-        assert result is None
-
-        result = get_handle_from_did(None)
-        assert result is None
-
-    def test_handles_request_exception(self):
-        """Test that function handles request exceptions gracefully."""
-        import requests
-        with patch("utils.requests.get", side_effect=requests.RequestException("Network error")):
-            result = get_handle_from_did("did:plc:abc123")
-
-        assert result is None
-
 
 # ============== Tests for uri_to_url ==============
 
@@ -1172,57 +910,6 @@ class TestUriToUrl:
         result = uri_to_url("at://did:plc:longdidvalue12345/app.bsky.feed.post/rkey")
 
         assert "/profile/did:plc:longdidvalue12345/" in result
-
-
-# ============== Tests for get_post_engagement ==============
-
-class TestGetPostEngagement:
-    """Tests for get_post_engagement function."""
-
-    def test_returns_engagement_metrics(self):
-        """Test that function returns engagement metrics on success."""
-        mock_response = Mock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {
-            "thread": {
-                "post": {
-                    "likeCount": 100,
-                    "repostCount": 50,
-                    "replyCount": 25
-                }
-            }
-        }
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
-
-        assert result == {"likes": 100, "reposts": 50, "comments": 25}
-
-    def test_returns_zeros_on_api_error(self):
-        """Test that function returns zeros when API call fails."""
-        mock_response = Mock()
-        mock_response.status_code = 404
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
-
-        assert result == {"likes": 0, "reposts": 0, "comments": 0}
-
-    def test_returns_zeros_for_invalid_uri(self):
-        """Test that function returns zeros for invalid URI."""
-        result = get_post_engagement("")
-        assert result == {"likes": 0, "reposts": 0, "comments": 0}
-
-        result = get_post_engagement("invalid-uri")
-        assert result == {"likes": 0, "reposts": 0, "comments": 0}
-
-    def test_handles_request_exception(self):
-        """Test that function handles request exceptions gracefully."""
-        import requests
-        with patch("utils.requests.get", side_effect=requests.RequestException("Network error")):
-            result = get_post_engagement("at://did:plc:abc/app.bsky.feed.post/xyz")
-
-        assert result == {"likes": 0, "reposts": 0, "comments": 0}
 
 
 # ============== Tests for convert_sentiment_score ==============
