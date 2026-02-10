@@ -14,6 +14,7 @@ from utils import (
     extract_keywords_yake,
     diversify_keywords,
     render_sidebar,
+    _load_sql_query
 )
 from psycopg2.extras import RealDictCursor
 
@@ -36,17 +37,7 @@ def configure_page():
 
 def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], day_limit: int):
     cursor = conn.cursor(cursor_factory=RealDictCursor)
-    query = """
-        SELECT
-            AVG(b.sentiment_score::float) AS avg_sentiment,
-            COUNT(*) AS post_count
-        FROM matches m
-        JOIN bluesky_posts b
-          ON b.post_uri = m.post_uri
-        WHERE m.keyword_value = %s
-          AND b.posted_at >= NOW() - INTERVAL %s
-          AND b.text ILIKE %s
-    """
+    query = _load_sql_query("get_phrase_avg_sentiment.sql")
     results = {}
     for phrase in phrases:
         cursor.execute(
@@ -108,7 +99,6 @@ def render_wordcloud(word_data: dict):
     text_color = "#9BB7E0" if is_dark_mode else "#0D3C81"
     col_table, col_cloud = st.columns([1, 2])
 
-    # Table left
     with col_table:
         if not word_data:
             st.warning("All words removed.")
@@ -129,7 +119,6 @@ def render_wordcloud(word_data: dict):
             use_container_width=True,
         )
 
-    # Cloud right
     option = {
         "tooltip": {"show": True},
         "series": [{
