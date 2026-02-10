@@ -50,5 +50,7 @@ if __name__ == "__main__":
     logger.info("Added URIs to posts.")
     
     # 4. Load posts
-    load_data(conn, with_uri, batch_size=100)
+    load_data(conn, with_uri, batch_size=500)
     logger.info("Loaded data into database.")
+    # for post in with_uri:
+    #     print(post)
