@@ -63,12 +63,12 @@ def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict
         return {}
     phrases = [kw["keyword"] for kw in diversified]
     sentiment_by_phrase = get_avg_sentiment_by_phrase(
-        _conn, keyword, phrases, day_limit)
+        _conn, keyword, phrases[:10], day_limit)
     return {
         kw["keyword"]: {
             "weight": 1 / (kw["score"] + 1e-10),
-            "avg_sentiment": sentiment_by_phrase[kw["keyword"]]["avg_sentiment"],
-            "post_count": sentiment_by_phrase[kw["keyword"]]["post_count"],
+            "avg_sentiment": sentiment_by_phrase.get(kw["keyword"], {}).get("avg_sentiment"),
+            "post_count": sentiment_by_phrase.get(kw["keyword"], {}).get("post_count"),
         }
         for kw in diversified
     }
@@ -110,7 +110,6 @@ def render_wordcloud(word_data: dict):
                 {
                     "Word": w,
                     "Weight": round(v["weight"], 2),
-                    "Avg Sentiment": round(v["avg_sentiment"], 3) if v["avg_sentiment"] is not None else None,
                     "Posts": v["post_count"],
                 }
                 for w, v in top_words
