@@ -4,6 +4,7 @@ import logging
 from os import environ as ENV, _Environ
 from dotenv import load_dotenv
 import psycopg2
+from psycopg2.extras import execute_batch
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +23,7 @@ def get_db_connection(config: _Environ):
 
 
 def upload_batch(posts, connection):
-    """Batch load 100 posts into the database."""
+    """Batch load posts into the database."""
     if not posts:
         return
 
@@ -30,7 +31,8 @@ def upload_batch(posts, connection):
     logger.info(f"Uploading batch of {len(posts)} posts to database.")
 
     # Insert into bluesky_posts
-    cursor.executemany(
+    execute_batch(
+        cursor,
         """INSERT INTO bluesky_posts 
            (post_uri, posted_at, author_did, text, sentiment_score, ingested_at, reply_uri, repost_uri)
            VALUES (%s, %s, %s, %s, %s, NOW(), %s, %s)
@@ -56,7 +58,8 @@ def upload_batch(posts, connection):
             match_rows.append((p["post_uri"], keyword))
 
     if match_rows:
-        cursor.executemany(
+        execute_batch(
+            cursor,
             """INSERT INTO matches (post_uri, keyword_value)
                VALUES (%s, %s)
                ON CONFLICT DO NOTHING""",
