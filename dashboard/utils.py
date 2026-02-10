@@ -366,68 +366,6 @@ def get_latest_post_text_corpus(
         return ""
 
 
-def get_most_recent_bluesky_posts(cursor, keyword: str, limit: int = 10) -> list:
-    """Retrieve the most recent posts from bluesky_posts table matching a keyword."""
-    try:
-        query = _load_sql_query("get_most_recent_bluesky_posts.sql")
-        cursor.execute(query, (keyword, limit))
-        results = cursor.fetchall()
-        return [dict(row) for row in results] if results else []
-    except Exception as e:
-        logger.error(f"Error fetching recent posts: {e}")
-        return []
-
-
-def uri_to_url(post_uri: str) -> str:
-    """Convert a Bluesky post URI to a shareable HTTPS URL."""
-    if not post_uri or not isinstance(post_uri, str):
-        return ""
-
-    try:
-        # Format: at://did:plc:xxx/app.bsky.feed.post/rkey
-        if not post_uri.startswith("at://"):
-            return ""
-
-        # Remove "at://" prefix and split
-        uri_without_prefix = post_uri[5:]
-        parts = uri_without_prefix.split("/")
-
-        if len(parts) < 2:
-            return ""
-
-        # Extract DID (first part) and rkey (last part)
-        did = parts[0]
-        rkey = parts[-1]
-
-        return f"https://bsky.app/profile/{did}/post/{rkey}"
-
-    except Exception as e:
-        logger.error(f"Error converting URI to URL: {e}")
-        return ""
-    
-
-def get_featured_posts(cursor, keyword: str, limit: int = 10) -> list[dict]:
-    """Get featured posts matching a keyword with full metadata."""
-    posts = get_most_recent_bluesky_posts(cursor, keyword, limit)
-
-    featured = []
-    for post in posts:
-        post_uri = post.get("post_uri", "")
-
-        post_url = uri_to_url(post_uri)
-
-        featured.append({
-            "post_text": post.get("text", ""),
-            "timestamp": post.get("posted_at", datetime.now()),
-            "post_uri": post_uri,
-            "post_url": post_url,
-        })
-
-    return featured
-
-
-
-
 # ============== UI Functions ==============
 def render_sidebar():
     """Render the standard sidebar across all pages."""

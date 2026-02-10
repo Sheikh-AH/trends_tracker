@@ -21,9 +21,6 @@ from utils import (
     add_user_keyword,
     remove_user_keyword,
     get_user_keywords,
-    get_most_recent_bluesky_posts,
-    uri_to_url,
-    get_featured_posts,
     get_posts_by_date,
     convert_sentiment_score,
     format_timestamp,
@@ -710,53 +707,6 @@ class TestGetUserKeywords:
         assert calls[1][0][1] == (10,)
 
 
-
-# ============== Tests for get_most_recent_bluesky_posts ==============
-
-class TestGetMostRecentBlueskyPosts:
-    """Tests for get_most_recent_bluesky_posts function."""
-
-    def test_returns_list_of_posts(self, mock_cursor):
-        """Test that function returns a list of post dictionaries."""
-        mock_posts = [
-            {"post_uri": "at://did:plc:1/post/abc", "text": "Test post 1", "author_did": "did:plc:1"},
-            {"post_uri": "at://did:plc:2/post/def", "text": "Test post 2", "author_did": "did:plc:2"}
-        ]
-        mock_cursor.fetchall.return_value = mock_posts
-
-        result = get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=10)
-
-        assert isinstance(result, list)
-        assert len(result) == 2
-        assert result[0]["text"] == "Test post 1"
-
-    def test_returns_empty_list_when_no_posts(self, mock_cursor):
-        """Test that function returns empty list when no posts found."""
-        mock_cursor.fetchall.return_value = []
-
-        result = get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=10)
-
-        assert result == []
-
-    def test_respects_limit_parameter(self, mock_cursor):
-        """Test that the limit and keyword parameters are passed correctly."""
-        mock_cursor.fetchall.return_value = []
-
-        get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=5)
-
-        # Verify the keyword and limit were passed in the query
-        call_args = mock_cursor.execute.call_args
-        assert call_args[0][1] == ("python", 5)
-
-    def test_handles_database_error(self, mock_cursor):
-        """Test that function handles database errors gracefully."""
-        mock_cursor.execute.side_effect = Exception("Database error")
-
-        result = get_most_recent_bluesky_posts(mock_cursor, keyword="python", limit=10)
-
-        assert result == []
-
-
 # ============== Tests for get_posts_by_date ==============
 
 class TestGetPostsByDate:
@@ -860,56 +810,6 @@ class TestGetPostsByDate:
 
         call_args = mock_conn.cursor.return_value.execute.call_args
         assert call_args[0][1][2] == 10  # Third parameter is limit
-
-
-
-# ============== Tests for uri_to_url ==============
-
-class TestUriToUrl:
-    """Tests for uri_to_url function."""
-
-    def test_converts_valid_uri_to_url(self):
-        """Test that valid URI is converted to proper HTTPS URL using DID."""
-        result = uri_to_url("at://did:plc:abc123/app.bsky.feed.post/rkey789")
-
-        assert result == "https://bsky.app/profile/did:plc:abc123/post/rkey789"
-
-    def test_returns_empty_string_for_invalid_uri_format(self):
-        """Test that invalid URI format returns empty string."""
-        result = uri_to_url("invalid_uri_format")
-        assert result == ""
-
-    def test_returns_empty_string_for_empty_uri(self):
-        """Test that empty URI returns empty string."""
-        result = uri_to_url("")
-        assert result == ""
-
-    def test_returns_empty_string_for_none_uri(self):
-        """Test that None URI returns empty string."""
-        result = uri_to_url(None)
-        assert result == ""
-
-    def test_returns_empty_string_for_uri_without_at_prefix(self):
-        """Test that URI without at:// prefix returns empty string."""
-        result = uri_to_url("did:plc:abc123/app.bsky.feed.post/rkey789")
-        assert result == ""
-
-    def test_returns_empty_string_for_malformed_uri(self):
-        """Test that malformed URI with insufficient parts returns empty string."""
-        result = uri_to_url("at://did:plc:abc123")
-        assert result == ""
-
-    def test_extracts_rkey_correctly(self):
-        """Test that rkey is correctly extracted from URI."""
-        result = uri_to_url("at://did:plc:test123/app.bsky.feed.post/abc456xyz")
-
-        assert "/post/abc456xyz" in result
-
-    def test_extracts_did_correctly(self):
-        """Test that DID is correctly extracted from URI."""
-        result = uri_to_url("at://did:plc:longdidvalue12345/app.bsky.feed.post/rkey")
-
-        assert "/profile/did:plc:longdidvalue12345/" in result
 
 
 # ============== Tests for convert_sentiment_score ==============
@@ -1042,92 +942,3 @@ class TestFormatAuthorDisplay:
         """Test with empty DID string."""
         result = format_author_display("")
         assert result == "@"
-
-
-# ============== Tests for get_featured_posts ==============
-
-class TestGetFeaturedPosts:
-    """Tests for get_featured_posts function."""
-
-    def test_returns_enriched_posts(self, mock_cursor):
-        """Test that function returns posts with all required fields."""
-        from datetime import datetime
-
-        mock_posts = [
-            {
-                "post_uri": "at://did:plc:user1/app.bsky.feed.post/abc",
-                "text": "Test post content",
-                "author_did": "did:plc:user1",
-                "posted_at": datetime.now()
-            }
-        ]
-        mock_cursor.fetchall.return_value = mock_posts
-
-        mock_handle_response = Mock()
-        mock_handle_response.status_code = 200
-        mock_handle_response.json.return_value = {"handle": "testuser.bsky.social"}
-
-        mock_engagement_response = Mock()
-        mock_engagement_response.status_code = 200
-        mock_engagement_response.json.return_value = {
-            "thread": {"post": {"likeCount": 10, "repostCount": 5, "replyCount": 3}}
-        }
-
-        with patch("utils.requests.get", side_effect=[mock_handle_response, mock_engagement_response]):
-            result = get_featured_posts(mock_cursor, keyword="python", limit=1)
-
-        assert len(result) == 1
-        post = result[0]
-        assert "post_text" in post
-        assert "author" in post
-        assert "timestamp" in post
-        assert "likes" in post
-        assert "reposts" in post
-        assert "comments" in post
-        assert "post_uri" in post
-
-    def test_returns_empty_list_when_no_posts(self, mock_cursor):
-        """Test that function returns empty list when no posts found."""
-        mock_cursor.fetchall.return_value = []
-
-        result = get_featured_posts(mock_cursor, keyword="python", limit=10)
-
-        assert result == []
-
-    def test_uses_fallback_handle_when_api_fails(self, mock_cursor):
-        """Test that function uses fallback handle when API fails."""
-        mock_posts = [
-            {
-                "post_uri": "at://did:plc:user1/app.bsky.feed.post/abc",
-                "text": "Test post",
-                "author_did": "did:plc:longdidvalue12345",
-                "posted_at": None
-            }
-        ]
-        mock_cursor.fetchall.return_value = mock_posts
-
-        mock_response = Mock()
-        mock_response.status_code = 404
-
-        with patch("utils.requests.get", return_value=mock_response):
-            result = get_featured_posts(mock_cursor, keyword="python", limit=1)
-
-        # Should use truncated DID as fallback
-        assert result[0]["author"].startswith("@did:plc:")
-
-
-# ============== Test Coverage Summary ==============
-# All tests now import from utils.py instead of app.py
-# This ensures proper separation of concerns:
-#   - utils.py: Contains all shared utility functions
-#   - app.py: Contains only authentication flow and routing
-#
-# Test Coverage:
-#   ✓ Database functions (get_db_connection)
-#   ✓ Authentication functions (verify_password, authenticate_user, etc.)
-#   ✓ User management (get_user_by_username, create_user)
-#   ✓ Keyword management (get_user_keywords, add_user_keyword, remove_user_keyword)
-#   ✓ Data generators (generate_placeholder_metrics, generate_time_series_data, etc.)
-#   ✓ Visualization generators (generate_word_cloud_data, generate_network_graph_data, etc.)
-#   ✓ AI insights generation (generate_ai_insights)
-#   ✓ Featured posts (get_most_recent_bluesky_posts, get_handle_from_did, get_post_engagement, get_featured_posts)
