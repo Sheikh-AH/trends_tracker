@@ -166,6 +166,7 @@ def create_user(cursor, email: str, password_hash: str) -> bool:
 
 
 # ============== Keyword Management Functions ==============
+@st.cache_data(ttl=3600)
 def get_user_keywords(cursor, user_id: int) -> list:
     """Retrieve all keywords for a user."""
     cursor.execute(
@@ -190,6 +191,7 @@ def add_user_keyword(cursor, user_id: int, keyword: str) -> bool:
         (user_id, keyword)
     )
     cursor.connection.commit()
+    get_user_keywords.clear()
     return True
 
 
@@ -200,6 +202,7 @@ def remove_user_keyword(cursor, user_id: int, keyword: str) -> bool:
         (user_id, keyword)
     )
     cursor.connection.commit()
+    get_user_keywords.clear()
     return True
 
 
