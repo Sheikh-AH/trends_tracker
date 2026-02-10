@@ -56,7 +56,7 @@ def get_user_posts(conn, user_id: int) -> list:
     query = _load_sql_query("queries/user_posts.sql")
     return read_sql(query, conn, params=(user_id,))
 
-
+@st.cache_data(ttl=3600)
 def gen_keyword_graphic(conn, user_id: int):
     """Generate donut charts for each keyword showing post type proportions and sentiment."""
     user_posts = get_user_posts(conn, user_id)
