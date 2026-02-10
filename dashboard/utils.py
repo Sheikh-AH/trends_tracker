@@ -167,13 +167,13 @@ def create_user(cursor, email: str, password_hash: str) -> bool:
 
 # ============== Keyword Management Functions ==============
 @st.cache_data(ttl=3600)
-def get_user_keywords(cursor, user_id: int) -> list:
+def get_user_keywords(_cursor, user_id: int) -> list:
     """Retrieve all keywords for a user."""
-    cursor.execute(
+    _cursor.execute(
         "SELECT k.keyword_value FROM keywords k JOIN user_keywords uk ON k.keyword_id = uk.keyword_id WHERE uk.user_id = %s ORDER BY k.keyword_value",
         (user_id,)
     )
-    results = cursor.fetchall()
+    results = _cursor.fetchall()
     return [row["keyword_value"] for row in results] if results else []
 
 
@@ -371,7 +371,6 @@ def get_latest_post_text_corpus(
 
 
 # ============== UI Functions ==============
-@st.cache_data(ttl=3600)
 def render_sidebar():
     """Render the standard sidebar across all pages."""
     with st.sidebar:
@@ -380,8 +379,6 @@ def render_sidebar():
             st.session_state.username = ""
             st.session_state.user_id = None
             st.switch_page("app.py")
-        st.markdown("---")
-        st.caption("Trends Tracker v1.0")
 
 
 # ============== Sentiment Functions ==============
