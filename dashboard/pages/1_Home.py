@@ -53,7 +53,7 @@ def add_logo_and_title():
         col_img_spacer, col_img, col_text = st.columns(
             [0.3, 0.2, 1], gap="small")
         with col_img:
-            st.image("images/logo_blue.svg", width=100)
+            st.image("art/logo_blue.svg", width=100)
         with col_text:
             st.markdown(
                 load_html_template("styling/home_title.html"),
