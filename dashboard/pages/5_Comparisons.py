@@ -40,9 +40,10 @@ def load_keywords():
             ss.keywords = db_keywords if db_keywords else []
             ss.keywords_loaded = True
 
-def get_comparison_data(conn, keywords: list, days: int) -> pd.DataFrame:
+@st.cache_data(ttl=3600)
+def get_comparison_data(_conn, keywords: list, days: int) -> pd.DataFrame:
     """Fetch post count and sentiment data over time for selected keywords."""
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    cursor = _conn.cursor(cursor_factory=RealDictCursor)
     if not keywords:
         return pd.DataFrame()
 
@@ -255,7 +256,7 @@ def get_summary_data(df: pd.DataFrame, keyword: str) -> dict:
 
 def create_table() -> None:
     """Create a table to display summary statistics."""
-    col_metric, *col_keywords = st.columns([2] + [1] * len(selected_keywords))
+    col_metric, *col_keywords = st.columns([1] + [1] * len(selected_keywords))
     with col_metric:
         st.write("**Metric**")
     for i, kw in enumerate(selected_keywords):
@@ -274,7 +275,7 @@ def render_summary_statistics(df: pd.DataFrame, metric: str):
     create_table()
 
     for metric in metrics:
-        col_metric, *col_values = st.columns([2] + [1] * len(selected_keywords))
+        col_metric, *col_values = st.columns([1] + [1] * len(selected_keywords))
 
         with col_metric:
             st.write(metric)

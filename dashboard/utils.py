@@ -317,6 +317,7 @@ def get_kpi_metrics_from_db(conn: psycopg2.extensions.connection, keyword: str, 
 
 
 # ============== Featured Posts Functions ==============
+st.cache_data(ttl=3600)
 def get_sentiment_by_day(conn, keyword: str, day_limit: int = 31) -> list[dict]:
     """Get average sentiment per day for a keyword over the specified period."""
     try:
@@ -378,7 +379,7 @@ def render_sidebar():
             st.session_state.logged_in = False
             st.session_state.username = ""
             st.session_state.user_id = None
-            st.switch_page("app.py")
+            st.rerun()
 
 
 # ============== Sentiment Functions ==============
