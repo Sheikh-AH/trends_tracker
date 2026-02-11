@@ -7,15 +7,10 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from utils import (
-    get_user_keywords,
-    get_sentiment_by_day,
-    get_latest_post_text_corpus,
-    extract_keywords_yake,
-    diversify_keywords,
-    render_sidebar,
-    _load_sql_query
-)
+from keyword_utils import get_user_keywords
+from query_utils import get_sentiment_by_day, get_latest_post_text_corpus, _load_sql_query
+from text_utils import extract_keywords_yake, diversify_keywords
+from ui_helper_utils import render_sidebar
 from psycopg2.extras import RealDictCursor
 
 

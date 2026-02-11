@@ -1,5 +1,5 @@
 """
-Unit tests for utility functions and authentication in utils.py using pytest.
+Unit tests for utility functions and authentication using pytest.
 
 Tests cover user retrieval, password verification, authentication flow, user creation,
 keyword management, and data generation functions.
@@ -11,18 +11,16 @@ import hashlib
 import psycopg2
 import pandas as pd
 
-from utils import (
+from auth_utils import (
     get_user_by_username,
     verify_password,
     authenticate_user,
     generate_password_hash,
     validate_signup_input,
     create_user,
-    add_user_keyword,
-    remove_user_keyword,
-    get_user_keywords,
-    get_posts_by_date,
 )
+from keyword_utils import add_user_keyword, remove_user_keyword, get_user_keywords
+from query_utils import get_posts_by_date
 
 
 # ============== Tests for get_user_by_username ==============
@@ -652,7 +650,7 @@ class TestGetUserKeywords:
         assert isinstance(result, list)
         assert len(result) == 2
 
-    
+
     def test_get_keywords_multiple_users(self, mock_cursor_keyword):
         """Getting keywords for different users uses correct user_id."""
         mock_cursor_keyword.fetchall.return_value = None
@@ -704,7 +702,7 @@ class TestGetPostsByDate:
         ]
         mock_conn.cursor.return_value.fetchall.return_value = mock_posts
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert isinstance(result, list)
@@ -716,7 +714,7 @@ class TestGetPostsByDate:
         """Test that function returns empty list when no posts found."""
         mock_conn.cursor.return_value.fetchall.return_value = []
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert result == []
@@ -725,7 +723,7 @@ class TestGetPostsByDate:
         """Test that function returns empty list when fetchall returns None."""
         mock_conn.cursor.return_value.fetchall.return_value = None
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert result == []
@@ -734,7 +732,7 @@ class TestGetPostsByDate:
         """Test that the limit parameter is passed correctly."""
         mock_conn.cursor.return_value.fetchall.return_value = []
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             get_posts_by_date(mock_conn, keyword="matcha", date=sample_date, limit=5)
 
         # Verify the keyword, date, and limit were passed in the query
@@ -745,7 +743,7 @@ class TestGetPostsByDate:
         """Test that function handles database errors gracefully."""
         mock_conn.cursor.return_value.execute.side_effect = Exception("Database error")
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert result == []
@@ -754,7 +752,7 @@ class TestGetPostsByDate:
         """Test that cursor is closed after successful execution."""
         mock_conn.cursor.return_value.fetchall.return_value = []
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             get_posts_by_date(mock_conn, keyword="python", date=sample_date)
 
         mock_conn.cursor.return_value.close.assert_called_once()
@@ -763,7 +761,7 @@ class TestGetPostsByDate:
         """Test that default limit is 10 when not specified."""
         mock_conn.cursor.return_value.fetchall.return_value = []
 
-        with patch("utils._load_sql_query", return_value="SELECT * FROM ..."):
+        with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
             get_posts_by_date(mock_conn, keyword="python", date=sample_date)
 
         call_args = mock_conn.cursor.return_value.execute.call_args

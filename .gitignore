@@ -23,3 +23,8 @@ diagrams
 imagesbluesky_pipeline/extract/
 dashboard/test_yake.py
 documents/Trendfunnel_Script.txt
+
+ignore_dis_folder
+
+*.coverage
+*infracost*

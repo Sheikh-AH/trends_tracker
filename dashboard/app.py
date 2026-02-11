@@ -6,9 +6,8 @@ from streamlit import session_state as ss
 from psycopg2.extras import RealDictCursor
 
 # Import shared utilities
-from utils import (
-    get_db_connection,
-    get_db_connection_cleanup,
+from db_utils import get_db_connection, get_db_connection_cleanup
+from auth_utils import (
     get_user_by_username,
     authenticate_user,
     generate_password_hash,

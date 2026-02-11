@@ -4,7 +4,10 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 from psycopg2.extras import RealDictCursor
-from utils import get_db_connection, get_user_keywords, _load_sql_query, render_sidebar
+from db_utils import get_db_connection
+from keyword_utils import get_user_keywords
+from query_utils import _load_sql_query
+from ui_helper_utils import render_sidebar
 
 
 def configure_page() -> None:
@@ -182,13 +185,14 @@ def format_dates(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def daily_long(df_daily: pd.DataFrame) -> pd.DataFrame:
-    """Return long-form daily metrics."""
-    return df_daily.melt(
+    """Return long-form daily metrics sorted by date."""
+    df_long = df_daily.melt(
         id_vars=["date"],
         value_vars=["posts", "replies", "total"],
         var_name="type",
         value_name="count"
     )
+    return df_long.sort_values("date")
 
 
 def render_activity_over_time(df_daily: pd.DataFrame, keyword: str):
@@ -201,7 +205,7 @@ def render_activity_over_time(df_daily: pd.DataFrame, keyword: str):
         alt.Chart(df_long)
         .mark_line(point=True)
         .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%b %d")),
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%b %d"), sort="ascending"),
             y=alt.Y("count:Q", title="Count"),
             color=alt.Color(
                 "type:N",
@@ -211,6 +215,7 @@ def render_activity_over_time(df_daily: pd.DataFrame, keyword: str):
                     range=["#1f77b4", "#ff7f0e", "#2ca02c"]
                 )
             ),
+            order=alt.Order("date:T"),
             tooltip=[
                 alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
                 alt.Tooltip("type:N", title="Type"),

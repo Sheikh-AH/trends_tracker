@@ -7,12 +7,10 @@ from streamlit import session_state as ss
 from datetime import datetime, timedelta
 import pandas as pd
 import altair as alt
-from utils import (
-    get_db_connection,
-    get_user_keywords,
-    render_sidebar,
-    _load_sql_query
-)
+from db_utils import get_db_connection
+from keyword_utils import get_user_keywords
+from query_utils import _load_sql_query
+from ui_helper_utils import render_sidebar
 from psycopg2.extras import RealDictCursor
 
 def configure_page():
@@ -118,6 +116,8 @@ def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.
     y_title = "Post Count" if metric == "Post Count" else "Average Sentiment"
 
     min_date, padded_max_date, max_value = get_chart_scales(df, y_field)
+
+    df = df
 
     line_chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X(
@@ -261,7 +261,7 @@ def create_table() -> None:
     for i, kw in enumerate(selected_keywords):
         with col_keywords[i]:
             st.write(f"**{kw}**")
-    
+
 def render_summary_statistics(df: pd.DataFrame, metric: str):
     summary_data = {}  # Store numeric values for highlighting
 
@@ -270,7 +270,7 @@ def render_summary_statistics(df: pd.DataFrame, metric: str):
 
     metrics = ['Total Posts', 'Avg Posts/Day', 'Post Count Volatility',
                 'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
-    
+
     create_table()
 
     for metric in metrics:
@@ -323,4 +323,4 @@ if __name__ == "__main__":
     st.subheader("Summary Statistics")
     render_summary_statistics(df, metric)
 
-    
+

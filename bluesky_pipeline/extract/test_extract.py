@@ -3,13 +3,15 @@
 
 import sys
 from pathlib import Path
+from unittest.mock import Mock, MagicMock, patch, call
+import json
 
 import pytest
 
 # Add parent directory to path so imports work
 sys.path.insert(0, str(Path(__file__).parent))
 
-from extract import keyword_match, compile_keyword_patterns
+from extract import keyword_match, compile_keyword_patterns, get_keywords, stream_messages, stream_filtered_messages
 
 
 class TestKeywordMatchBasic:
@@ -129,3 +131,300 @@ class TestKeywordMatchWordBoundary:
         assert result1 == {"python"}
         assert result2 == {"python"}
         assert result3 == {"coding"}
+
+
+class TestCompileKeywordPatterns:
+    """Tests for compile_keyword_patterns function."""
+
+    def test_empty_keywords_set(self):
+        """Test compiling empty keywords set."""
+        patterns = compile_keyword_patterns(set())
+        assert patterns == {}
+
+    def test_single_keyword(self):
+        """Test compiling a single keyword."""
+        patterns = compile_keyword_patterns({"python"})
+        assert "python" in patterns
+        assert hasattr(patterns["python"], "search")  # Check it's a compiled regex
+
+    def test_multiple_keywords(self):
+        """Test compiling multiple keywords."""
+        keywords = {"python", "javascript", "rust"}
+        patterns = compile_keyword_patterns(keywords)
+        assert len(patterns) == 3
+        assert all(kw in patterns for kw in keywords)
+
+    def test_keyword_with_special_chars(self):
+        """Test that special regex chars are escaped."""
+        keywords = {"c++", "c#", ".net"}
+        patterns = compile_keyword_patterns(keywords)
+        # Verify patterns compile without regex error
+        assert len(patterns) == 3
+        for pattern in patterns.values():
+            assert hasattr(pattern, "search")
+
+    def test_keyword_case_preservation(self):
+        """Test that keyword original case is preserved in dict key."""
+        keywords = {"Python", "JAVASCRIPT"}
+        patterns = compile_keyword_patterns(keywords)
+        assert "Python" in patterns
+        assert "JAVASCRIPT" in patterns
+
+
+class TestIntegrationExtract:
+    """Integration tests for extract functions."""
+
+    def test_keyword_flow_with_compile_and_match(self):
+        """Test full flow: compile keywords then match against text."""
+        keywords = {"trending", "viral"}
+        patterns = compile_keyword_patterns(keywords)
+
+        text1 = "This is trending now"
+        text2 = "This went viral on social media"
+        text3 = "Nothing special here"
+
+        assert keyword_match(patterns, text1) == {"trending"}
+        assert keyword_match(patterns, text2) == {"viral"}
+        assert keyword_match(patterns, text3) is None
+
+    def test_unicode_keyword_matching(self):
+        """Test that unicode keywords are handled correctly."""
+        keywords = {"café", "naïve", "résumé"}
+        patterns = compile_keyword_patterns(keywords)
+
+        result = keyword_match(patterns, "I love café culture")
+        assert "café" in result
+
+    def test_number_in_keyword(self):
+        """Test keywords containing numbers."""
+        keywords = {"5g", "covid19", "2024"}
+        patterns = compile_keyword_patterns(keywords)
+
+        assert keyword_match(patterns, "5g technology") == {"5g"}
+        assert keyword_match(patterns, "covid19 pandemic") == {"covid19"}
+        assert keyword_match(patterns, "2024 elections") == {"2024"}
+
+
+class TestGetKeywords:
+    """Tests for get_keywords function."""
+
+    def test_get_keywords_with_results(self):
+        """Test fetching keywords from database with results."""
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = [
+            ("python",),
+            ("javascript",),
+            ("bluesky",)
+        ]
+
+        result = get_keywords(mock_cursor)
+
+        assert result == {"python", "javascript", "bluesky"}
+        mock_cursor.execute.assert_called_once_with("SELECT keyword_value FROM keywords")
+
+    def test_get_keywords_empty_database(self):
+        """Test fetching keywords when database has no keywords."""
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = []
+
+        result = get_keywords(mock_cursor)
+
+        assert result == set()
+        mock_cursor.execute.assert_called_once()
+
+    def test_get_keywords_single_result(self):
+        """Test fetching a single keyword."""
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = [("trending",)]
+
+        result = get_keywords(mock_cursor)
+
+        assert result == {"trending"}
+
+    def test_get_keywords_with_special_chars(self):
+        """Test fetching keywords with special characters."""
+        mock_cursor = Mock()
+        mock_cursor.fetchall.return_value = [
+            ("c++",),
+            ("c#",),
+            (".net",)
+        ]
+
+        result = get_keywords(mock_cursor)
+
+        assert "c++" in result
+        assert "c#" in result
+        assert ".net" in result
+
+
+class TestStreamMessages:
+    """Tests for stream_messages function."""
+
+    @patch('extract.websocket.create_connection')
+    def test_stream_messages_closes_on_error(self, mock_create_connection):
+        """Test that websocket closes even on error."""
+        mock_ws = MagicMock()
+        mock_create_connection.return_value = mock_ws
+        mock_ws.recv.side_effect = Exception("Connection error")
+
+        with pytest.raises(Exception):
+            list(stream_messages())
+
+        mock_ws.close.assert_called_once()
+
+class TestStreamFilteredMessages:
+    """Tests for stream_filtered_messages function."""
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_no_matching_posts(self, mock_time, mock_stream):
+        """Test streaming when no posts match keywords."""
+        mock_time.side_effect = [0, 1, 2]  # Simulate time progression
+
+        # Non-matching post
+        mock_stream.return_value = iter([
+            {
+                "kind": "commit",
+                "commit": {
+                    "record": {"text": "random coffee talk"}
+                }
+            }
+        ])
+
+        def keyword_fetcher():
+            return {"python", "coding"}
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        assert len(results) == 0
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_with_matching_keywords(self, mock_time, mock_stream):
+        """Test streaming with matching keywords."""
+        mock_time.side_effect = [0, 1, 2]  # Simulate time progression
+
+        # Matching post
+        mock_stream.return_value = iter([
+            {
+                "kind": "commit",
+                "commit": {
+                    "record": {"text": "I love python programming"}
+                }
+            }
+        ])
+
+        def keyword_fetcher():
+            return {"python"}
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        assert len(results) == 1
+        assert results[0]["matching_keywords"] == ["python"]
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_multiple_keywords_match(self, mock_time, mock_stream):
+        """Test post matching multiple keywords."""
+        mock_time.side_effect = [0, 1, 2]
+
+        mock_stream.return_value = iter([
+            {
+                "kind": "commit",
+                "commit": {
+                    "record": {"text": "python coding on bluesky"}
+                }
+            }
+        ])
+
+        def keyword_fetcher():
+            return {"python", "coding", "bluesky"}
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        assert len(results) == 1
+        assert set(results[0]["matching_keywords"]) == {"python", "coding", "bluesky"}
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_ignores_non_commit(self, mock_time, mock_stream):
+        """Test that non-commit messages are ignored."""
+        mock_time.side_effect = [0, 1, 2, 3]
+
+        mock_stream.return_value = iter([
+            {"kind": "identity"},  # Not a commit
+            {
+                "kind": "commit",
+                "commit": {"record": {"text": "python"}}
+            }
+        ])
+
+        def keyword_fetcher():
+            return {"python"}
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        assert len(results) == 1
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_keyword_refresh(self, mock_time, mock_stream):
+        """Test that keywords are refreshed periodically."""
+        # Simulate time passing beyond refresh interval (60s)
+        mock_time.side_effect = [0, 70, 140]
+
+        mock_stream.return_value = iter([
+            {"kind": "commit", "commit": {"record": {"text": "python"}}},
+            {"kind": "commit", "commit": {"record": {"text": "rust"}}},
+        ])
+
+        call_count = [0]
+
+        def keyword_fetcher():
+            call_count[0] += 1
+            if call_count[0] == 1:
+                return {"python"}
+            else:
+                return {"python", "rust"}
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        # First call returns python, second call adds rust
+        assert call_count[0] > 1  # Keyword fetcher was called more than once
+        # We should get at least one result matching the keywords
+        assert len(results) > 0
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_empty_keywords(self, mock_time, mock_stream):
+        """Test streaming when keyword_fetcher returns empty set."""
+        mock_time.side_effect = [0, 1, 2]
+
+        mock_stream.return_value = iter([
+            {"kind": "commit", "commit": {"record": {"text": "any text"}}}
+        ])
+
+        def keyword_fetcher():
+            return set()
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        assert len(results) == 0
+
+    @patch('extract.stream_messages')
+    @patch('extract.time.time')
+    def test_stream_filtered_messages_case_insensitive(self, mock_time, mock_stream):
+        """Test that keyword matching is case-insensitive."""
+        mock_time.side_effect = [0, 1, 2]
+
+        mock_stream.return_value = iter([
+            {"kind": "commit", "commit": {"record": {"text": "I love PYTHON"}}}
+        ])
+
+        def keyword_fetcher():
+            return {"python"}
+
+        results = list(stream_filtered_messages(keyword_fetcher))
+
+        assert len(results) == 1
+        assert "python" in results[0]["matching_keywords"]

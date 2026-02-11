@@ -7,11 +7,9 @@ from dotenv import load_dotenv
 from psycopg2 import connect
 from pandas import read_sql
 import matplotlib.pyplot as plt
-from utils import (
-    get_db_connection,
-    render_sidebar,
-    _load_sql_query
-)
+from db_utils import get_db_connection
+from query_utils import _load_sql_query
+from ui_helper_utils import render_sidebar
 
 def configure_page():
     """Configure page settings and check authentication."""

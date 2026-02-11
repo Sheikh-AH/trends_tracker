@@ -1,13 +1,8 @@
 """Home - Welcome and introduction page for Trends Tracker."""
 
-from utils import (
-    get_db_connection,
-    get_user_keywords,
-    add_user_keyword,
-    remove_user_keyword,
-    load_html_template,
-    render_sidebar
-)
+from db_utils import get_db_connection
+from keyword_utils import get_user_keywords, add_user_keyword, remove_user_keyword
+from ui_helper_utils import load_html_template, render_sidebar
 from psycopg2.extras import RealDictCursor
 import sys
 import streamlit as st
