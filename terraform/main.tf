@@ -968,11 +968,40 @@ resource "aws_iam_role" "dashboard_task_role" {
   }
 }
 
+resource "aws_iam_role_policy" "dashboard_ses_policy" {
+  name = "c21-dashboard-ses-policy"
+  role = aws_iam_role.dashboard_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:ListVerifiedEmailAddresses",
+          "ses:VerifyEmailIdentity",
+          "ses:SendEmail",
+          "ses:SendRawEmail"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
 # Security Group for dashboard ECS Service
 resource "aws_security_group" "dashboard_ecs_sg" {
   name        = "c21-dashboard-ecs-sg"
   description = "Security group for Dashboard ECS service"
   vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description = "Streamlit default port"
+    from_port   = 8501
+    to_port     = 8501
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   egress {
     from_port   = 0
@@ -1014,12 +1043,21 @@ resource "aws_ecs_task_definition" "dashboard_task" {
       image     = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c21-trends-dashboard:latest"
       essential = true
 
+      portMappings = [
+        {
+          containerPort = 8501
+          hostPort      = 8501
+          protocol      = "tcp"
+        }
+      ]
+
       environment = [
         { name = "DB_HOST", value = aws_db_instance.trends_db.address },
         { name = "DB_PORT", value = "5432" },
         { name = "DB_NAME", value = var.db_name },
         { name = "DB_USER", value = var.db_username },
-        { name = "DB_PASSWORD", value = var.db_password }
+        { name = "DB_PASSWORD", value = var.db_password },
+        { name = "AWS_REGION", value = var.aws_region }
       ]
 
       logConfiguration = {
@@ -1032,6 +1070,8 @@ resource "aws_ecs_task_definition" "dashboard_task" {
       }
     }
   ])
+
+
 
   tags = {
     Name        = "c21-dashboard-task"

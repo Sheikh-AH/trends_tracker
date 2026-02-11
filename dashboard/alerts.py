@@ -13,11 +13,21 @@ def login_prompt():
 
 
 def get_boto3_client():
+    """Create SES client. Uses explicit keys for local dev,
+    falls back to ECS task role credentials when deployed."""
+    access_key = os.getenv('AWS_ACCESS_KEY')
+    secret_key = os.getenv('AWS_SECRET_KEY')
+
+    if access_key and secret_key:
+        return boto3.client(
+            'ses',
+            region_name=os.getenv('AWS_REGION', 'eu-west-2'),
+            aws_access_key_id=access_key,
+            aws_secret_access_key=secret_key
+        )
     return boto3.client(
         'ses',
-        region_name=os.getenv('AWS_REGION', 'eu-west-2'),
-        aws_access_key_id=os.getenv('AWS_ACCESS_KEY'),
-        aws_secret_access_key=os.getenv('AWS_SECRET_KEY')
+        region_name=os.getenv('AWS_REGION', 'eu-west-2')
     )
 
 
