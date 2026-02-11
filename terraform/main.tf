@@ -406,7 +406,7 @@ resource "aws_ecs_task_definition" "bluesky_task" {
   container_definitions = jsonencode([
     {
       name      = "bluesky-pipeline"
-      image     = "${aws_ecr_repository.bluesky_pipeline.repository_url}:latest"
+      image     = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c21-bluesky-pipeline:latest"
       essential = true
 
       environment = [
@@ -895,4 +895,23 @@ resource "aws_lambda_permission" "allow_eventbridge_weekly_report" {
   function_name = aws_lambda_function.weekly_report.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.weekly_report_schedule.arn
+}
+# ECR Repository for Dashboard
+resource "aws_ecr_repository" "trends_dashboard" {
+  name                 = "c21-trends-dashboard"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "c21-trends-dashboard"
+    Environment = var.environment
+  }
+}
+
+output "trends_dashboard_ecr_uri" {
+  description = "ECR repository URI for Trends Dashboard"
+  value       = aws_ecr_repository.trends_dashboard.repository_url
 }
