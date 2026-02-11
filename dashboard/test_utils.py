@@ -83,7 +83,7 @@ class TestGetSentimentByDay:
         conn.cursor.return_value = cursor
         return conn
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_returns_list_of_dicts(self, mock_load_query, mock_conn):
         """Test that function returns list of dictionaries."""
         from query_utils import get_sentiment_by_day
@@ -99,7 +99,7 @@ class TestGetSentimentByDay:
         assert len(result) == 2
         assert result[0]["avg_sentiment"] == 0.5
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_returns_empty_list_when_no_data(self, mock_load_query, mock_conn):
         """Test that function returns empty list when no data."""
         from query_utils import get_sentiment_by_day
@@ -110,7 +110,7 @@ class TestGetSentimentByDay:
 
         assert result == []
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_handles_database_error(self, mock_load_query, mock_conn):
         """Test that function handles database errors gracefully."""
         from query_utils import get_sentiment_by_day
@@ -121,7 +121,7 @@ class TestGetSentimentByDay:
 
         assert result == []
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_closes_cursor(self, mock_load_query, mock_conn):
         """Test that cursor is closed after execution."""
         from query_utils import get_sentiment_by_day
@@ -144,7 +144,7 @@ class TestGetLatestPostTextCorpus:
         conn.cursor.return_value = cursor
         return conn
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_returns_concatenated_text(self, mock_load_query, mock_conn):
         """Test that function returns concatenated text from posts."""
         from query_utils import get_latest_post_text_corpus
@@ -162,7 +162,7 @@ class TestGetLatestPostTextCorpus:
         assert "Third post" in result
         assert result == "First post\nSecond post\nThird post"
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_returns_empty_string_when_no_data(self, mock_load_query, mock_conn):
         """Test that function returns empty string when no data."""
         from query_utils import get_latest_post_text_corpus
@@ -173,7 +173,7 @@ class TestGetLatestPostTextCorpus:
 
         assert result == ""
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_handles_null_text(self, mock_load_query, mock_conn):
         """Test that function handles null text values."""
         from query_utils import get_latest_post_text_corpus
@@ -189,7 +189,7 @@ class TestGetLatestPostTextCorpus:
         assert "First post" in result
         assert "Third post" in result
 
-    @patch("query_utils._load_sql_query")
+    @patch("dashboard.query_utils._load_sql_query")
     def test_handles_database_error(self, mock_load_query, mock_conn):
         """Test that function handles database errors gracefully."""
         from query_utils import get_latest_post_text_corpus
