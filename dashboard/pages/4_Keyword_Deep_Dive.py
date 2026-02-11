@@ -196,7 +196,7 @@ def render_activity_over_time(df_daily: pd.DataFrame, keyword: str):
     if df_daily.empty:
         st.warning(f"No data available for '{keyword}' in the last period")
         return None
-    df_long = daily_long(format_dates(df_daily))
+    df_long = daily_long(format_dates(df_daily)).sort_values("date")
     return (
         alt.Chart(df_long)
         .mark_line(point=True)
