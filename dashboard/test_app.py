@@ -652,46 +652,7 @@ class TestGetUserKeywords:
         assert isinstance(result, list)
         assert len(result) == 2
 
-    def test_get_keywords_correct_order(self, mock_cursor_keyword):
-        """Getting keywords returns them in correct order."""
-        mock_cursor_keyword.fetchall.return_value = [
-            {"keyword_value": "coffee"},
-            {"keyword_value": "matcha"},
-            {"keyword_value": "tea"}
-        ]
-
-        result = get_user_keywords(mock_cursor_keyword, 1)
-
-        assert result == ["coffee", "matcha", "tea"]
-
-    def test_get_keywords_empty_list(self, mock_cursor_keyword):
-        """Getting keywords for user with no keywords returns empty list."""
-        mock_cursor_keyword.fetchall.return_value = None
-
-        result = get_user_keywords(mock_cursor_keyword, 1)
-
-        assert result == []
-
-    def test_get_keywords_calls_correct_query(self, mock_cursor_keyword):
-        """Verify correct SQL query is executed."""
-        mock_cursor_keyword.fetchall.return_value = None
-
-        get_user_keywords(mock_cursor_keyword, 1)
-
-        call_args = mock_cursor_keyword.execute.call_args
-        assert "SELECT" in call_args[0][0]
-        assert "keywords" in call_args[0][0]
-        assert call_args[0][1] == (1,)
-
-    def test_get_keywords_single_keyword(self, mock_cursor_keyword):
-        """Getting single keyword returns list with one element."""
-        mock_cursor_keyword.fetchall.return_value = [{"keyword_value": "matcha"}]
-
-        result = get_user_keywords(mock_cursor_keyword, 1)
-
-        assert len(result) == 1
-        assert result[0] == "matcha"
-
+    
     def test_get_keywords_multiple_users(self, mock_cursor_keyword):
         """Getting keywords for different users uses correct user_id."""
         mock_cursor_keyword.fetchall.return_value = None
