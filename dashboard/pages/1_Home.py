@@ -5,7 +5,8 @@ from utils import (
     get_user_keywords,
     add_user_keyword,
     remove_user_keyword,
-    load_html_template
+    load_html_template,
+    render_sidebar
 )
 from psycopg2.extras import RealDictCursor
 import sys
@@ -44,6 +45,7 @@ def load_keywords():
             ss.keywords = db_keywords if db_keywords else []
             ss.keywords_loaded = True
 
+@st.cache_data(ttl=3600)
 def add_logo_and_title():
     """Add logo and title to the page."""
     col1, col2, col3 = st.columns([1, 2, 1])
@@ -173,7 +175,7 @@ def render_deep_dive_card():
     comprehensive performance metrics.
     """)
     if st.button("🔍 Deep Dive Analysis", key="deepdive_top", use_container_width=True):
-        st.switch_page("pages/3_Keyword_Deep_Dive.py")
+        st.switch_page("pages/4_Keyword_Deep_Dive.py")
 
 def render_daily_summary_card():
     """Render the Daily Summary card."""
@@ -183,7 +185,7 @@ def render_daily_summary_card():
     and themes for your keywords.
     """)
     if st.button("📅 Daily Summary", key="ai_top", use_container_width=True):
-        st.switch_page("pages/4_AI_Insights.py")
+        st.switch_page("pages/3_Daily_Summary.py")
 
 def render_keyword_comparisons_card():
     """Render the Keyword Comparisons card."""
@@ -193,11 +195,12 @@ def render_keyword_comparisons_card():
      and competitive insights.
     """)
     if st.button("⚡ Keyword Comparisons", key="comparisons_top", use_container_width=True):
-        st.switch_page("pages/5_Keyword_Comparisons.py")
+        st.switch_page("pages/5_Comparisons.py")
 
 if __name__ == "__main__":
 
     configure_page()
+    render_sidebar()
 
     # Custom CSS for buttons and fonts
     styling = load_html_template("styling/home_font_buttons.html")

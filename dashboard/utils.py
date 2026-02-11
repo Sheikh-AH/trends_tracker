@@ -166,13 +166,14 @@ def create_user(cursor, email: str, password_hash: str) -> bool:
 
 
 # ============== Keyword Management Functions ==============
-def get_user_keywords(cursor, user_id: int) -> list:
+@st.cache_data(ttl=3600)
+def get_user_keywords(_cursor, user_id: int) -> list:
     """Retrieve all keywords for a user."""
-    cursor.execute(
+    _cursor.execute(
         "SELECT k.keyword_value FROM keywords k JOIN user_keywords uk ON k.keyword_id = uk.keyword_id WHERE uk.user_id = %s ORDER BY k.keyword_value",
         (user_id,)
     )
-    results = cursor.fetchall()
+    results = _cursor.fetchall()
     return [row["keyword_value"] for row in results] if results else []
 
 
@@ -190,6 +191,7 @@ def add_user_keyword(cursor, user_id: int, keyword: str) -> bool:
         (user_id, keyword)
     )
     cursor.connection.commit()
+    get_user_keywords.clear()
     return True
 
 
@@ -200,10 +202,12 @@ def remove_user_keyword(cursor, user_id: int, keyword: str) -> bool:
         (user_id, keyword)
     )
     cursor.connection.commit()
+    get_user_keywords.clear()
     return True
 
 
 # ============== Database Query Functions ==============
+@st.cache_data(ttl=3600)
 def _load_sql_query(filename: str) -> str:
     """Load SQL query from queries folder."""
     query_path = os.path.join(os.path.dirname(__file__), "queries", filename)
@@ -370,23 +374,15 @@ def get_latest_post_text_corpus(
 def render_sidebar():
     """Render the standard sidebar across all pages."""
     with st.sidebar:
-        st.markdown(f"### 👋 Hello, {st.session_state.get('username', 'User')}!")
-        st.markdown("---")
-        st.markdown("### 📈 Quick Stats")
-        st.metric("Keywords Tracked", len(st.session_state.get("keywords", [])))
-        st.metric("Email Reports Enabled", "Yes" if st.session_state.get("emails_enabled", False) else "No")
-        st.metric("Alerts Enabled", "Yes" if st.session_state.get("alerts_enabled", False) else "No")
-        st.markdown("---")
         if st.button("🚪 Logout", use_container_width=True):
             st.session_state.logged_in = False
             st.session_state.username = ""
             st.session_state.user_id = None
             st.switch_page("app.py")
-        st.markdown("---")
-        st.caption("Trends Tracker v1.0")
 
 
 # ============== Sentiment Functions ==============
+@st.cache_data(ttl=3600)
 def get_sentiment_emoji(sentiment_score: float) -> str:
     """Get emoji based on sentiment score with gradient smileys."""
     if sentiment_score >= 0.4:
@@ -476,35 +472,10 @@ def diversify_keywords(
 
     return diversified
 
-
-# ============== Data Formatting Functions ==============
-def convert_sentiment_score(sentiment_raw) -> float:
-    """Convert sentiment score to float, handling various input types."""
-    try:
-        return float(sentiment_raw) if sentiment_raw is not None else 0.0
-    except (ValueError, TypeError):
-        return 0.0
-
-
-def format_timestamp(posted_at) -> str:
-    """Format timestamp to HH:MM AM/PM or return empty string if invalid."""
-    if not posted_at:
-        return ''
-    if hasattr(posted_at, 'strftime'):
-        return posted_at.strftime('%I:%M %p')
-    return str(posted_at)
-
-
-def format_author_display(author_did: str, max_length: int = 20) -> str:
-    """Format author DID with @ prefix and truncate if longer than max_length."""
-    if len(author_did) > max_length:
-        return f"@{author_did[:max_length]}..."
-    return f"@{author_did}"
-
-
 # ============== HTML Template Functions ==============
 _HTML_TEMPLATE_CACHE = {}
 
+@st.cache_data(ttl=3600)
 def load_html_template(filepath: str) -> str:
     """Load HTML template from file, with caching."""
     if filepath not in _HTML_TEMPLATE_CACHE:

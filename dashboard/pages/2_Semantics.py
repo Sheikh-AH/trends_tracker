@@ -1,4 +1,4 @@
-"""Home Dashboard - Main visualization page with engaging analytics."""
+"""Semantics page showing keyword word cloud and sentiment calendar."""
 
 from streamlit_echarts import st_echarts
 import math
@@ -33,10 +33,9 @@ def configure_page():
         st.stop()
 
 
-# ---------- DATA ----------
-
-def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], day_limit: int):
-    cursor = conn.cursor(cursor_factory=RealDictCursor)
+@st.cache_data(ttl=600)
+def get_avg_sentiment_by_phrase(_conn, target_keyword: str, phrases: list[str], day_limit: int):
+    cursor = _conn.cursor(cursor_factory=RealDictCursor)
     query = _load_sql_query("get_phrase_avg_sentiment.sql")
     results = {}
     for phrase in phrases:
@@ -44,8 +43,7 @@ def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], d
             query, (target_keyword, f"{day_limit} days", f"%{phrase}%"))
         row = cursor.fetchone()
         results[phrase] = {
-            "avg_sentiment": row["avg_sentiment"],
-            "post_count": row["post_count"],
+            "avg_sentiment": row["avg_sentiment"]
         }
     cursor.close()
     return results
@@ -54,7 +52,7 @@ def get_avg_sentiment_by_phrase(conn, target_keyword: str, phrases: list[str], d
 @st.cache_data(ttl=3600)
 def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict:
     corpus = get_latest_post_text_corpus(
-        _conn, keyword, day_limit=day_limit, post_count_limit=10000)
+        _conn, keyword, day_limit=day_limit, post_count_limit=1000)
     if not corpus:
         return {}
     raw_keywords = extract_keywords_yake(corpus, num_keywords=100)
@@ -63,12 +61,11 @@ def get_keyword_word_cloud_data(_conn, keyword: str, day_limit: int = 7) -> dict
         return {}
     phrases = [kw["keyword"] for kw in diversified]
     sentiment_by_phrase = get_avg_sentiment_by_phrase(
-        _conn, keyword, phrases[:10], day_limit)
+        _conn, keyword, phrases[:15], day_limit)
     return {
         kw["keyword"]: {
             "weight": 1 / (kw["score"] + 1e-10),
-            "avg_sentiment": sentiment_by_phrase.get(kw["keyword"], {}).get("avg_sentiment"),
-            "post_count": sentiment_by_phrase.get(kw["keyword"], {}).get("post_count"),
+            "avg_sentiment": sentiment_by_phrase.get(kw["keyword"], {}).get("avg_sentiment")
         }
         for kw in diversified
     }
@@ -110,7 +107,7 @@ def render_wordcloud(word_data: dict):
                 {
                     "Word": w,
                     "Weight": round(v["weight"], 2),
-                    "Posts": v["post_count"],
+                    "Avg Sentiment": round(v["avg_sentiment"], 3) if v["avg_sentiment"] is not None else "N/A"
                 }
                 for w, v in top_words
             ],
@@ -132,7 +129,6 @@ def render_wordcloud(word_data: dict):
     }
     with col_cloud:
         st_echarts(option, height="500px")
-
 
 def render_sentiment_calendar(keyword: str, days: int = 30):
     """Render sentiment calendar with best/worst day metrics."""
