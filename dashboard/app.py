@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 """Login Page and Main App Runner for Trends Tracker Dashboard."""
 
 import logging
@@ -6,9 +7,8 @@ from streamlit import session_state as ss
 from psycopg2.extras import RealDictCursor
 
 # Import shared utilities
-from utils import (
-    get_db_connection,
-    get_db_connection_cleanup,
+from db_utils import get_db_connection, get_db_connection_cleanup
+from auth_utils import (
     get_user_by_username,
     authenticate_user,
     generate_password_hash,

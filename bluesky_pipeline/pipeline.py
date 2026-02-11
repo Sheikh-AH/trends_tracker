@@ -1,6 +1,9 @@
 # pylint: disable=import-error
 """Main pipeline: Extract -> Transform -> Load."""
 
+from bs_load import load_data, get_db_connection
+from bs_transform import add_sentiment, add_uri
+from extract import stream_filtered_messages, get_keywords
 import sys
 import logging
 from pathlib import Path
@@ -12,10 +15,6 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 sys.path.insert(0, str(Path(__file__).parent / "extract"))
 sys.path.insert(0, str(Path(__file__).parent / "transform"))
 sys.path.insert(0, str(Path(__file__).parent / "load"))
-
-from extract import stream_filtered_messages, get_keywords
-from bs_transform import add_sentiment, add_uri
-from bs_load import load_data, get_db_connection
 
 
 if __name__ == "__main__":
@@ -30,7 +29,6 @@ if __name__ == "__main__":
     load_dotenv()
     conn = get_db_connection(ENV)
 
-    
     def keyword_updater():
         """Function to get updated keywords from environment."""
         with conn.cursor() as cursor:
@@ -48,7 +46,7 @@ if __name__ == "__main__":
     # 3. Transform: add post URIs
     with_uri = add_uri(with_sentiment)
     logger.info("Added URIs to posts.")
-    
+
     # 4. Load posts
     load_data(conn, with_uri, batch_size=500)
     logger.info("Loaded data into database.")

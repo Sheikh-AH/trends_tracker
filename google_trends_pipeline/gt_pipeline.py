@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 """Google Trends ETL Pipeline"""
 from gt_extract import extract
 from gt_transform import transform

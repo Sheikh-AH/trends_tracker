@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 """Extract and filter posts from Bluesky Jetstream matching specified keywords."""
 
 import sys
@@ -6,7 +7,6 @@ import re
 import time
 import logging
 from typing import Optional, Callable
-from os import _Environ
 from pathlib import Path
 
 import websocket

@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 """
 Keyword Comparisons - Compare metrics across multiple keywords over time.
 """
@@ -7,13 +8,12 @@ from streamlit import session_state as ss
 from datetime import datetime, timedelta
 import pandas as pd
 import altair as alt
-from utils import (
-    get_db_connection,
-    get_user_keywords,
-    render_sidebar,
-    _load_sql_query
-)
+from db_utils import get_db_connection
+from keyword_utils import get_user_keywords
+from query_utils import _load_sql_query
+from ui_helper_utils import render_sidebar
 from psycopg2.extras import RealDictCursor
+
 
 def configure_page():
     """Configure page settings and check authentication."""
@@ -29,6 +29,7 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
+
 def load_keywords():
     """Load keywords from database if needed."""
     if not ss.get("keywords_loaded", False):
@@ -39,6 +40,7 @@ def load_keywords():
             cursor.close()
             ss.keywords = db_keywords if db_keywords else []
             ss.keywords_loaded = True
+
 
 @st.cache_data(ttl=3600)
 def get_comparison_data(_conn, keywords: list, days: int) -> pd.DataFrame:
@@ -68,6 +70,7 @@ def get_comparison_data(_conn, keywords: list, days: int) -> pd.DataFrame:
 
     return df
 
+
 def get_chart_scales(df: pd.DataFrame, y_field: str):
     """Calculate appropriate scales for the chart axes."""
     min_date = df['date'].min()
@@ -79,6 +82,7 @@ def get_chart_scales(df: pd.DataFrame, y_field: str):
     padded_max_value = max_value + (max_value * 0.1) if max_value > 0 else 1
 
     return min_date, padded_max_date, padded_max_value
+
 
 def add_events(events: list):
     """Add event markers to the chart."""
@@ -112,6 +116,7 @@ def add_events(events: list):
     )
     return event_rules, event_labels
 
+
 def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.LayerChart:
     """Create a line chart comparing keywords with event markers."""
 
@@ -119,6 +124,8 @@ def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.
     y_title = "Post Count" if metric == "Post Count" else "Average Sentiment"
 
     min_date, padded_max_date, max_value = get_chart_scales(df, y_field)
+
+    df = df
 
     line_chart = alt.Chart(df).mark_line(point=True).encode(
         x=alt.X(
@@ -141,6 +148,7 @@ def create_comparison_chart(df: pd.DataFrame, metric: str, events: list) -> alt.
         return (line_chart + event_rules + event_labels).interactive()
 
     return line_chart.interactive()
+
 
 def render_event_manager():
     """Render the event management UI."""
@@ -190,6 +198,7 @@ def render_event_manager():
                     ss.comparison_events.pop(i)
                     st.rerun()
 
+
 def get_selected_keywords():
     """Render the keyword selection multiselect and return the selected keywords."""
     if not ss.get("keywords"):
@@ -218,6 +227,7 @@ def get_selected_keywords():
 
     return selected_keywords
 
+
 def render_controls():
     """Render the metric and time period selection controls."""
     col1, col2 = st.columns([1, 1])
@@ -240,6 +250,7 @@ def render_controls():
 
     return metric, days
 
+
 def get_summary_data(df: pd.DataFrame, keyword: str) -> dict:
     """Calculate summary statistics for a given keyword."""
     kw_data = df[df['keyword'] == keyword]
@@ -254,6 +265,7 @@ def get_summary_data(df: pd.DataFrame, keyword: str) -> dict:
         'Sentiment Volatility': kw_data['avg_sentiment'].std().round(2)
     }
 
+
 def create_table() -> None:
     """Create a table to display summary statistics."""
     col_metric, *col_keywords = st.columns([1] + [1] * len(selected_keywords))
@@ -262,7 +274,8 @@ def create_table() -> None:
     for i, kw in enumerate(selected_keywords):
         with col_keywords[i]:
             st.write(f"**{kw}**")
-    
+
+
 def render_summary_statistics(df: pd.DataFrame, metric: str):
     summary_data = {}  # Store numeric values for highlighting
 
@@ -270,12 +283,13 @@ def render_summary_statistics(df: pd.DataFrame, metric: str):
         summary_data[kw] = get_summary_data(df, kw)
 
     metrics = ['Total Posts', 'Avg Posts/Day', 'Post Count Volatility',
-                'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
-    
+               'Avg Sentiment', 'Sentiment Max', 'Sentiment Min', 'Sentiment Volatility']
+
     create_table()
 
     for metric in metrics:
-        col_metric, *col_values = st.columns([1] + [1] * len(selected_keywords))
+        col_metric, * \
+            col_values = st.columns([1] + [1] * len(selected_keywords))
 
         with col_metric:
             st.write(metric)
@@ -323,5 +337,3 @@ if __name__ == "__main__":
 
     st.subheader("Summary Statistics")
     render_summary_statistics(df, metric)
-
-    

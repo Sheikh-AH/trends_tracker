@@ -116,3 +116,69 @@ def sample_keyword_cooccurrence():
         {"source": "boba", "target": "milk", "weight": 30},
         {"source": "coffee", "target": "espresso", "weight": 22},
     ]
+
+
+# ============== Database Mock Fixtures ==============
+
+@pytest.fixture
+def mock_conn():
+    """Fixture providing a mock database connection with cursor."""
+    conn = Mock()
+    cursor = Mock()
+    conn.cursor.return_value = cursor
+    cursor.connection = conn
+    return conn
+
+
+@pytest.fixture
+def sample_daily_analytics():
+    """Fixture providing sample daily analytics data."""
+    import pandas as pd
+    return pd.DataFrame({
+        "date": pd.to_datetime(["2026-02-01", "2026-02-02", "2026-02-03"]),
+        "total": [100, 150, 120],
+        "posts": [80, 120, 100],
+        "replies": [20, 30, 20],
+        "avg_sentiment": [0.2, 0.1, -0.1]
+    })
+
+
+@pytest.fixture
+def sample_sentiment_distribution():
+    """Fixture providing sample sentiment distribution data."""
+    import pandas as pd
+    return pd.DataFrame({
+        "sentiment": ["Positive", "Neutral", "Negative"],
+        "count": [50, 30, 20]
+    })
+
+
+@pytest.fixture
+def sample_yake_keywords():
+    """Fixture providing sample YAKE extracted keywords."""
+    return [
+        {"keyword": "machine learning", "score": 0.05},
+        {"keyword": "artificial intelligence", "score": 0.08},
+        {"keyword": "deep learning", "score": 0.10},
+        {"keyword": "neural network", "score": 0.12},
+        {"keyword": "data science", "score": 0.15},
+    ]
+
+
+@pytest.fixture
+def sample_text_corpus():
+    """Fixture providing sample text corpus for keyword extraction."""
+    return """
+    Machine learning and artificial intelligence are transforming technology.
+    Deep learning neural networks process data efficiently.
+    Data science combines statistics with programming.
+    Natural language processing enables text analysis.
+    Computer vision recognizes patterns in images.
+    """
+
+
+@pytest.fixture
+def sample_date():
+    """Fixture providing a sample date."""
+    from datetime import date
+    return date(2026, 2, 11)

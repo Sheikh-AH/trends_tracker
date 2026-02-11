@@ -1,17 +1,16 @@
+# pylint: disable=import-error
 """AI Insights - LLM-generated summaries and recommendations for keywords."""
 
 import os
 from time import sleep
 import streamlit as st
 from dotenv import load_dotenv
-from psycopg2 import connect
 from pandas import read_sql
 import matplotlib.pyplot as plt
-from utils import (
-    get_db_connection,
-    render_sidebar,
-    _load_sql_query
-)
+from db_utils import get_db_connection
+from query_utils import _load_sql_query
+from ui_helper_utils import render_sidebar
+
 
 def configure_page():
     """Configure page settings and check authentication."""
@@ -25,6 +24,7 @@ def configure_page():
         st.warning("Please login to access this page.")
         st.switch_page("app.py")
         st.stop()
+
 
 @st.cache_data(ttl=3600)
 def get_summary(_conn):
@@ -50,10 +50,12 @@ def stream_summary(summary):
         yield word + " "
         sleep(0.01)
 
+
 def get_donut_data(_conn, user_id: int):
     """Fetch data for donut charts."""
     query = _load_sql_query("get_sentiment_by_post_type.sql")
     return read_sql(query, _conn, params=(user_id,))
+
 
 @st.cache_resource(ttl=3600)
 def gen_keyword_graphic(_conn, user_id: int):
@@ -154,7 +156,7 @@ if __name__ == "__main__":
     st.title("Daily Summary & Insights")
     st.markdown("AI-powered analysis for your tracked keywords.")
     st.divider()
-    
+
     summary = get_summary(conn)
     st.subheader("Latest AI Summary")
     st.write_stream(stream_summary(summary))

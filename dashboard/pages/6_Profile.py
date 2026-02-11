@@ -1,17 +1,13 @@
+# pylint: disable=import-error
 """Manage Topics - Keyword management dashboard."""
 
 import logging
 import streamlit as st
 from streamlit import session_state as ss
 from dotenv import load_dotenv
-from utils import (
-    get_db_connection,
-    get_user_keywords,
-    add_user_keyword,
-    remove_user_keyword,
-    render_sidebar,
-    load_html_template
-)
+from db_utils import get_db_connection
+from keyword_utils import get_user_keywords, add_user_keyword, remove_user_keyword
+from ui_helper_utils import render_sidebar, load_html_template
 from alerts import render_alerts_dashboard
 from psycopg2.extras import RealDictCursor
 

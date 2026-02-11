@@ -1,13 +1,9 @@
+# pylint: disable=import-error
 """Home - Welcome and introduction page for Trends Tracker."""
 
-from utils import (
-    get_db_connection,
-    get_user_keywords,
-    add_user_keyword,
-    remove_user_keyword,
-    load_html_template,
-    render_sidebar
-)
+from db_utils import get_db_connection
+from keyword_utils import get_user_keywords, add_user_keyword, remove_user_keyword
+from ui_helper_utils import load_html_template, render_sidebar
 from psycopg2.extras import RealDictCursor
 import sys
 import streamlit as st
@@ -34,6 +30,7 @@ def configure_page():
         st.switch_page("app.py")
         st.stop()
 
+
 def load_keywords():
     """Load user keywords from database."""
     if not ss.get("keywords_loaded", False):
@@ -44,6 +41,7 @@ def load_keywords():
             cursor.close()
             ss.keywords = db_keywords if db_keywords else []
             ss.keywords_loaded = True
+
 
 @st.cache_data(ttl=3600)
 def add_logo_and_title():
@@ -61,6 +59,7 @@ def add_logo_and_title():
             st.markdown(
                 load_html_template("styling/home_tagline.html"),
                 unsafe_allow_html=True)
+
 
 def render_add_keyword_section():
     """Render the add keyword section."""
@@ -91,6 +90,7 @@ def render_add_keyword_section():
             else:
                 st.warning(f"'{new_keyword}' is already in your list.")
 
+
 def remove_keyword(keyword):
     """Remove keyword from user's list."""
     conn = get_db_connection()
@@ -104,6 +104,7 @@ def remove_keyword(keyword):
         st.success(f"Removed '{keyword}'")
         st.rerun()
 
+
 def render_keywords_display():
     """Render the current keywords display."""
 
@@ -115,10 +116,12 @@ def render_keywords_display():
     for i, keyword in enumerate(keywords):
         with cols[i % 4]:
             styling = load_html_template("styling/keywords_gradient.html")
-            st.markdown(styling.format(keyword=keyword), unsafe_allow_html=True)
+            st.markdown(styling.format(keyword=keyword),
+                        unsafe_allow_html=True)
 
             if st.button(f"🗑️ Remove", key=f"remove_{keyword}", use_container_width=True):
                 remove_keyword(keyword)
+
 
 def render_what_is_trends_tracker():
     """Render the 'What is Trends Tracker?' section."""
@@ -131,6 +134,7 @@ def render_what_is_trends_tracker():
         - **AI-Powered Insights**: Receive intelligent recommendations and trend analysis
         - **Smart Alerts**: Stay notified about important changes and trending patterns
         """)
+
 
 def render_getting_started(has_keywords):
     with st.expander("Getting Started"):
@@ -157,6 +161,7 @@ def render_getting_started(has_keywords):
             changes in trends or sentiment for your tracked keywords.
             """)
 
+
 def render_semantics_card():
     """Render the Semantics Dashboard card."""
     st.markdown("""
@@ -166,6 +171,7 @@ def render_semantics_card():
     """)
     if st.button("📊 Go to Semantics", key="semantics_top", use_container_width=True):
         st.switch_page("pages/2_Semantics.py")
+
 
 def render_deep_dive_card():
     """Render the Keyword Deep Dive card."""
@@ -177,6 +183,7 @@ def render_deep_dive_card():
     if st.button("🔍 Deep Dive Analysis", key="deepdive_top", use_container_width=True):
         st.switch_page("pages/4_Keyword_Deep_Dive.py")
 
+
 def render_daily_summary_card():
     """Render the Daily Summary card."""
     st.markdown("""
@@ -187,6 +194,7 @@ def render_daily_summary_card():
     if st.button("📅 Daily Summary", key="ai_top", use_container_width=True):
         st.switch_page("pages/3_Daily_Summary.py")
 
+
 def render_keyword_comparisons_card():
     """Render the Keyword Comparisons card."""
     st.markdown("""
@@ -196,6 +204,7 @@ def render_keyword_comparisons_card():
     """)
     if st.button("⚡ Keyword Comparisons", key="comparisons_top", use_container_width=True):
         st.switch_page("pages/5_Comparisons.py")
+
 
 if __name__ == "__main__":
 
