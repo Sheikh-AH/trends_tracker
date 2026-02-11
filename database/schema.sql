@@ -30,7 +30,8 @@ CREATE TABLE bluesky_posts (
     sentiment_score VARCHAR(50),
     ingested_at TIMESTAMP DEFAULT NOW(),
     reply_uri VARCHAR(255),
-    repost_uri VARCHAR(255)
+    repost_uri VARCHAR(255),
+    phrases TEXT
 );
 
 -- Matches table

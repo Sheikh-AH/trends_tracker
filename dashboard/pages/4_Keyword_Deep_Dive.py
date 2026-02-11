@@ -200,7 +200,7 @@ def render_activity_over_time(df_daily: pd.DataFrame, keyword: str):
     if df_daily.empty:
         st.warning(f"No data available for '{keyword}' in the last period")
         return None
-    df_long = daily_long(format_dates(df_daily))
+    df_long = daily_long(format_dates(df_daily)).sort_values("date")
     return (
         alt.Chart(df_long)
         .mark_line(point=True)
@@ -393,6 +393,102 @@ def render_trends_and_quadrant(df_daily: pd.DataFrame, keyword: str) -> None:
         col2.altair_chart(sentiment_volume_chart, use_container_width=True)
 
 
+# ...existing code...
+
+@st.cache_data(ttl=3600)
+def get_google_trends_data(keyword: str, days: int) -> pd.DataFrame:
+    """Fetch Google Trends search volume for a keyword over a time period."""
+    conn = get_db_connection()
+    if not conn:
+        return pd.DataFrame()
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        query = """
+            SELECT
+                DATE(gt.trend_date) AS date,
+                gt.search_volume
+            FROM google_trends gt
+            WHERE gt.keyword_value = %s
+              AND gt.trend_date >= NOW() - INTERVAL '1 day' * %s
+            ORDER BY gt.trend_date
+        """
+        cursor.execute(query, (keyword, days))
+        results = cursor.fetchall()
+        return pd.DataFrame(results) if results else pd.DataFrame()
+    except Exception as e:
+        st.error(f"Error fetching Google Trends data: {e}")
+        return pd.DataFrame()
+    finally:
+        cursor.close()
+
+
+# ...existing code...
+
+def render_google_search_volume(keyword: str, days: int) -> None:
+    """Render a Google Trends search volume line chart for the selected keyword."""
+    df_trends = get_google_trends_data(keyword, days)
+
+    col_title, col_info = st.columns([6, 1])
+    with col_title:
+        st.subheader(f"Google Trends – {keyword.title()}")
+    with col_info:
+        st.markdown("")
+        with st.popover("ℹ️"):
+            st.markdown(
+                """
+                **Google Search Volume** represents the relative popularity
+                of a search term on Google over time.
+
+                - Values are scaled from **0 to 100**, where **100** is the
+                  peak popularity during the selected period.
+                - A value of **50** means the term was half as popular as
+                  the peak.
+                - A value of **0** means there was not enough data for that day.
+
+                This data is sourced from **Google Trends** and is useful for
+                understanding public interest alongside social media activity.
+                """
+            )
+
+    if df_trends.empty:
+        st.warning(f"No Google Trends data available for '{keyword}'.")
+        return
+
+    df_trends["date"] = pd.to_datetime(df_trends["date"])
+
+    chart = (
+        alt.Chart(df_trends)
+        .mark_area(
+            line={"color": "#4285F4"},
+            color=alt.Gradient(
+                gradient="linear",
+                stops=[
+                    alt.GradientStop(color="#4285F4", offset=1),
+                    alt.GradientStop(color="rgba(66,133,244,0.1)", offset=0),
+                ],
+                x1=1, x2=1, y1=1, y2=0,
+            ),
+            interpolate="monotone",
+        )
+        .encode(
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format="%b %d")),
+            y=alt.Y("search_volume:Q", title="Search Volume"),
+            tooltip=[
+                alt.Tooltip("date:T", format="%B %d, %Y", title="Date"),
+                alt.Tooltip("search_volume:Q",
+                            title="Search Volume", format=","),
+            ],
+        )
+        .properties(
+            width="container",
+            height=350,
+        )
+        .interactive()
+    )
+
+    st.altair_chart(chart, use_container_width=True)
+
+
 if __name__ == "__main__":
     configure_page()
     load_keywords()
@@ -407,4 +503,5 @@ if __name__ == "__main__":
     render_activity_and_sentiment(df_daily, df_sentiment, selected_keyword)
     st.markdown("---")
     render_trends_and_quadrant(df_daily, selected_keyword)
-
+    st.markdown("---")
+    render_google_search_volume(selected_keyword, days)

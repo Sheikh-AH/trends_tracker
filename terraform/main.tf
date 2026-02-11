@@ -406,7 +406,7 @@ resource "aws_ecs_task_definition" "bluesky_task" {
   container_definitions = jsonencode([
     {
       name      = "bluesky-pipeline"
-      image     = "${aws_ecr_repository.bluesky_pipeline.repository_url}:latest"
+      image     = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c21-bluesky-pipeline:latest"
       essential = true
 
       environment = [
@@ -895,4 +895,206 @@ resource "aws_lambda_permission" "allow_eventbridge_weekly_report" {
   function_name = aws_lambda_function.weekly_report.function_name
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.weekly_report_schedule.arn
+}
+# ECR Repository for Dashboard
+resource "aws_ecr_repository" "trends_dashboard" {
+  name                 = "c21-trends-dashboard"
+  image_tag_mutability = "MUTABLE"
+
+  image_scanning_configuration {
+    scan_on_push = true
+  }
+
+  tags = {
+    Name        = "c21-trends-dashboard"
+    Environment = var.environment
+  }
+}
+
+output "trends_dashboard_ecr_uri" {
+  description = "ECR repository URI for Trends Dashboard"
+  value       = aws_ecr_repository.trends_dashboard.repository_url
+}
+
+# IAM Role for ECS Task Execution
+resource "aws_iam_role" "dashboard_task_execution_role" {
+  name = "c21-dashboard-task-execution-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "c21-dashboard-task-execution-role"
+    Environment = var.environment
+  }
+}
+
+# Attach managed policy for ECR access and logging
+resource "aws_iam_role_policy_attachment" "dashboard_task_execution_policy" {
+  role       = aws_iam_role.dashboard_task_execution_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# IAM Role for ECS Task (runtime permissions)
+resource "aws_iam_role" "dashboard_task_role" {
+  name = "c21-dashboard-task-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "ecs-tasks.amazonaws.com"
+        }
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "c21-dashboard-task-role"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role_policy" "dashboard_ses_policy" {
+  name = "c21-dashboard-ses-policy"
+  role = aws_iam_role.dashboard_task_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "ses:ListVerifiedEmailAddresses",
+          "ses:VerifyEmailIdentity",
+          "ses:SendEmail",
+          "ses:SendRawEmail"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+}
+
+# Security Group for dashboard ECS Service
+resource "aws_security_group" "dashboard_ecs_sg" {
+  name        = "c21-dashboard-ecs-sg"
+  description = "Security group for Dashboard ECS service"
+  vpc_id      = data.aws_vpc.main.id
+
+  ingress {
+    description = "Streamlit default port"
+    from_port   = 8501
+    to_port     = 8501
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "c21-dashboard-ecs-sg"
+    Environment = var.environment
+  }
+}
+
+# CloudWatch Log Group for Dashboard
+resource "aws_cloudwatch_log_group" "dashboard_logs" {
+  name              = "/ecs/c21-dashboard"
+  retention_in_days = 7
+
+  tags = {
+    Name        = "c21-dashboard-logs"
+    Environment = var.environment
+  }
+}
+
+# ECS Task Definition
+resource "aws_ecs_task_definition" "dashboard_task" {
+  family                   = "c21-trends-dashboard"
+  network_mode             = "awsvpc"
+  requires_compatibilities = ["FARGATE"]
+  cpu                      = "256"
+  memory                   = "512"
+  execution_role_arn       = aws_iam_role.dashboard_task_execution_role.arn
+  task_role_arn            = aws_iam_role.dashboard_task_role.arn
+
+  container_definitions = jsonencode([
+    {
+      name      = "dashboard"
+      image     = "129033205317.dkr.ecr.eu-west-2.amazonaws.com/c21-trends-dashboard:latest"
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = 8501
+          hostPort      = 8501
+          protocol      = "tcp"
+        }
+      ]
+
+      environment = [
+        { name = "DB_HOST", value = aws_db_instance.trends_db.address },
+        { name = "DB_PORT", value = "5432" },
+        { name = "DB_NAME", value = var.db_name },
+        { name = "DB_USER", value = var.db_username },
+        { name = "DB_PASSWORD", value = var.db_password },
+        { name = "AWS_REGION", value = var.aws_region }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = aws_cloudwatch_log_group.dashboard_logs.name
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+    }
+  ])
+
+
+
+  tags = {
+    Name        = "c21-dashboard-task"
+    Environment = var.environment
+  }
+}
+
+# ECS Service
+resource "aws_ecs_service" "dashboard_service" {
+  name            = "c21-trends-dashboard-service"
+  cluster         = data.aws_ecs_cluster.c21_cluster.id
+  task_definition = aws_ecs_task_definition.dashboard_task.arn
+  desired_count   = 1
+  launch_type     = "FARGATE"
+
+  network_configuration {
+    subnets          = var.public_subnet_ids
+    security_groups  = [aws_security_group.dashboard_ecs_sg.id]
+    assign_public_ip = true
+  }
+
+  tags = {
+    Name        = "c21-trends-dashboard-service"
+    Environment = var.environment
+  }
 }

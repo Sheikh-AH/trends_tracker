@@ -53,6 +53,7 @@ def get_donut_data(_conn, user_id: int):
     query = _load_sql_query("get_sentiment_by_post_type.sql")
     return read_sql(query, _conn, params=(user_id,))
 
+@st.cache_resource(ttl=3600)
 def gen_keyword_graphic(_conn, user_id: int):
     """Generate donut charts for each keyword showing post type proportions and sentiment."""
     user_posts = get_donut_data(_conn, user_id)
