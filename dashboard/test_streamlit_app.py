@@ -16,7 +16,7 @@ from streamlit.testing.v1 import AppTest
 class TestAppInitialization:
     """Tests for app.py initialization and configuration."""
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_app_runs_without_exception(self, mock_db):
         """Test that app initializes without errors."""
         mock_db.return_value = Mock()
@@ -27,7 +27,7 @@ class TestAppInitialization:
         # Check no exceptions occurred
         assert not at.exception
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_login_page_shows_when_not_logged_in(self, mock_db):
         """Test that login page is shown when user is not logged in."""
         mock_db.return_value = Mock()
@@ -38,7 +38,7 @@ class TestAppInitialization:
         # Should have text inputs for login
         assert len(at.text_input) >= 2  # Username and password
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_has_login_button(self, mock_db):
         """Test that login button is present."""
         mock_db.return_value = Mock()
@@ -49,7 +49,7 @@ class TestAppInitialization:
         # Should have at least one button (Login)
         assert len(at.button) >= 1
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_has_tabs_for_login_and_signup(self, mock_db):
         """Test that login and signup tabs exist."""
         mock_db.return_value = Mock()
@@ -64,7 +64,7 @@ class TestAppInitialization:
 class TestSessionStateInitialization:
     """Tests for session state initialization."""
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_session_state_logged_in_false_by_default(self, mock_db):
         """Test that logged_in is False by default."""
         mock_db.return_value = Mock()
@@ -79,9 +79,9 @@ class TestSessionStateInitialization:
 class TestLoginFlow:
     """Tests for login authentication flow."""
 
-    @patch("db_utils.get_db_connection")
-    @patch("auth_utils.authenticate_user")
-    @patch("auth_utils.get_user_by_username")
+    @patch("dashboard.db_utils.get_db_connection")
+    @patch("dashboard.auth_utils.authenticate_user")
+    @patch("dashboard.auth_utils.get_user_by_username")
     def test_successful_login_sets_session(self, mock_get_user, mock_auth, mock_db):
         """Test that successful login updates session state."""
         mock_db.return_value = Mock()
@@ -108,7 +108,7 @@ class TestLoginFlow:
                 assert at.session_state.logged_in is True
                 assert at.session_state.user_id == 1
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_empty_credentials_shows_error(self, mock_db):
         """Test that empty credentials trigger error."""
         mock_db.return_value = Mock()
@@ -128,7 +128,7 @@ class TestLoginFlow:
 class TestSignupFlow:
     """Tests for signup/registration flow."""
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_signup_tab_has_required_fields(self, mock_db):
         """Test that signup tab has all required input fields."""
         mock_db.return_value = Mock()
@@ -201,7 +201,7 @@ class TestUserSessionFunctions:
 class TestAppErrorHandling:
     """Tests for error handling in the app."""
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_database_connection_failure_handled(self, mock_db):
         """Test that database connection failure is handled gracefully."""
         mock_db.side_effect = Exception("Connection failed")
@@ -244,7 +244,7 @@ class TestFormValidation:
 class TestComponentRendering:
     """Tests for UI component rendering."""
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_logo_image_rendered(self, mock_db):
         """Test that logo image is rendered on login page."""
         mock_db.return_value = Mock()
@@ -256,7 +256,7 @@ class TestComponentRendering:
         assert not at.exception, "App should render without exceptions"
         assert len(at.title) >= 1, "Page should have title element"
 
-    @patch("db_utils.get_db_connection")
+    @patch("dashboard.db_utils.get_db_connection")
     def test_title_rendered(self, mock_db):
         """Test that title is rendered on login page."""
         mock_db.return_value = Mock()

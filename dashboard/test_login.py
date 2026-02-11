@@ -11,7 +11,7 @@ import hashlib
 import psycopg2
 import pandas as pd
 
-from auth_utils import (
+from dashboard.auth_utils import (
     get_user_by_username,
     verify_password,
     authenticate_user,
@@ -19,8 +19,8 @@ from auth_utils import (
     validate_signup_input,
     create_user,
 )
-from keyword_utils import add_user_keyword, remove_user_keyword, get_user_keywords
-from query_utils import get_posts_by_date
+from dashboard.keyword_utils import add_user_keyword, remove_user_keyword, get_user_keywords
+from dashboard.query_utils import get_posts_by_date
 
 
 # ============== Tests for get_user_by_username ==============
