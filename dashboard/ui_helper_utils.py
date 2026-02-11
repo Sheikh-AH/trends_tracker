@@ -15,7 +15,7 @@ def render_sidebar():
             st.session_state.logged_in = False
             st.session_state.username = ""
             st.session_state.user_id = None
-            st.switch_page("app.py")
+            st.rerun()
 
 
 @st.cache_data(ttl=3600)
