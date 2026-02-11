@@ -2,6 +2,7 @@
 # pylint: disable=unused-argument
 """Tests for bs_load module with database mocking."""
 
+from bs_load import get_db_connection, upload_batch, load_data
 import sys
 from pathlib import Path
 from unittest.mock import Mock, MagicMock, patch, call
@@ -10,8 +11,6 @@ import pytest
 
 # Add load directory to path
 sys.path.insert(0, str(Path(__file__).parent))
-
-from bs_load import get_db_connection, upload_batch, load_data
 
 
 class TestGetDbConnection:
@@ -22,7 +21,7 @@ class TestGetDbConnection:
         """Test successful database connection."""
         mock_conn = Mock()
         mock_connect.return_value = mock_conn
-        
+
         config = {
             "DB_NAME": "testdb",
             "DB_USER": "testuser",
@@ -30,9 +29,9 @@ class TestGetDbConnection:
             "DB_HOST": "localhost",
             "DB_PORT": "5432",
         }
-        
+
         result = get_db_connection(config)
-        
+
         assert result == mock_conn
         mock_connect.assert_called_once_with(
             dbname="testdb",
@@ -47,16 +46,16 @@ class TestGetDbConnection:
         """Test that port defaults to 5432 if not provided."""
         mock_conn = Mock()
         mock_connect.return_value = mock_conn
-        
+
         config = {
             "DB_NAME": "testdb",
             "DB_USER": "testuser",
             "DB_PASSWORD": "testpass",
             "DB_HOST": "localhost",
         }
-        
+
         get_db_connection(config)
-        
+
         mock_connect.assert_called_once()
         call_args = mock_connect.call_args[1]
         assert call_args["port"] == 5432
@@ -66,7 +65,7 @@ class TestGetDbConnection:
         """Test connection with custom port."""
         mock_conn = Mock()
         mock_connect.return_value = mock_conn
-        
+
         config = {
             "DB_NAME": "testdb",
             "DB_USER": "testuser",
@@ -74,9 +73,9 @@ class TestGetDbConnection:
             "DB_HOST": "localhost",
             "DB_PORT": "3306",
         }
-        
+
         get_db_connection(config)
-        
+
         call_args = mock_connect.call_args[1]
         assert call_args["port"] == "3306"
 
@@ -88,7 +87,7 @@ class TestUploadBatch:
         """Test that empty batch is handled gracefully."""
         mock_conn = Mock()
         upload_batch([], mock_conn)
-        
+
         # Should return early without cursor operations
         mock_conn.cursor.assert_not_called()
 
@@ -98,7 +97,7 @@ class TestUploadBatch:
         mock_cursor = MagicMock()
         mock_conn = Mock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         posts = [
             {
                 "post_uri": "at://did:plc:123/app.bsky.feed.post/abc123",
@@ -115,9 +114,9 @@ class TestUploadBatch:
                 "repost_uri": None
             }
         ]
-        
+
         upload_batch(posts, mock_conn)
-        
+
         mock_conn.cursor.assert_called_once()
         assert mock_execute_batch.call_count == 2  # posts + matches
         mock_conn.commit.assert_called_once()
@@ -128,7 +127,7 @@ class TestUploadBatch:
         mock_cursor = MagicMock()
         mock_conn = Mock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         posts = [
             {
                 "post_uri": "at://did:plc:1/app.bsky.feed.post/a1",
@@ -147,9 +146,9 @@ class TestUploadBatch:
                 "repost_uri": None
             },
         ]
-        
+
         upload_batch(posts, mock_conn)
-        
+
         # execute_batch should be called twice (once for posts, once for matches)
         assert mock_execute_batch.call_count == 2
         mock_conn.commit.assert_called_once()
@@ -160,7 +159,7 @@ class TestUploadBatch:
         mock_cursor = MagicMock()
         mock_conn = Mock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         posts = [
             {
                 "post_uri": "at://did:plc:1/app.bsky.feed.post/a1",
@@ -171,9 +170,9 @@ class TestUploadBatch:
                 "repost_uri": None
             }
         ]
-        
+
         upload_batch(posts, mock_conn)
-        
+
         # execute_batch called twice
         assert mock_execute_batch.call_count == 2
         mock_conn.commit.assert_called_once()
@@ -184,7 +183,7 @@ class TestUploadBatch:
         mock_cursor = MagicMock()
         mock_conn = Mock()
         mock_conn.cursor.return_value = mock_cursor
-        
+
         posts = [
             {
                 "post_uri": "at://did:plc:1/app.bsky.feed.post/a1",
@@ -205,9 +204,9 @@ class TestUploadBatch:
                 "repost_uri": None
             }
         ]
-        
+
         upload_batch(posts, mock_conn)
-        
+
         mock_execute_batch.assert_called()
         mock_conn.commit.assert_called_once()
 
@@ -219,7 +218,7 @@ class TestLoadData:
     def test_load_small_batch(self, mock_upload):
         """Test loading data smaller than batch size."""
         mock_conn = Mock()
-        
+
         posts = [
             {
                 "post_uri": "at://did:plc:1/app.bsky.feed.post/a1",
@@ -230,13 +229,13 @@ class TestLoadData:
                 "repost_uri": None
             }
         ]
-        
+
         def mock_post_generator():
             for post in posts:
                 yield post
-        
+
         load_data(mock_conn, mock_post_generator(), batch_size=100)
-        
+
         # Should flush remaining batch at end
         mock_upload.assert_called_once()
         mock_conn.close.assert_called_once()
@@ -244,7 +243,7 @@ class TestLoadData:
     def test_load_exact_batch_size(self):
         """Test loading data exactly equal to batch size."""
         mock_conn = Mock()
-        
+
         # Create mock posts generator
         posts = [
             {
@@ -257,21 +256,21 @@ class TestLoadData:
             }
             for i in range(5)
         ]
-        
+
         def mock_post_generator():
             for post in posts:
                 yield post
-        
+
         with patch('bs_load.upload_batch') as mock_upload:
             load_data(mock_conn, mock_post_generator(), batch_size=5)
-            
+
             # Should call upload_batch at least once
             assert mock_upload.call_count >= 1
 
     def test_load_multiple_batches(self):
         """Test loading data larger than batch size triggers multiple uploads."""
         mock_conn = Mock()
-        
+
         posts = [
             {
                 "post_uri": f"at://did:plc:{i}/app.bsky.feed.post/a{i}",
@@ -283,14 +282,14 @@ class TestLoadData:
             }
             for i in range(10)
         ]
-        
+
         def mock_post_generator():
             for post in posts:
                 yield post
-        
+
         with patch('bs_load.upload_batch') as mock_upload:
             load_data(mock_conn, mock_post_generator(), batch_size=3)
-            
+
             # With 10 posts and batch size 3: 3 full batches + 1 remaining = 4 calls
             assert mock_upload.call_count == 4
 
@@ -298,25 +297,25 @@ class TestLoadData:
         """Test that connection is closed after loading."""
         mock_conn = Mock()
         posts = []
-        
+
         def mock_post_generator():
             return
             yield
-        
+
         load_data(mock_conn, mock_post_generator(), batch_size=100)
-        
+
         mock_conn.close.assert_called_once()
 
     def test_load_with_empty_generator(self):
         """Test loading with empty post generator."""
         mock_conn = Mock()
-        
+
         def empty_generator():
             return
             yield
-        
+
         with patch('bs_load.upload_batch') as mock_upload:
             load_data(mock_conn, empty_generator(), batch_size=100)
-            
+
             mock_upload.assert_not_called()
             mock_conn.close.assert_called_once()

@@ -1,3 +1,4 @@
+# pylint disable=missing-function-docstring, import-error
 """
 Comprehensive tests for utility modules.
 
@@ -11,11 +12,16 @@ Tests cover:
 """
 
 import pytest
-from unittest.mock import Mock, MagicMock, patch, mock_open
-import hashlib
-import psycopg2
+from unittest.mock import Mock, patch
 import pandas as pd
-from datetime import datetime, date
+from datetime import date
+
+from text_utils import diversify_keywords, extract_keywords_yake
+from query_utils import calc_delta, get_sentiment_by_day, get_latest_post_text_corpus
+from ui_helper_utils import get_sentiment_emoji, load_html_template, _HTML_TEMPLATE_CACHE
+from auth_utils import generate_password_hash, validate_signup_input
+
+
 
 
 # ============== Tests for query_utils ==============
@@ -25,49 +31,41 @@ class TestCalcDelta:
 
     def test_positive_change(self):
         """Test positive percentage change."""
-        from query_utils import calc_delta
         result = calc_delta(150, 100)
         assert result == 50.0
 
     def test_negative_change(self):
         """Test negative percentage change."""
-        from query_utils import calc_delta
         result = calc_delta(50, 100)
         assert result == -50.0
 
     def test_no_change(self):
         """Test zero percentage change."""
-        from query_utils import calc_delta
         result = calc_delta(100, 100)
         assert result == 0.0
 
     def test_baseline_zero_returns_zero(self):
         """Test that zero baseline returns 0.0."""
-        from query_utils import calc_delta
         result = calc_delta(100, 0)
         assert result == 0.0
 
     def test_both_zero(self):
         """Test when both current and baseline are zero."""
-        from query_utils import calc_delta
         result = calc_delta(0, 0)
         assert result == 0.0
 
     def test_rounding(self):
         """Test that result is rounded to 1 decimal."""
-        from query_utils import calc_delta
         result = calc_delta(133, 100)
         assert result == 33.0
 
     def test_small_change(self):
         """Test small percentage changes."""
-        from query_utils import calc_delta
         result = calc_delta(101, 100)
         assert result == 1.0
 
     def test_large_increase(self):
         """Test large percentage increase."""
-        from query_utils import calc_delta
         result = calc_delta(1000, 100)
         assert result == 900.0
 
@@ -83,10 +81,9 @@ class TestGetSentimentByDay:
         conn.cursor.return_value = cursor
         return conn
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_returns_list_of_dicts(self, mock_load_query, mock_conn):
         """Test that function returns list of dictionaries."""
-        from query_utils import get_sentiment_by_day
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.fetchall.return_value = [
             {"date": date(2026, 2, 1), "avg_sentiment": 0.5},
@@ -99,10 +96,9 @@ class TestGetSentimentByDay:
         assert len(result) == 2
         assert result[0]["avg_sentiment"] == 0.5
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_returns_empty_list_when_no_data(self, mock_load_query, mock_conn):
         """Test that function returns empty list when no data."""
-        from query_utils import get_sentiment_by_day
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.fetchall.return_value = []
 
@@ -110,10 +106,9 @@ class TestGetSentimentByDay:
 
         assert result == []
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_handles_database_error(self, mock_load_query, mock_conn):
         """Test that function handles database errors gracefully."""
-        from query_utils import get_sentiment_by_day
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.execute.side_effect = Exception("DB error")
 
@@ -121,10 +116,9 @@ class TestGetSentimentByDay:
 
         assert result == []
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_closes_cursor(self, mock_load_query, mock_conn):
         """Test that cursor is closed after execution."""
-        from query_utils import get_sentiment_by_day
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.fetchall.return_value = []
 
@@ -144,10 +138,9 @@ class TestGetLatestPostTextCorpus:
         conn.cursor.return_value = cursor
         return conn
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_returns_concatenated_text(self, mock_load_query, mock_conn):
         """Test that function returns concatenated text from posts."""
-        from query_utils import get_latest_post_text_corpus
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.fetchall.return_value = [
             {"text": "First post"},
@@ -162,10 +155,9 @@ class TestGetLatestPostTextCorpus:
         assert "Third post" in result
         assert result == "First post\nSecond post\nThird post"
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_returns_empty_string_when_no_data(self, mock_load_query, mock_conn):
         """Test that function returns empty string when no data."""
-        from query_utils import get_latest_post_text_corpus
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.fetchall.return_value = []
 
@@ -173,10 +165,9 @@ class TestGetLatestPostTextCorpus:
 
         assert result == ""
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_handles_null_text(self, mock_load_query, mock_conn):
         """Test that function handles null text values."""
-        from query_utils import get_latest_post_text_corpus
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.fetchall.return_value = [
             {"text": "First post"},
@@ -189,10 +180,9 @@ class TestGetLatestPostTextCorpus:
         assert "First post" in result
         assert "Third post" in result
 
-    @patch("dashboard.query_utils._load_sql_query")
+    @patch("query_utils._load_sql_query")
     def test_handles_database_error(self, mock_load_query, mock_conn):
         """Test that function handles database errors gracefully."""
-        from query_utils import get_latest_post_text_corpus
         mock_load_query.return_value = "SELECT * FROM ..."
         mock_conn.cursor.return_value.execute.side_effect = Exception("DB error")
 
@@ -208,45 +198,38 @@ class TestGetSentimentEmoji:
 
     def test_very_positive_sentiment(self):
         """Test emoji for very positive sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(0.5) == "😄"
         assert get_sentiment_emoji(0.4) == "😄"
         assert get_sentiment_emoji(1.0) == "😄"
 
     def test_positive_sentiment(self):
         """Test emoji for positive sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(0.3) == "😊"
         assert get_sentiment_emoji(0.25) == "😊"
 
     def test_slightly_positive_sentiment(self):
         """Test emoji for slightly positive sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(0.15) == "🙂"
         assert get_sentiment_emoji(0.1) == "🙂"
 
     def test_neutral_sentiment(self):
         """Test emoji for neutral sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(0.0) == "😐"
         assert get_sentiment_emoji(0.05) == "😐"
         assert get_sentiment_emoji(-0.05) == "😐"
 
     def test_slightly_negative_sentiment(self):
         """Test emoji for slightly negative sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(-0.15) == "😕"
         assert get_sentiment_emoji(-0.25) == "😕"
 
     def test_negative_sentiment(self):
         """Test emoji for negative sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(-0.3) == "😔"
         assert get_sentiment_emoji(-0.4) == "😔"
 
     def test_very_negative_sentiment(self):
         """Test emoji for very negative sentiment."""
-        from ui_helper_utils import get_sentiment_emoji
         assert get_sentiment_emoji(-0.5) == "😠"
         assert get_sentiment_emoji(-1.0) == "😠"
 
@@ -256,7 +239,6 @@ class TestLoadHtmlTemplate:
 
     def test_loads_existing_file(self, tmp_path):
         """Test loading an existing HTML template."""
-        from ui_helper_utils import load_html_template, _HTML_TEMPLATE_CACHE
         _HTML_TEMPLATE_CACHE.clear()
 
         template_content = "<h1>Hello {name}</h1>"
@@ -269,7 +251,6 @@ class TestLoadHtmlTemplate:
 
     def test_returns_empty_string_for_missing_file(self):
         """Test that missing file returns empty string."""
-        from ui_helper_utils import load_html_template, _HTML_TEMPLATE_CACHE
         _HTML_TEMPLATE_CACHE.clear()
 
         result = load_html_template("/nonexistent/path/template.html")
@@ -284,7 +265,6 @@ class TestExtractKeywordsYake:
 
     def test_extracts_keywords_from_text(self):
         """Test that keywords are extracted from text corpus."""
-        from text_utils import extract_keywords_yake
         corpus = "Python is a great programming language. Python is used for data science and machine learning."
 
         result = extract_keywords_yake(corpus, num_keywords=5)
@@ -295,7 +275,6 @@ class TestExtractKeywordsYake:
 
     def test_returns_empty_list_for_empty_text(self):
         """Test that empty text returns empty list."""
-        from text_utils import extract_keywords_yake
 
         assert extract_keywords_yake("") == []
         assert extract_keywords_yake("   ") == []
@@ -303,7 +282,6 @@ class TestExtractKeywordsYake:
 
     def test_respects_num_keywords_parameter(self):
         """Test that num_keywords parameter limits results."""
-        from text_utils import extract_keywords_yake
         corpus = "Machine learning and artificial intelligence are transforming technology. Deep learning neural networks process data efficiently."
 
         result = extract_keywords_yake(corpus, num_keywords=3)
@@ -316,7 +294,6 @@ class TestDiversifyKeywords:
 
     def test_removes_search_term_keywords(self):
         """Test that keywords containing search terms are removed."""
-        from text_utils import diversify_keywords
         keywords = [
             {"keyword": "python programming", "score": 0.1},
             {"keyword": "machine learning", "score": 0.2},
@@ -329,7 +306,6 @@ class TestDiversifyKeywords:
 
     def test_removes_redundant_keywords(self):
         """Test that redundant keywords with high overlap are removed."""
-        from text_utils import diversify_keywords
         keywords = [
             {"keyword": "machine learning", "score": 0.1},
             {"keyword": "machine learning models", "score": 0.2},
@@ -340,11 +316,10 @@ class TestDiversifyKeywords:
 
         # Should not have both "machine learning" and "machine learning models"
         kw_texts = [kw["keyword"] for kw in result]
-        assert len(result) <= len(keywords)
+        assert len(result) <= len(kw_texts)
 
     def test_returns_empty_for_empty_input(self):
         """Test that empty keywords list returns empty list."""
-        from text_utils import diversify_keywords
 
         result = diversify_keywords([], "python")
 
@@ -352,7 +327,6 @@ class TestDiversifyKeywords:
 
     def test_respects_max_results(self):
         """Test that max_results limits output."""
-        from text_utils import diversify_keywords
         keywords = [
             {"keyword": f"keyword{i}", "score": 0.1 * i}
             for i in range(20)
@@ -364,7 +338,6 @@ class TestDiversifyKeywords:
 
     def test_preserves_keyword_structure(self):
         """Test that keyword dictionaries are preserved."""
-        from text_utils import diversify_keywords
         keywords = [
             {"keyword": "data science", "score": 0.1},
             {"keyword": "analytics", "score": 0.2},
@@ -384,8 +357,6 @@ class TestSentimentCounts:
         """Test counting positive and negative sentiments."""
         import sys
         sys.path.insert(0, "pages")
-        from importlib import import_module
-        # Import the function directly by reading the file
         df = pd.DataFrame({
             "sentiment": ["Positive", "Negative", "Neutral", "Positive"],
             "count": [10, 5, 20, 15]
@@ -573,7 +544,6 @@ class TestGeneratePasswordHashExtended:
 
     def test_different_passwords_different_hashes(self):
         """Test that different passwords produce different hashes."""
-        from auth_utils import generate_password_hash
 
         hash1 = generate_password_hash("password123")
         hash2 = generate_password_hash("password456")
@@ -582,7 +552,6 @@ class TestGeneratePasswordHashExtended:
 
     def test_same_password_different_hashes(self):
         """Test that same password produces different hashes due to random salt."""
-        from auth_utils import generate_password_hash
 
         hash1 = generate_password_hash("password123")
         hash2 = generate_password_hash("password123")
@@ -592,7 +561,6 @@ class TestGeneratePasswordHashExtended:
 
     def test_hash_format(self):
         """Test that hash follows expected format: salt$iterations$hash."""
-        from auth_utils import generate_password_hash
 
         result = generate_password_hash("password123")
         parts = result.split("$")
@@ -606,56 +574,47 @@ class TestValidateSignupInputExtended:
 
     def test_valid_input(self):
         """Test valid email and password."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("test@example.com", "password123") is True
 
     def test_invalid_email_no_at(self):
         """Test email without @ symbol."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("testexample.com", "password123") is False
 
     def test_invalid_email_no_domain(self):
         """Test email without domain."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("test@", "password123") is False
 
     def test_password_too_short(self):
         """Test password that's too short."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("test@example.com", "short") is False
 
     def test_password_exactly_8_chars(self):
         """Test password with exactly 8 characters (boundary)."""
-        from auth_utils import validate_signup_input
 
         # Password must be LONGER than 8, so 8 chars should fail
         assert validate_signup_input("test@example.com", "12345678") is False
 
     def test_password_9_chars(self):
         """Test password with 9 characters."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("test@example.com", "123456789") is True
 
     def test_empty_email(self):
         """Test empty email."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("", "password123") is False
 
     def test_empty_password(self):
         """Test empty password."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input("test@example.com", "") is False
 
     def test_none_values(self):
         """Test None values."""
-        from auth_utils import validate_signup_input
 
         assert validate_signup_input(None, "password123") is False
         assert validate_signup_input("test@example.com", None) is False

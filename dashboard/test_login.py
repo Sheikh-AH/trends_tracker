@@ -1,3 +1,4 @@
+# pylint disable=missing-function-docstring, import-error
 """
 Unit tests for utility functions and authentication using pytest.
 
@@ -11,7 +12,7 @@ import hashlib
 import psycopg2
 import pandas as pd
 
-from dashboard.auth_utils import (
+from auth_utils import (
     get_user_by_username,
     verify_password,
     authenticate_user,
@@ -19,8 +20,8 @@ from dashboard.auth_utils import (
     validate_signup_input,
     create_user,
 )
-from dashboard.keyword_utils import add_user_keyword, remove_user_keyword, get_user_keywords
-from dashboard.query_utils import get_posts_by_date
+from keyword_utils import add_user_keyword, remove_user_keyword, get_user_keywords
+from query_utils import get_posts_by_date
 
 
 # ============== Tests for get_user_by_username ==============
@@ -144,7 +145,8 @@ class TestAuthenticateUser:
         """Test that valid email and password returns True."""
         mock_cursor.fetchone.return_value = user_row
 
-        result = authenticate_user(mock_cursor, "test@example.com", valid_password)
+        result = authenticate_user(
+            mock_cursor, "test@example.com", valid_password)
 
         assert result is True
 
@@ -152,7 +154,8 @@ class TestAuthenticateUser:
         """Test that invalid password returns False."""
         mock_cursor.fetchone.return_value = user_row
 
-        result = authenticate_user(mock_cursor, "test@example.com", "wrong_password")
+        result = authenticate_user(
+            mock_cursor, "test@example.com", "wrong_password")
 
         assert result is False
 
@@ -160,7 +163,8 @@ class TestAuthenticateUser:
         """Test that non-existent user returns False."""
         mock_cursor.fetchone.return_value = None
 
-        result = authenticate_user(mock_cursor, "nonexistent@example.com", "any_password")
+        result = authenticate_user(
+            mock_cursor, "nonexistent@example.com", "any_password")
 
         assert result is False
 
@@ -210,7 +214,8 @@ class TestAuthenticateUser:
         """Test the full integration of get_user_by_username and verify_password."""
         mock_cursor.fetchone.return_value = user_row
 
-        result = authenticate_user(mock_cursor, "test@example.com", valid_password)
+        result = authenticate_user(
+            mock_cursor, "test@example.com", valid_password)
 
         # Should successfully authenticate with correct password
         assert result is True
@@ -306,7 +311,8 @@ class TestGeneratePasswordHash:
         password = "test_password"
         custom_iterations = 50000
 
-        hash_result = generate_password_hash(password, iterations=custom_iterations)
+        hash_result = generate_password_hash(
+            password, iterations=custom_iterations)
         parts = hash_result.split("$")
 
         assert parts[1] == str(custom_iterations)
@@ -361,7 +367,8 @@ class TestValidateSignupInput:
 
     def test_valid_email_longer_password(self):
         """Valid email with long password returns True."""
-        assert validate_signup_input("john.doe@gmail.com", "MySecurePassword2024!") is True
+        assert validate_signup_input(
+            "john.doe@gmail.com", "MySecurePassword2024!") is True
 
     def test_invalid_email_format(self):
         """Invalid email format returns False."""
@@ -401,11 +408,13 @@ class TestValidateSignupInput:
 
     def test_email_with_special_chars(self):
         """Email with special characters but valid format returns True."""
-        assert validate_signup_input("user+tag@example.com", "Password123") is True
+        assert validate_signup_input(
+            "user+tag@example.com", "Password123") is True
 
     def test_email_with_numbers_in_domain(self):
         """Email with numbers in domain returns True."""
-        assert validate_signup_input("user@example123.com", "Password123") is True
+        assert validate_signup_input(
+            "user@example123.com", "Password123") is True
 
 
 # ============== Tests for create_user ==============
@@ -440,7 +449,8 @@ class TestCreateUser:
 
     def test_create_user_email_exists(self, mock_cursor_create):
         """Creating user with existing email returns False and rolls back."""
-        mock_cursor_create.execute.side_effect = psycopg2.IntegrityError("unique constraint")
+        mock_cursor_create.execute.side_effect = psycopg2.IntegrityError(
+            "unique constraint")
 
         result = create_user(
             mock_cursor_create,
@@ -454,7 +464,8 @@ class TestCreateUser:
 
     def test_create_user_database_error(self, mock_cursor_create):
         """Database error returns False and rolls back."""
-        mock_cursor_create.execute.side_effect = psycopg2.OperationalError("connection failed")
+        mock_cursor_create.execute.side_effect = psycopg2.OperationalError(
+            "connection failed")
 
         result = create_user(
             mock_cursor_create,
@@ -532,7 +543,6 @@ class TestAddUserKeyword:
         # Second call should be INSERT into user_keywords
         assert "user_keywords" in calls[1][0][0]
         assert "INSERT" in calls[1][0][0]
-
 
     def test_add_multiple_keywords(self, mock_cursor_keyword):
         """Adding multiple keywords works independently."""
@@ -650,7 +660,6 @@ class TestGetUserKeywords:
         assert isinstance(result, list)
         assert len(result) == 2
 
-
     def test_get_keywords_multiple_users(self, mock_cursor_keyword):
         """Getting keywords for different users uses correct user_id."""
         mock_cursor_keyword.fetchall.return_value = None
@@ -703,7 +712,8 @@ class TestGetPostsByDate:
         mock_conn.cursor.return_value.fetchall.return_value = mock_posts
 
         with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
-            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+            result = get_posts_by_date(
+                mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert isinstance(result, list)
         assert len(result) == 2
@@ -715,7 +725,8 @@ class TestGetPostsByDate:
         mock_conn.cursor.return_value.fetchall.return_value = []
 
         with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
-            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+            result = get_posts_by_date(
+                mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert result == []
 
@@ -724,7 +735,8 @@ class TestGetPostsByDate:
         mock_conn.cursor.return_value.fetchall.return_value = None
 
         with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
-            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+            result = get_posts_by_date(
+                mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert result == []
 
@@ -733,7 +745,8 @@ class TestGetPostsByDate:
         mock_conn.cursor.return_value.fetchall.return_value = []
 
         with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
-            get_posts_by_date(mock_conn, keyword="matcha", date=sample_date, limit=5)
+            get_posts_by_date(mock_conn, keyword="matcha",
+                              date=sample_date, limit=5)
 
         # Verify the keyword, date, and limit were passed in the query
         call_args = mock_conn.cursor.return_value.execute.call_args
@@ -741,10 +754,12 @@ class TestGetPostsByDate:
 
     def test_handles_database_error(self, mock_conn, sample_date):
         """Test that function handles database errors gracefully."""
-        mock_conn.cursor.return_value.execute.side_effect = Exception("Database error")
+        mock_conn.cursor.return_value.execute.side_effect = Exception(
+            "Database error")
 
         with patch("query_utils._load_sql_query", return_value="SELECT * FROM ..."):
-            result = get_posts_by_date(mock_conn, keyword="python", date=sample_date, limit=10)
+            result = get_posts_by_date(
+                mock_conn, keyword="python", date=sample_date, limit=10)
 
         assert result == []
 
@@ -766,4 +781,3 @@ class TestGetPostsByDate:
 
         call_args = mock_conn.cursor.return_value.execute.call_args
         assert call_args[0][1][2] == 10  # Third parameter is limit
-

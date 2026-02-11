@@ -1,3 +1,4 @@
+# pylint: disable=import-error
 """Keyword Deep Dive - Detailed analytics for individual keywords."""
 
 import altair as alt
@@ -6,7 +7,6 @@ import streamlit as st
 from psycopg2.extras import RealDictCursor
 from db_utils import get_db_connection
 from keyword_utils import get_user_keywords
-from query_utils import _load_sql_query
 from ui_helper_utils import render_sidebar
 
 
