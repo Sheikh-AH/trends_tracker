@@ -58,22 +58,11 @@ class TestAppInitialization:
         at.run()
 
         # Should have tabs (Login and Sign Up)
-        assert len(at.tabs) >= 1
+        assert len(at.tabs) == 2
 
 
 class TestSessionStateInitialization:
     """Tests for session state initialization."""
-
-    def test_initialize_session_state_sets_defaults(self):
-        """Test that session state is properly initialized."""
-        from app import initialize_session_state
-        import streamlit as st
-
-        # Create a mock session state
-        with patch.object(st, 'session_state', {}):
-            # The function modifies st.session_state
-            # We can't directly test this without a proper Streamlit context
-            pass
 
     @patch("db_utils.get_db_connection")
     def test_session_state_logged_in_false_by_default(self, mock_db):
@@ -107,7 +96,7 @@ class TestLoginFlow:
         at.run()
 
         # Enter credentials
-        if len(at.text_input) >= 2:
+        if len(at.text_input) == 2:
             at.text_input[0].input("test@example.com")
             at.text_input[1].input("password123")
 
@@ -115,6 +104,9 @@ class TestLoginFlow:
             if len(at.button) >= 1:
                 at.button[0].click()
                 at.run()
+                # Verify session state was updated
+                assert at.session_state.logged_in is True
+                assert at.session_state.user_id == 1
 
     @patch("db_utils.get_db_connection")
     def test_empty_credentials_shows_error(self, mock_db):
@@ -128,6 +120,9 @@ class TestLoginFlow:
         if len(at.button) >= 1:
             at.button[0].click()
             at.run()
+            # Verify error message was displayed
+            assert len(at.error) > 0 or len(
+                at.warning) > 0, "Expected error or warning message"
 
 
 class TestSignupFlow:
@@ -216,6 +211,8 @@ class TestAppErrorHandling:
 
         # App should still run without crashing
         # Exception handling should catch DB errors
+        assert not at.exception or len(
+            at.error) > 0, "App should handle error gracefully"
 
 
 class TestFormValidation:
@@ -228,7 +225,8 @@ class TestFormValidation:
 
         # We can't call the actual function without Streamlit context,
         # but we can verify the expected behavior
-        sample_tuple = ("John Doe", "john@example.com", "password123", "password123")
+        sample_tuple = ("John Doe", "john@example.com",
+                        "password123", "password123")
         assert len(sample_tuple) == expected_length
 
     def test_password_confirmation_logic(self):
@@ -254,8 +252,9 @@ class TestComponentRendering:
         at = AppTest.from_file("app.py", default_timeout=10)
         at.run()
 
-        # Should have at least one image (logo)
-        # Note: Image assertion may vary based on Streamlit version
+        # Verify the page renders without exceptions
+        assert not at.exception, "App should render without exceptions"
+        assert len(at.title) >= 1, "Page should have title element"
 
     @patch("db_utils.get_db_connection")
     def test_title_rendered(self, mock_db):
@@ -276,10 +275,10 @@ class TestAlertsDashboard:
         """Test that alerts module exists and is importable."""
         try:
             import alerts
-            assert hasattr(alerts, 'render_alerts_dashboard')
-        except ImportError:
-            # Module might not exist in all configurations
-            pass
+            assert hasattr(
+                alerts, 'render_alerts_dashboard'), "Module should have render_alerts_dashboard function"
+        except ImportError as e:
+            pytest.skip(f"Alerts module not available: {e}")
 
 
 class TestKeywordDeepDiveIntegration:
