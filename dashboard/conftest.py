@@ -1,26 +1,34 @@
 """Shared pytest fixtures for dashboard tests."""
 
+import os
+import sys
 import pytest
-from unittest.mock import Mock
+import importlib.util
+import pandas as pd
+from unittest.mock import Mock, MagicMock
+from unittest.mock import patch
 import hashlib
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import psycopg2
 
+
+# ============== Authentication & User Fixtures ==============
 
 @pytest.fixture
 def mock_cursor():
-    """Fixture providing a mock database cursor."""
+    "Mock database cursor for SQL query tests."
     return Mock()
 
 
 @pytest.fixture
 def valid_password():
-    """Fixture providing a valid password for testing."""
+    "Valid password string for authentication tests."
     return "test_password_123"
 
 
 @pytest.fixture
 def password_hash(valid_password):
-    """Fixture providing a valid password hash."""
+    "Valid PBKDF2-SHA256 password hash for password verification tests."
     salt = "test_salt_value"
     iterations = 100000
     hashed = hashlib.pbkdf2_hmac(
@@ -34,7 +42,7 @@ def password_hash(valid_password):
 
 @pytest.fixture
 def user_row(password_hash):
-    """Fixture providing a mock user database row (as dictionary from RealDictCursor)."""
+    "Mock user database row dictionary for authentication tests."
     return {
         "id": 1,
         "username": "testuser",
@@ -45,7 +53,7 @@ def user_row(password_hash):
 
 @pytest.fixture
 def user_dict(password_hash):
-    """Fixture providing a mock user dictionary."""
+    "Mock user dictionary for authentication tests."
     return {
         "id": 1,
         "username": "testuser",
@@ -54,75 +62,11 @@ def user_dict(password_hash):
     }
 
 
-# ============== Visualization Fixtures ==============
-
-@pytest.fixture
-def sample_keyword():
-    """Fixture providing a sample keyword for visualization tests."""
-    return "matcha"
-
-
-@pytest.fixture
-def sample_keywords():
-    """Fixture providing a list of sample keywords."""
-    return ["matcha", "boba", "coffee"]
-
-
-@pytest.fixture
-def sample_days():
-    """Fixture providing sample days value."""
-    return 30
-
-
-@pytest.fixture
-def sample_posts():
-    """Fixture providing sample post data for visualizations."""
-    return [
-        {"text": "I love matcha lattes! ☕", "sentiment": 0.8, "date": datetime.now()},
-        {"text": "Matcha is overrated tbh", "sentiment": -0.3, "date": datetime.now() - timedelta(days=1)},
-        {"text": "Best matcha spot in town", "sentiment": 0.6, "date": datetime.now() - timedelta(days=2)},
-    ]
-
-
-@pytest.fixture
-def sample_word_frequencies():
-    """Fixture providing sample word frequencies for word cloud."""
-    return {
-        "latte": 45,
-        "green": 38,
-        "tea": 35,
-        "healthy": 28,
-        "cafe": 22,
-        "drink": 18
-    }
-
-
-@pytest.fixture
-def sample_daily_sentiments():
-    """Fixture providing sample daily sentiment data for calendar heatmap."""
-    base_date = datetime(2026, 2, 1)
-    return {
-        (base_date - timedelta(days=i)).strftime("%Y-%m-%d"): round((i % 10 - 5) / 10, 2)
-        for i in range(30)
-    }
-
-
-@pytest.fixture
-def sample_keyword_cooccurrence():
-    """Fixture providing sample keyword co-occurrence data for network graph."""
-    return [
-        {"source": "matcha", "target": "latte", "weight": 25},
-        {"source": "matcha", "target": "green", "weight": 18},
-        {"source": "boba", "target": "milk", "weight": 30},
-        {"source": "coffee", "target": "espresso", "weight": 22},
-    ]
-
-
-# ============== Database Mock Fixtures ==============
+# ============== Database Connection Fixtures ==============
 
 @pytest.fixture
 def mock_conn():
-    """Fixture providing a mock database connection with cursor."""
+    "Mock psycopg2 database connection for query tests."
     conn = Mock()
     cursor = Mock()
     conn.cursor.return_value = cursor
@@ -131,54 +75,187 @@ def mock_conn():
 
 
 @pytest.fixture
-def sample_daily_analytics():
-    """Fixture providing sample daily analytics data."""
-    import pandas as pd
-    return pd.DataFrame({
-        "date": pd.to_datetime(["2026-02-01", "2026-02-02", "2026-02-03"]),
-        "total": [100, 150, 120],
-        "posts": [80, 120, 100],
-        "replies": [20, 30, 20],
-        "avg_sentiment": [0.2, 0.1, -0.1]
-    })
-
-
-@pytest.fixture
-def sample_sentiment_distribution():
-    """Fixture providing sample sentiment distribution data."""
-    import pandas as pd
-    return pd.DataFrame({
-        "sentiment": ["Positive", "Neutral", "Negative"],
-        "count": [50, 30, 20]
-    })
-
-
-@pytest.fixture
-def sample_yake_keywords():
-    """Fixture providing sample YAKE extracted keywords."""
-    return [
-        {"keyword": "machine learning", "score": 0.05},
-        {"keyword": "artificial intelligence", "score": 0.08},
-        {"keyword": "deep learning", "score": 0.10},
-        {"keyword": "neural network", "score": 0.12},
-        {"keyword": "data science", "score": 0.15},
-    ]
-
-
-@pytest.fixture
-def sample_text_corpus():
-    """Fixture providing sample text corpus for keyword extraction."""
-    return """
-    Machine learning and artificial intelligence are transforming technology.
-    Deep learning neural networks process data efficiently.
-    Data science combines statistics with programming.
-    Natural language processing enables text analysis.
-    Computer vision recognizes patterns in images.
-    """
-
-
-@pytest.fixture
 def sample_date():
-    """Fixture providing a sample date."""
-    from datetime import date
-    return date(2026, 2, 11)
+    "Sample date object for date-based query tests."
+    return date(2026, 2, 9)
+
+
+# ============== Streamlit & Page Setup Fixtures ==============
+
+@pytest.fixture(autouse=True)
+def change_to_dashboard_dir():
+    "Autouse fixture to change working directory to dashboard for each test."
+    original_cwd = os.getcwd()
+    DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(DASHBOARD_DIR)
+    yield
+    os.chdir(original_cwd)
+
+
+@pytest.fixture
+def mock_streamlit():
+    "Comprehensive mock of streamlit module for page tests."
+    mock_st = MagicMock()
+    mock_st.session_state = MagicMock()
+    mock_st.session_state.__contains__ = lambda self, key: key in {
+        "logged_in": True, "user_id": 1, "keywords": [],
+        "keywords_loaded": False, "db_conn": MagicMock()
+    }
+    mock_st.session_state.__getitem__ = lambda self, key: {
+        "logged_in": True, "user_id": 1, "keywords": [],
+        "keywords_loaded": False, "db_conn": MagicMock()
+    }.get(key)
+    mock_st.session_state.get = lambda key, default=None: {
+        "logged_in": True, "user_id": 1, "keywords": [],
+        "keywords_loaded": False, "db_conn": MagicMock()
+    }.get(key, default)
+    mock_st.cache_data = lambda **kwargs: lambda fn: fn
+    mock_st.cache_resource = lambda **kwargs: lambda fn: fn
+    mock_st.get_option = MagicMock(return_value="light")
+    return mock_st
+
+
+@pytest.fixture
+def home_module(mock_streamlit):
+    "Imported Home page module with mocked dependencies."
+    mock_db_utils = MagicMock()
+    mock_db_utils.get_db_connection = MagicMock(return_value=MagicMock())
+
+    mock_keyword_utils = MagicMock()
+    mock_keyword_utils.get_user_keywords = MagicMock(return_value=["test", "python"])
+    mock_keyword_utils.add_user_keyword = MagicMock()
+    mock_keyword_utils.remove_user_keyword = MagicMock()
+
+    mock_ui_utils = MagicMock()
+    mock_ui_utils.load_html_template = MagicMock(return_value="<html>test</html>")
+    mock_ui_utils.render_sidebar = MagicMock()
+
+    mock_psycopg2 = MagicMock()
+    mock_psycopg2.extras = MagicMock()
+    mock_psycopg2.extras.RealDictCursor = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "streamlit": mock_streamlit,
+        "db_utils": mock_db_utils,
+        "keyword_utils": mock_keyword_utils,
+        "ui_helper_utils": mock_ui_utils,
+        "psycopg2": mock_psycopg2,
+        "psycopg2.extras": mock_psycopg2.extras,
+    }):
+        spec = importlib.util.spec_from_file_location(
+            "home", "pages/1_Home.py"
+        )
+        home = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(home)
+        return home, mock_streamlit, mock_db_utils, mock_keyword_utils, mock_ui_utils
+
+
+@pytest.fixture
+def comparisons_module(mock_streamlit):
+    "Imported Comparisons page module with mocked dependencies."
+    mock_db_utils = MagicMock()
+    mock_db_utils.get_db_connection = MagicMock()
+
+    mock_plotly = MagicMock()
+    mock_query_utils = MagicMock()
+    mock_query_utils._load_sql_query = MagicMock(return_value="SELECT 1")
+
+    mock_keyword_utils = MagicMock()
+    mock_keyword_utils.get_user_keywords = MagicMock(return_value=["test", "python"])
+
+    mock_ui_utils = MagicMock()
+    mock_ui_utils.render_sidebar = MagicMock()
+
+    mock_altair = MagicMock()
+
+    mock_psycopg2 = MagicMock()
+    mock_psycopg2.extras = MagicMock()
+    mock_psycopg2.extras.RealDictCursor = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "streamlit": mock_streamlit,
+        "altair": mock_altair,
+        "pandas": pd,
+        "db_utils": mock_db_utils,
+        "keyword_utils": mock_keyword_utils,
+        "query_utils": mock_query_utils,
+        "ui_helper_utils": mock_ui_utils,
+        "psycopg2": mock_psycopg2,
+        "psycopg2.extras": mock_psycopg2.extras,
+    }):
+        spec = importlib.util.spec_from_file_location(
+            "comparisons", "pages/5_Comparisons.py"
+        )
+        comparisons = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(comparisons)
+        # Reset mocks after module load to clear any calls during import
+        mock_db_utils.reset_mock()
+        mock_keyword_utils.reset_mock()
+        return comparisons, mock_streamlit, mock_db_utils, mock_keyword_utils, mock_query_utils, mock_ui_utils
+
+
+@pytest.fixture
+def profile_module(mock_streamlit):
+    "Imported Profile page module with mocked dependencies."
+    mock_db_utils = MagicMock()
+    mock_db_utils.get_db_connection = MagicMock(return_value=MagicMock())
+
+    mock_keyword_utils = MagicMock()
+    mock_keyword_utils.get_user_keywords = MagicMock(return_value=["test", "python"])
+    mock_keyword_utils.add_user_keyword = MagicMock()
+    mock_keyword_utils.remove_user_keyword = MagicMock()
+
+    mock_ui_utils = MagicMock()
+    mock_ui_utils.render_sidebar = MagicMock()
+    mock_ui_utils.load_html_template = MagicMock(return_value="<html>{keyword}</html>")
+
+    mock_alerts = MagicMock()
+    mock_alerts.render_alerts_dashboard = MagicMock()
+
+    mock_dotenv = MagicMock()
+    mock_dotenv.load_dotenv = MagicMock()
+
+    mock_psycopg2 = MagicMock()
+    mock_psycopg2.extras = MagicMock()
+    mock_psycopg2.extras.RealDictCursor = MagicMock()
+
+    mock_logging = MagicMock()
+
+    with patch.dict("sys.modules", {
+        "streamlit": mock_streamlit,
+        "db_utils": mock_db_utils,
+        "keyword_utils": mock_keyword_utils,
+        "ui_helper_utils": mock_ui_utils,
+        "alerts": mock_alerts,
+        "dotenv": mock_dotenv,
+        "psycopg2": mock_psycopg2,
+        "psycopg2.extras": mock_psycopg2.extras,
+        "logging": mock_logging,
+    }):
+        spec = importlib.util.spec_from_file_location(
+            "profile", "pages/6_Profile.py"
+        )
+        profile = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(profile)
+        return profile, mock_streamlit, mock_db_utils, mock_keyword_utils, mock_ui_utils, mock_alerts
+
+
+# ============== Additional Test Fixtures ==============
+
+@pytest.fixture
+def mock_cursor_create():
+    "Mock cursor specialized for user creation tests."
+    cursor = Mock()
+    cursor.connection = Mock()
+    cursor.connection.commit = Mock()
+    cursor.connection.rollback = Mock()
+    return cursor
+
+
+@pytest.fixture
+def mock_cursor_keyword():
+    "Mock cursor specialized for keyword operation tests."
+    cursor = Mock()
+    cursor.connection = Mock()
+    cursor.connection.commit = Mock()
+    return cursor

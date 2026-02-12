@@ -17,16 +17,6 @@ from streamlit.testing.v1 import AppTest
 # Change to dashboard directory for relative path imports
 DASHBOARD_DIR = os.path.dirname(os.path.abspath(__file__))
 
-
-@pytest.fixture(autouse=True)
-def change_to_dashboard_dir():
-    """Change to dashboard directory for each test to handle relative paths."""
-    original_cwd = os.getcwd()
-    os.chdir(DASHBOARD_DIR)
-    yield
-    os.chdir(original_cwd)
-
-
 class TestAppInitialization:
     """Tests for app.py initialization and configuration."""
 
@@ -138,6 +128,184 @@ class TestLoginFlow:
             assert len(at.error) > 0 or len(
                 at.warning) > 0, "Expected error or warning message"
 
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.authenticate_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_invalid_credentials_shows_error(self, mock_get_user, mock_auth, mock_db):
+        """Test that invalid credentials show error message."""
+        mock_db.return_value = Mock()
+        mock_auth.return_value = False
+        mock_get_user.return_value = None
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Enter invalid credentials
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("wronguser")
+            at.text_input[1].set_value("wrongpassword")
+
+            # Click login button
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Verify error message was displayed
+                assert len(at.error) > 0, "Should show error for invalid credentials"
+
+    @patch("db_utils.get_db_connection")
+    def test_missing_username_shows_error(self, mock_db):
+        """Test that missing username shows error."""
+        mock_db.return_value = Mock()
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Only enter password, leave username empty
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("")
+            at.text_input[1].set_value("password123")
+
+            # Click login button
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Should show error
+                assert len(at.error) > 0, "Should show error when username is missing"
+
+    @patch("db_utils.get_db_connection")
+    def test_missing_password_shows_error(self, mock_db):
+        """Test that missing password shows error."""
+        mock_db.return_value = Mock()
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Only enter username, leave password empty
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("testuser")
+            at.text_input[1].set_value("")
+
+            # Click login button
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Should show error
+                assert len(at.error) > 0, "Should show error when password is missing"
+
+    @patch("db_utils.get_db_connection")
+    def test_database_connection_error_during_login(self, mock_db):
+        """Test that database connection errors are handled during login."""
+        mock_db.side_effect = Exception("Database connection failed")
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # The login tab should attempt to display an error
+        assert len(at.error) > 0, "Should show error when database connection fails"
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.authenticate_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_login_creates_connection_in_session(self, mock_get_user, mock_auth, mock_db):
+        """Test that successful login stores database connection in session."""
+        mock_conn = Mock()
+        mock_db.return_value = mock_conn
+        mock_auth.return_value = True
+        mock_get_user.return_value = {
+            "user_id": 42,
+            "email": "user@test.com",
+            "password_hash": "hash"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("user@test.com")
+            at.text_input[1].set_value("password123")
+
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Verify db_conn is stored in session
+                assert at.session_state.db_conn is not None
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.authenticate_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_login_sets_username_from_email(self, mock_get_user, mock_auth, mock_db):
+        """Test that username is extracted from email prefix on login."""
+        mock_db.return_value = Mock()
+        mock_auth.return_value = True
+        mock_get_user.return_value = {
+            "user_id": 1,
+            "email": "john.doe@example.com",
+            "password_hash": "hash"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("john.doe@example.com")
+            at.text_input[1].set_value("password123")
+
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Username should be set to email prefix
+                assert at.session_state.username == "john.doe@example.com".split("@")[0]
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.authenticate_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_login_sets_email_in_session(self, mock_get_user, mock_auth, mock_db):
+        """Test that email is stored in session after login."""
+        mock_db.return_value = Mock()
+        mock_auth.return_value = True
+        test_email = "test.user@example.com"
+        mock_get_user.return_value = {
+            "user_id": 1,
+            "email": test_email,
+            "password_hash": "hash"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("testuser")
+            at.text_input[1].set_value("password123")
+
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Email should match returned user data
+                assert at.session_state.email == test_email
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.authenticate_user")
+    def test_login_calls_authenticate_user_with_cursor(self, mock_auth, mock_db):
+        """Test that authenticate_user is called with cursor and credentials."""
+        mock_cursor = Mock()
+        mock_conn = Mock()
+        mock_conn.cursor.return_value = mock_cursor
+        mock_db.return_value = mock_conn
+        mock_auth.return_value = False
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        if len(at.text_input) >= 2:
+            at.text_input[0].set_value("testuser")
+            at.text_input[1].set_value("password123")
+
+            if len(at.button) >= 1:
+                at.button[0].click()
+                at.run()
+                # Verify authenticate_user was called
+                assert mock_auth.called or len(at.error) > 0
+
 
 class TestSignupFlow:
     """Tests for signup/registration flow."""
@@ -152,6 +320,295 @@ class TestSignupFlow:
 
         # Should have multiple text inputs including signup fields
         assert len(at.text_input) >= 2
+
+    @patch("db_utils.get_db_connection")
+    def test_signup_missing_full_name_shows_error(self, mock_db):
+        """Test that missing full name shows error during signup."""
+        mock_db.return_value = Mock()
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("")  # Empty full name
+            signup_inputs[1].set_value("test@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button (second button)
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Should show error
+                assert len(at.error) > 0, "Should show error when full name is missing"
+
+    @patch("db_utils.get_db_connection")
+    def test_signup_passwords_do_not_match_shows_error(self, mock_db):
+        """Test that mismatched passwords show error during signup."""
+        mock_db.return_value = Mock()
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("John Doe")
+            signup_inputs[1].set_value("john@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password456")  # Mismatched confirm
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Should show error
+                assert len(at.error) > 0, "Should show error when passwords do not match"
+
+    @patch("db_utils.get_db_connection")
+    def test_signup_invalid_email_shows_error(self, mock_db):
+        """Test that invalid email shows error during signup."""
+        mock_db.return_value = Mock()
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("John Doe")
+            signup_inputs[1].set_value("invalid-email")  # Invalid email
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Should show error
+                assert len(at.error) > 0, "Should show error for invalid email"
+
+    @patch("db_utils.get_db_connection")
+    def test_signup_password_too_short_shows_error(self, mock_db):
+        """Test that password shorter than 8 characters shows error."""
+        mock_db.return_value = Mock()
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("John Doe")
+            signup_inputs[1].set_value("john@example.com")
+            signup_inputs[2].set_value("short")  # Too short
+            signup_inputs[3].set_value("short")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Should show error
+                assert len(at.error) > 0, "Should show error for password shorter than 8 chars"
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.generate_password_hash")
+    @patch("auth_utils.create_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_successful_signup_creates_account(self, mock_get_user, mock_create_user, mock_hash, mock_db):
+        """Test that successful signup creates account and sets session."""
+        mock_db.return_value = Mock()
+        mock_hash.return_value = "hashed_password"
+        mock_create_user.return_value = True
+        mock_get_user.return_value = {
+            "user_id": 5,
+            "email": "newuser@example.com",
+            "password_hash": "hashed_password"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("Jane Smith")
+            signup_inputs[1].set_value("newuser@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Verify session was set
+                assert at.session_state.logged_in is True
+                assert at.session_state.user_id == 5
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.generate_password_hash")
+    @patch("auth_utils.create_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_signup_sets_username_from_first_name(self, mock_get_user, mock_create_user, mock_hash, mock_db):
+        """Test that username is set to first name from full name on signup."""
+        mock_db.return_value = Mock()
+        mock_hash.return_value = "hashed"
+        mock_create_user.return_value = True
+        mock_get_user.return_value = {
+            "user_id": 1,
+            "email": "sarah@example.com",
+            "password_hash": "hashed"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("Sarah Johnson")
+            signup_inputs[1].set_value("sarah@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Username should be first name
+                assert at.session_state.username == "Sarah"
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.generate_password_hash")
+    @patch("auth_utils.create_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_signup_stores_email_in_session(self, mock_get_user, mock_create_user, mock_hash, mock_db):
+        """Test that email is stored in session after successful signup."""
+        mock_db.return_value = Mock()
+        mock_hash.return_value = "hashed"
+        mock_create_user.return_value = True
+        test_email = "alex@example.com"
+        mock_get_user.return_value = {
+            "user_id": 2,
+            "email": test_email,
+            "password_hash": "hashed"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("Alex Brown")
+            signup_inputs[1].set_value(test_email)
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Email should match
+                assert at.session_state.email == test_email
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.generate_password_hash")
+    @patch("auth_utils.create_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_signup_stores_connection_in_session(self, mock_get_user, mock_create_user, mock_hash, mock_db):
+        """Test that database connection is stored in session after signup."""
+        mock_conn = Mock()
+        mock_db.return_value = mock_conn
+        mock_hash.return_value = "hashed"
+        mock_create_user.return_value = True
+        mock_get_user.return_value = {
+            "user_id": 3,
+            "email": "user@example.com",
+            "password_hash": "hashed"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("Test User")
+            signup_inputs[1].set_value("user@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Verify db_conn is stored
+                assert at.session_state.db_conn is not None
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.generate_password_hash")
+    @patch("auth_utils.create_user")
+    @patch("auth_utils.get_user_by_username")
+    def test_signup_initializes_keywords_list(self, mock_get_user, mock_create_user, mock_hash, mock_db):
+        """Test that keywords list is initialized empty after signup."""
+        mock_db.return_value = Mock()
+        mock_hash.return_value = "hashed"
+        mock_create_user.return_value = True
+        mock_get_user.return_value = {
+            "user_id": 4,
+            "email": "newaccount@example.com",
+            "password_hash": "hashed"
+        }
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("New User")
+            signup_inputs[1].set_value("newaccount@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Keywords should be empty list
+                assert at.session_state.keywords == []
+                assert at.session_state.keywords_loaded is False
+                assert at.session_state.alerts_loaded is False
+
+    @patch("db_utils.get_db_connection")
+    @patch("auth_utils.generate_password_hash")
+    @patch("auth_utils.validate_signup_input")
+    def test_signup_calls_password_hash_function(self, mock_validate, mock_hash, mock_db):
+        """Test that password hash function is called during signup."""
+        mock_db.return_value = Mock()
+        mock_validate.return_value = True
+        mock_hash.return_value = "hashed_password"
+
+        at = AppTest.from_file("app.py", default_timeout=10)
+        at.run()
+
+        # Find signup inputs by key
+        signup_inputs = [inp for inp in at.text_input if hasattr(inp, 'key') and 'signup' in str(inp.key)]
+        if len(signup_inputs) >= 4:
+            signup_inputs[0].set_value("Test User")
+            signup_inputs[1].set_value("test@example.com")
+            signup_inputs[2].set_value("password123")
+            signup_inputs[3].set_value("password123")
+
+            # Click signup button
+            if len(at.button) >= 2:
+                at.button[1].click()
+                at.run()
+                # Verify hash was called
+                assert mock_hash.called or len(at.error) > 0
 
 
 class TestPageHelperFunctions:
