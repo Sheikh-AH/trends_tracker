@@ -138,11 +138,6 @@ class TestHtmlTemplateCache:
         """Test that _HTML_TEMPLATE_CACHE is a dictionary."""
         assert isinstance(_HTML_TEMPLATE_CACHE, dict)
 
-    def test_cache_starts_empty_or_populated(self):
-        """Test that _HTML_TEMPLATE_CACHE is initialized."""
-        # Cache can be empty or pre-populated
-        assert isinstance(_HTML_TEMPLATE_CACHE, dict)
-
     def test_cache_accepts_entries(self):
         """Test that cache can store entries."""
         _HTML_TEMPLATE_CACHE["test_key"] = "test_value"

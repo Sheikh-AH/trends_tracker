@@ -227,9 +227,6 @@ class TestDbUtilsLogging:
             "password": "pass"
         }):
             cleanup = db_utils.get_db_connection_cleanup()
-            try:
-                cleanup()
-                # Check if logger was called
-                assert mock_logger.called or True
-            except Exception:
-                pass
+            cleanup()
+            # Check if logger was called
+            assert mock_logger.called or True
