@@ -1,5 +1,11 @@
 """Authentication and user management utilities."""
 
+"""NOTE:
+hashlib — does the actual password hashing
+secrets — generates a secure random salt
+hmac — prevents timing attacks during comparison
+"""
+
 import hashlib
 import hmac
 import logging

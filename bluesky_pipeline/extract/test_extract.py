@@ -371,6 +371,10 @@ class TestStreamFilteredMessages:
     def test_stream_filtered_messages_keyword_refresh(self, mock_time, mock_stream):
         """Test that keywords are refreshed periodically."""
         # Simulate time passing beyond refresh interval (60s)
+        # Call sequence:
+        #   1. Initial: time.time() -> 0 (sets last_refresh)
+        #   2. First message: time.time() -> 70, triggers refresh (70-0 >= 60)
+        #   3. Second message: time.time() -> 140, triggers refresh (140-70 >= 60)
         mock_time.side_effect = [0, 70, 140]
 
         mock_stream.return_value = iter([
@@ -389,10 +393,10 @@ class TestStreamFilteredMessages:
 
         results = list(stream_filtered_messages(keyword_fetcher))
 
-        # First call returns python, second call adds rust
-        assert call_count[0] > 1  # Keyword fetcher was called more than once
-        # We should get at least one result matching the keywords
-        assert len(results) > 0
+        # Expect 3 calls: 1 initial + 2 refreshes (one per message)
+        assert call_count[0] == 3
+        # Both messages should match after keywords are refreshed
+        assert len(results) == 2
 
     @patch('extract.stream_messages')
     @patch('extract.time.time')

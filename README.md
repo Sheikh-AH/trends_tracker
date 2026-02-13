@@ -118,6 +118,55 @@ trends_tracker/
    streamlit run app.py
    ```
 
+## 🧪 Testing & Code Coverage
+
+### Installation
+
+Install pytest and coverage tools:
+
+```bash
+pip install -r requirements-dev.txt
+```
+
+### Running Tests with Coverage
+
+Test coverage reports help ensure code quality. Run tests for specific components with branch coverage analysis:
+
+#### Dashboard
+```bash
+cd dashboard
+pytest --cov=. --cov-branch --cov-report=term-missing
+```
+
+#### Bluesky Pipeline
+```bash
+cd bluesky_pipeline
+pytest --cov=. --cov-branch --cov-report=term-missing
+```
+
+#### Google Trends Pipeline
+```bash
+cd google_trends_pipeline
+pytest --cov=. --cov-branch --cov-report=term-missing
+```
+
+#### Alert System
+```bash
+cd alert_system
+pytest --cov=. --cov-branch --cov-report=term-missing
+```
+
+#### All Components (from root)
+```bash
+pytest --cov=. --cov-branch --cov-report=term-missing
+```
+
+### Coverage Flags
+
+- `--cov=.` — Measure coverage for current directory
+- `--cov-branch` — Include branch coverage in addition to line coverage
+- `--cov-report=term-missing` — Display coverage report in terminal with missing lines highlighted
+
 ---
 
 ## 📄 License

@@ -36,7 +36,7 @@ def diversify_keywords(
     max_results: int = 30
 ) -> list[dict]:
     """Post-process keywords to increase diversity by filtering redundant terms."""
-    if not keywords:
+    if not keywords or max_results <= 0:
         return []
 
     # Normalize search term words

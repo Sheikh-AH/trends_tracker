@@ -422,15 +422,6 @@ class TestValidateSignupInput:
 class TestCreateUser:
     """Tests for create_user function."""
 
-    @pytest.fixture
-    def mock_cursor_create(self):
-        """Create a mock database cursor for create_user tests."""
-        cursor = Mock()
-        cursor.connection = Mock()
-        cursor.connection.commit = Mock()
-        cursor.connection.rollback = Mock()
-        return cursor
-
     def test_create_user_success(self, mock_cursor_create):
         """Create user successfully returns True."""
         result = create_user(
@@ -515,14 +506,6 @@ class TestCreateUser:
 class TestAddUserKeyword:
     """Tests for add_user_keyword function."""
 
-    @pytest.fixture
-    def mock_cursor_keyword(self):
-        """Create a mock database cursor for keyword tests."""
-        cursor = Mock()
-        cursor.connection = Mock()
-        cursor.connection.commit = Mock()
-        return cursor
-
     def test_add_keyword_success(self, mock_cursor_keyword):
         """Adding keyword successfully returns True."""
         result = add_user_keyword(mock_cursor_keyword, 1, "matcha")
@@ -587,14 +570,6 @@ class TestAddUserKeyword:
 class TestRemoveUserKeyword:
     """Tests for remove_user_keyword function."""
 
-    @pytest.fixture
-    def mock_cursor_keyword(self):
-        """Create a mock database cursor for keyword tests."""
-        cursor = Mock()
-        cursor.connection = Mock()
-        cursor.connection.commit = Mock()
-        return cursor
-
     def test_remove_keyword_success(self, mock_cursor_keyword):
         """Removing keyword successfully returns True."""
         result = remove_user_keyword(mock_cursor_keyword, 1, "matcha")
@@ -642,12 +617,6 @@ class TestRemoveUserKeyword:
 class TestGetUserKeywords:
     """Tests for get_user_keywords function."""
 
-    @pytest.fixture
-    def mock_cursor_keyword(self):
-        """Create a mock database cursor for keyword tests."""
-        cursor = Mock()
-        return cursor
-
     def test_get_keywords_returns_list(self, mock_cursor_keyword):
         """Getting keywords returns a list."""
         mock_cursor_keyword.fetchall.return_value = [
@@ -676,20 +645,6 @@ class TestGetUserKeywords:
 
 class TestGetPostsByDate:
     """Tests for get_posts_by_date function."""
-
-    @pytest.fixture
-    def mock_conn(self):
-        """Fixture providing a mock database connection."""
-        conn = Mock()
-        mock_cursor = Mock()
-        conn.cursor.return_value = mock_cursor
-        return conn
-
-    @pytest.fixture
-    def sample_date(self):
-        """Fixture providing a sample date for testing."""
-        from datetime import date
-        return date(2026, 2, 9)
 
     def test_returns_list_of_posts(self, mock_conn, sample_date):
         """Test that function returns a list of post dictionaries."""
